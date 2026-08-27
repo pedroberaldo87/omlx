@@ -1129,11 +1129,12 @@ def _configure_ngram_spec(model_settings: Any | None) -> None:
     )
     from ..patches.mlx_lm_mtp import get_ngram_spec_params, is_ngram_spec_enabled
 
-    if is_ngram_spec_enabled():
-        m, dx, dn, fr = get_ngram_spec_params()
+    params = get_ngram_spec_params()
+    # tests stub the mtp module with MagicMock; only log over the real tuple
+    if is_ngram_spec_enabled() and isinstance(params, tuple) and len(params) == 4:
         logger.info(
             "n-gram drafter armed: match_len=%d draft_max=%d draft_min=%d "
-            "freq_rule=%s", m, dx, dn, fr,
+            "freq_rule=%s", *params,
         )
 
 
