@@ -2281,6 +2281,38 @@ def _dspark_next_drafts(
     mx.async_eval(state.drafts)
 
 
+# ---------------------------------------------------------------------------
+# n-gram lab harness (temporary, env-gated).
+#
+# OMLX_NGRAM_LAB=cost forces a synthetic draft of OMLX_NGRAM_LAB_K tokens that
+# is guaranteed to mismatch at position 0. Every cycle therefore pays the full
+# cost of a (k+1)-position verify forward plus a k-token rollback, and emits
+# exactly one token. That isolates cycle(k) on the decode path -- the single
+# unknown deciding whether long n-gram drafts pay off on this stack -- and
+# doubles as a stress test of the GDN recurrent rollback at large k.
+#
+# Because a mismatch at position 0 is the worst case for rollback, the derived
+# ceiling (k+1)/cycle(k) is a LOWER bound on what a real drafter could reach.
+# ---------------------------------------------------------------------------
+_NGRAM_LAB = os.environ.get("OMLX_NGRAM_LAB", "").strip().lower()
+
+
+def _ngram_lab_k() -> int:
+    try:
+        return max(1, int(os.environ.get("OMLX_NGRAM_LAB_K", "48")))
+    except ValueError:
+        return 48
+
+
+def _lab_synthetic_drafts(state: "_MtpState", k: int):
+    """Deterministic never-matching drafts, varied per cycle."""
+    import mlx.core as mx
+
+    seed = int(getattr(state.stats, "cycles", 0))
+    toks = [((seed * 7919 + i * 104729 + 13) % 90000) + 1000 for i in range(k)]
+    return mx.array(toks, dtype=mx.uint32)
+
+
 def _chain_next_drafts(
     gen_batch: Any,
     state: _MtpState,
@@ -2308,6 +2340,18 @@ def _chain_next_drafts(
     single sync resolves them.
     """
     import mlx.core as mx
+
+    if _NGRAM_LAB == "cost":
+        k = _ngram_lab_k()
+        # stats/emit index by state.depth; the controller would fight the
+        # fixed k, so pin both for the duration of the lab run.
+        state.depth = max(state.depth, k)
+        state.controller = None
+        state.drafts = _lab_synthetic_drafts(state, k)
+        state.draft_lps = []
+        state.draft_accept_lps = []
+        mx.async_eval(state.drafts)
+        return
 
     model = gen_batch.model
     if _dspark_host(model) is not None:
@@ -3076,7 +3120,11 @@ def _run_verify_cycle_chain(gen_batch: Any, state: _MtpState) -> None:
     # --- commit: queue emits + cache rollback ---
     t0 = time.perf_counter()
     for j in range(m):
-        state.queue.append((int(draft_ids[j]), state.draft_lps[j], "draft"))
+        # A drafter without its own per-position distribution (n-gram,
+        # lab harness) leaves draft_lps empty; the target's row j is the
+        # distribution that predicted draft_ids[j], so use it directly.
+        _lp = state.draft_lps[j] if state.draft_lps else combined_lp[j]
+        state.queue.append((int(draft_ids[j]), _lp, "draft"))
     if m == k:
         state.queue.append((int(emit_last_id), emit_last_lp, "bonus"))
         _clear_rollback(gen_batch.prompt_cache)
