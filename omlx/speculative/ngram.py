@@ -120,12 +120,12 @@ class NGramDraftSource:
             base = min(self.draft_max, max(self.draft_min, window))
         if not self.freq_rule or reps is None:
             return base
-        # Frequency rule (v4): the copy length follows how often the
-        # suffix repeated in history — never the acceptance memory.
+        # Frequency rule (v4): boost-only. Strong repetition buys the full
+        # draft even through a short window; weak evidence keeps the v3 cap.
+        # The first cut also HALVED single-sighting copies and lost 3.4% on
+        # the rewrite A/B (freq_on 25.84 vs freq_off 26.74) — never punish.
         if reps >= self._STRONG_AT:
             return self.draft_max
-        if reps <= 1:
-            return max(self.draft_min, min(base, max(1, window // 2)))
         return base
 
     def _reps(self, window: int, key: tuple) -> int:

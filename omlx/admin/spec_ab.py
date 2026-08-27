@@ -47,11 +47,37 @@ _PROMPT = (
 )
 
 
-def _one_request(port: int, api_key: str, model_id: str, max_tokens: int) -> dict:
+_NOVEL_TOPICS = [
+    "a lighthouse keeper who collects tide sounds",
+    "the last tram ride across a city being renamed",
+    "a cartographer mapping a river that moves at night",
+    "two beekeepers arguing about the color of winter",
+    "an archivist who files smells instead of letters",
+    "a bridge painter who never saw the far bank",
+    "the night shift at a museum of unfinished machines",
+    "a typesetter setting the alphabet of a dying language",
+    "a ferry pilot crossing between two time zones daily",
+    "an astronomer cataloguing clouds instead of stars",
+    "a locksmith retiring on an island without doors",
+    "the gardener of a rooftop no one can reach",
+]
+
+
+def _novel_prompt(seq: int) -> str:
+    # a fresh topic per request keeps every arm on unseen content
+    topic = _NOVEL_TOPICS[seq % len(_NOVEL_TOPICS)]
+    return (
+        f"Write a short original story (about 350 words) about {topic}. "
+        f"Do not repeat sentences. Variation seed: {uuid.uuid4().hex[:8]}."
+    )
+
+
+def _one_request(port: int, api_key: str, model_id: str, max_tokens: int,
+                 prompt: str = _PROMPT) -> dict:
     body = json.dumps(
         {
             "model": model_id,
-            "messages": [{"role": "user", "content": _PROMPT}],
+            "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 1.0,
             "top_p": 0.95,
@@ -92,23 +118,42 @@ def _arm_summary(samples: list[dict]) -> dict:
 
 
 def _worker(run: dict, port: int, api_key: str) -> None:
-    from ..patches.mlx_lm_mtp import is_ngram_spec_enabled, set_ngram_spec
+    from ..patches.mlx_lm_mtp import (
+        get_ngram_spec_params,
+        is_ngram_spec_enabled,
+        set_ngram_spec,
+    )
 
+    flip = run.get("flip", "enabled")
     original = is_ngram_spec_enabled()
+    original_freq = get_ngram_spec_params()[3]
+    if flip == "freq_rule":
+        arms = (("freq_on", True), ("freq_off", False))
+    else:
+        arms = (("ngram_on", True), ("ngram_off", False))
+    novel = run.get("workload") == "novel"
+    seq = 0
     try:
         # warmup: one request outside the tally so both arms start hot
         _one_request(port, api_key, run["model_id"], run["max_tokens"])
-        for arm, enabled in (("ngram_on", True), ("ngram_off", False)):
-            set_ngram_spec(enabled)
+        for arm, enabled in arms:
+            if flip == "freq_rule":
+                # drafter stays ON; only the copy-length rule flips
+                set_ngram_spec(True, freq_rule=enabled)
+            else:
+                set_ngram_spec(enabled)
             samples = []
             for i in range(run["repeats"]):
+                prompt = _novel_prompt(seq) if novel else _PROMPT
+                seq += 1
                 samples.append(
-                    _one_request(port, api_key, run["model_id"], run["max_tokens"])
+                    _one_request(port, api_key, run["model_id"],
+                                 run["max_tokens"], prompt)
                 )
                 run["progress"] = f"{arm} {i + 1}/{run['repeats']}"
             run["results"][arm] = _arm_summary(samples)
-        on = run["results"]["ngram_on"]["mean_tok_s"]
-        off = run["results"]["ngram_off"]["mean_tok_s"]
+        on = run["results"][arms[0][0]]["mean_tok_s"]
+        off = run["results"][arms[1][0]]["mean_tok_s"]
         if on and off:
             run["results"]["gain_pct"] = round((on / off - 1) * 100, 1)
         run["status"] = "done"
@@ -116,11 +161,12 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         run["status"] = "error"
         run["error"] = str(exc)
     finally:
-        set_ngram_spec(original)
+        set_ngram_spec(original, freq_rule=original_freq)
 
 
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,
-          max_tokens: int = 400) -> dict:
+          max_tokens: int = 400, flip: str = "enabled",
+          workload: str = "rewrite") -> dict:
     with _LOCK:
         active = next(
             (r for r in _RUNS.values() if r["status"] == "running"), None
@@ -132,6 +178,8 @@ def start(model_id: str, port: int, api_key: str, repeats: int = 5,
             "model_id": model_id,
             "repeats": max(2, min(int(repeats), 20)),
             "max_tokens": max(64, min(int(max_tokens), 2048)),
+            "flip": flip if flip in ("enabled", "freq_rule") else "enabled",
+            "workload": workload if workload in ("rewrite", "novel") else "rewrite",
             "status": "running",
             "progress": "warmup",
             "results": {},

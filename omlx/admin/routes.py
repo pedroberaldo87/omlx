@@ -7206,6 +7206,8 @@ async def start_spec_ab(
         api_key,
         repeats=int(body.get("repeats") or 5),
         max_tokens=int(body.get("max_tokens") or 400),
+        flip=str(body.get("flip") or "enabled"),
+        workload=str(body.get("workload") or "rewrite"),
     )
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["error"])

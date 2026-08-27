@@ -158,27 +158,33 @@ def test_frequencia_sobrevive_ao_rebuild_do_teto():
 
 
 def test_frequencia_regua_da_comprimentos_diferentes():
-    # F1.2: mesma chave, historico com repeticao forte vs fraca
+    # F1.2/F2.3: mesma chave curta, repeticao forte vs fraca — regra so-bonus.
+    # Prefixos distintos garantem que so a janela curta (2) casa.
     from omlx.speculative.ngram import NGramDraftSource
 
-    a = [1, 2, 3, 4]
+    x = [7, 8]
     cont = list(range(100, 120))
 
     fraco = NGramDraftSource(match_len=4, draft_max=12, draft_min=2,
                              freq_rule=True)
-    fraco.extend(a + cont + a)            # vista 1x antes -> reps=1
+    fraco.extend([901, 951] + x + cont + [902, 952] + x)   # reps=1
     got_fraco = fraco.lookup()
 
     forte = NGramDraftSource(match_len=4, draft_max=12, draft_min=2,
                              freq_rule=True)
-    for _ in range(4):                    # vista 3+ vezes -> reps>=3
-        forte.extend(a + cont)
-    forte.extend(a)
+    for i in range(4):                                     # reps>=3
+        forte.extend([901 + i, 951 + i] + x + cont)
+    forte.extend([999, 998] + x)
     got_forte = forte.lookup()
 
     assert got_fraco is not None and got_forte is not None
-    assert len(got_forte) == 12           # repeticao forte compra draft_max
-    assert len(got_fraco) < len(got_forte)
+    assert len(got_forte) == 12          # repeticao forte compra draft_max
+    assert len(got_fraco) <= 2           # evidencia fraca mantem o cap v3
+    # a regra nunca corta ABAIXO do cap v3 (o -3.4% do primeiro corte)
+    off = NGramDraftSource(match_len=4, draft_max=12, draft_min=2)
+    off.extend([901, 951] + x + cont + [902, 952] + x)
+    got_off = off.lookup()
+    assert (got_off is None) or len(got_fraco) >= len(got_off)
 
 
 def test_frequencia_off_reproduz_o_comportamento_v3():
