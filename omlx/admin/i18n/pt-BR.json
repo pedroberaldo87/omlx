@@ -1138,5 +1138,7 @@
   "modal.model_settings.ngram_spec_draft_max": "Tamanho máximo do palpite",
   "modal.model_settings.ngram_spec_draft_max_hint": "A largura da verificação é limitada pela memória; 16 é o padrão seguro em 128 GB. Valores maiores podem estourar a memória Metal em gerações longas.",
   "modal.model_settings.ngram_spec_draft_min": "Tamanho mínimo do palpite",
-  "status.active_models.ngram_share": "ciclos por cópia"
+  "status.active_models.ngram_share": "ciclos por cópia",
+  "modal.model_settings.ngram_spec_freq_rule": "Palpite proporcional à repetição",
+  "modal.model_settings.ngram_spec_freq_rule_hint": "O tamanho da cópia segue quantas vezes o trecho se repetiu: visto 3+ vezes libera o palpite cheio, visto uma vez copia a metade. Desligado mantém a regra fixa por janela."
 }

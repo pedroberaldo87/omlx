@@ -89,6 +89,7 @@ _NGRAM_SPEC_PARAMS = (
     int(_os.environ.get("OMLX_NGRAM_SPEC_MATCH", "16")),
     int(_os.environ.get("OMLX_NGRAM_SPEC_MAX", "16")),
     int(_os.environ.get("OMLX_NGRAM_SPEC_MIN", "4")),
+    _os.environ.get("OMLX_NGRAM_SPEC_FREQ", "") == "1",
 )
 
 
@@ -97,14 +98,16 @@ def set_ngram_spec(
     match_len: int | None = None,
     draft_max: int | None = None,
     draft_min: int | None = None,
+    freq_rule: bool | None = None,
 ) -> None:
     global _NGRAM_SPEC_ENABLED, _NGRAM_SPEC_PARAMS
     _NGRAM_SPEC_ENABLED = bool(enabled)
-    m, dx, dn = _NGRAM_SPEC_PARAMS
+    m, dx, dn, fr = _NGRAM_SPEC_PARAMS
     _NGRAM_SPEC_PARAMS = (
         int(match_len) if match_len else m,
         int(draft_max) if draft_max else dx,
         int(draft_min) if draft_min else dn,
+        bool(freq_rule) if freq_rule is not None else fr,
     )
 
 

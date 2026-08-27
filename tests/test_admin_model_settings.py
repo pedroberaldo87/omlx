@@ -313,6 +313,28 @@ async def test_ngram_spec_rejected_without_mtp():
 
 
 @pytest.mark.asyncio
+async def test_ngram_freq_rule_round_trips_through_the_route():
+    # F3.1: vermelho se o campo nao existir na rota (cai no silent-drop
+    # do ModelSettingsRequest) ou nao for atribuido ao settings
+    pool, entry = _failed_pool()
+    settings = ModelSettings(mtp_enabled=True, ngram_spec_enabled=True)
+
+    await _update_settings(
+        pool,
+        settings,
+        admin_routes.ModelSettingsRequest(ngram_spec_freq_rule=True),
+    )
+    assert settings.ngram_spec_freq_rule is True
+
+    await _update_settings(
+        pool,
+        settings,
+        admin_routes.ModelSettingsRequest(ngram_spec_freq_rule=False),
+    )
+    assert settings.ngram_spec_freq_rule is False
+
+
+@pytest.mark.asyncio
 async def test_disabling_mtp_sweeps_ngram_rider():
     pool, entry = _failed_pool()
     entry.config_model_type = "qwen4_exp"

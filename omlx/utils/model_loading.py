@@ -1091,6 +1091,7 @@ def _configure_ngram_spec(model_settings: Any | None) -> None:
         getattr(model_settings, "ngram_spec_match_len", None),
         getattr(model_settings, "ngram_spec_draft_max", None),
         getattr(model_settings, "ngram_spec_draft_min", None),
+        getattr(model_settings, "ngram_spec_freq_rule", None),
     )
 
 

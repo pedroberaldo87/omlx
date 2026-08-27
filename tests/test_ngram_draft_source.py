@@ -128,6 +128,96 @@ def test_shared_pool_serves_across_requests_and_respects_fence():
     assert got2 is None or all(t >= 0 for t in got2)
 
 
+def test_frequencia_conta_ocorrencias_e_corta_na_cerca():
+    # F1.1: o indice conta ocorrencias por gram; a cerca separa pedidos
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=8, draft_min=2, freq_rule=True)
+    doc = [10, 11, 12, 13, 20, 21, 22, 23]
+    pool.feed(doc)
+    pool.feed(doc)                        # segundo pedido, mesma pagina
+    key = (10, 11, 12, 13)
+    assert pool._src._count[4][key] == 2
+    # chave que atravessa a cerca contem o FENCE e nunca casa consulta real
+    fence_key = (22, 23, SharedNGramPool.FENCE, 10)
+    assert pool._src._count[4].get(fence_key, 0) <= 1
+
+
+def test_frequencia_sobrevive_ao_rebuild_do_teto():
+    # F1.1: o trim reconstroi do tail e as contagens se re-derivam dele
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=8, draft_min=2,
+                           freq_rule=True, max_tokens=400)
+    doc = list(range(700, 740))
+    for _ in range(20):                   # estoura o teto -> rebuild
+        pool.feed(doc)
+    key = tuple(doc[:4])
+    assert len(pool) <= 400
+    assert pool._src._count[4].get(key, 0) >= 1
+
+
+def test_frequencia_regua_da_comprimentos_diferentes():
+    # F1.2: mesma chave, historico com repeticao forte vs fraca
+    from omlx.speculative.ngram import NGramDraftSource
+
+    a = [1, 2, 3, 4]
+    cont = list(range(100, 120))
+
+    fraco = NGramDraftSource(match_len=4, draft_max=12, draft_min=2,
+                             freq_rule=True)
+    fraco.extend(a + cont + a)            # vista 1x antes -> reps=1
+    got_fraco = fraco.lookup()
+
+    forte = NGramDraftSource(match_len=4, draft_max=12, draft_min=2,
+                             freq_rule=True)
+    for _ in range(4):                    # vista 3+ vezes -> reps>=3
+        forte.extend(a + cont)
+    forte.extend(a)
+    got_forte = forte.lookup()
+
+    assert got_fraco is not None and got_forte is not None
+    assert len(got_forte) == 12           # repeticao forte compra draft_max
+    assert len(got_fraco) < len(got_forte)
+
+
+def test_frequencia_off_reproduz_o_comportamento_v3():
+    # F1.4: desligada, a regua nova nao muda nada — cenario onde ela mudaria
+    from omlx.speculative.ngram import NGramDraftSource
+
+    a = [1, 2, 3, 4]
+    cont = list(range(100, 120))
+    off = NGramDraftSource(match_len=4, draft_max=12, draft_min=2)
+    off.extend(a + cont + a)
+    got = off.lookup()
+    assert got is not None and len(got) == 12   # v3: janela longa -> draft_max
+
+
+def test_frequencia_no_pool_via_janela_curta():
+    # F1.5: a regua vale no caminho do pool — vermelho se so o drafter a tiver.
+    # Ocorrencias precedidas por prefixos distintos: so a janela curta casa.
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=12, draft_min=2,
+                           freq_rule=True)
+    cont = list(range(300, 330))
+    for i in range(4):
+        pool.feed([900 + i, 950 + i] + [7, 8] + cont)
+    got = pool.lookup_suffix([90, 91, 92, 93, 7, 8])
+    assert got is not None and got[0] == 300
+    # regra fixa de janela 2 pararia em max(draft_min, 2) = 2 tokens
+    assert len(got) == 12
+
+
+def test_janela_de_busca_candidata_e_24():
+    # F1.3: o candidato do A/B e o ngram-mod do llama.cpp (busca 24)
+    from omlx.speculative.ngram import NGRAM_MOD_MATCH_LEN, NGramDraftSource
+
+    assert NGRAM_MOD_MATCH_LEN == 24
+    src = NGramDraftSource(match_len=NGRAM_MOD_MATCH_LEN)
+    assert src.windows == (36, 24, 12)
+
+
 def test_shared_pool_eviction_keeps_size_bounded():
     import threading
 

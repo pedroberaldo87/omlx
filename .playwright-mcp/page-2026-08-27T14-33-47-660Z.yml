@@ -1,0 +1,216 @@
+- generic [ref=f2e2]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e4]: Projetoomlx-qwen38-flash
+    - generic [ref=f2e5]: "ArtefatoAprimorar os palpites copiados: mais largura, menos desperdício, medição de verdade"
+    - generic [ref=f2e6]:
+      - text: Gerado de
+      - code [ref=f2e8]: plan_state.py page --mode approve
+    - generic [ref=f2e9]: gerado
+  - generic [ref=f2e10]: Aprovação · o plano completo
+  - heading "O plano, pra você aprovar" [level=1] [ref=f2e11]
+  - paragraph [ref=f2e12]: "A árvore É a lista: o veredito mora na fase, e não há segunda tabela no fim."
+  - generic [ref=f2e13]:
+    - generic [ref=f2e14]: 0/14 feitos
+    - generic [ref=f2e15]: 📋 5 fases · 14 passos
+    - generic [ref=f2e16]: aguardando aprovação
+    - generic [ref=f2e17]: 📅 2026-08-27
+  - generic [ref=f2e18]:
+    - generic [ref=f2e19]:
+      - generic [ref=f2e20]:
+        - generic [ref=f2e21]: "📋 Aprimorar os palpites copiados: mais largura, menos desperdício, medição de verdade"
+        - generic [ref=f2e22]: 0/14 passos
+      - generic [ref=f2e24]:
+        - generic [ref=f2e25]:
+          - generic [ref=f2e26]: "1"
+          - generic [ref=f2e27]: F1 · Destravar a memória e medir de verdade
+          - generic [ref=f2e28]:
+            - generic [ref=f2e29] [cursor=pointer]: ✓ Manter
+            - generic [ref=f2e30] [cursor=pointer]: ✏️ Mudar
+            - generic [ref=f2e31] [cursor=pointer]: ✗ Remover
+        - list [ref=f2e32]:
+          - listitem [ref=f2e33]:
+            - generic [ref=f2e34]: ○
+            - generic [ref=f2e35]:
+              - generic [ref=f2e36]: F1.1
+              - text: Subir o teto de memória Metal com o dono
+            - generic [ref=f2e37]: "⛔ falta decidir: digitar o comando sudo é ato do dono — prova: o enforcer loga 'Raise it with: sudo sysctl iogpu.wired_limit_mb=124518' e sysctl devolve 0"
+          - listitem [ref=f2e38]:
+            - generic [ref=f2e39]: ○
+            - generic [ref=f2e40]:
+              - generic [ref=f2e41]: F1.2
+              - text: Re-medir o gate com o teto novo em 32, 48 e 64
+            - generic [ref=f2e42]: O harness de palpites que sempre erram já existe e isola o custo por tamanho; falta rodá-lo com a memória destravada.
+          - listitem [ref=f2e43]:
+            - generic [ref=f2e44]: ○
+            - generic [ref=f2e45]:
+              - generic [ref=f2e46]: F1.3
+              - text: Criar o preset de benchmark A/B no painel
+            - generic [ref=f2e47]: A área de benchmark do painel já roda suítes; falta um preset que repita o mesmo pedido N vezes por configuração.
+          - listitem [ref=f2e48]:
+            - generic [ref=f2e49]: ○
+            - generic [ref=f2e50]:
+              - generic [ref=f2e51]: F1.4
+              - text: Re-medir o ganho da cópia com o preset
+            - generic [ref=f2e52]: Os +22% atuais vêm de um pedido só; o preset dá o número com intervalo e vira a régua das fases seguintes.
+        - group [ref=f2e53]:
+          - generic "detalhes ›" [ref=f2e54] [cursor=pointer]:
+            - text: detalhes
+            - generic [ref=f2e56]: ›
+      - generic [ref=f2e57]:
+        - generic [ref=f2e58]:
+          - generic [ref=f2e59]: "2"
+          - generic [ref=f2e60]: F2 · Palpite mais esperto
+          - generic [ref=f2e61]:
+            - generic [ref=f2e62] [cursor=pointer]: ✓ Manter
+            - generic [ref=f2e63] [cursor=pointer]: ✏️ Mudar
+            - generic [ref=f2e64] [cursor=pointer]: ✗ Remover
+        - list [ref=f2e65]:
+          - listitem [ref=f2e66]:
+            - generic [ref=f2e67]: ○
+            - generic [ref=f2e68]:
+              - generic [ref=f2e69]: F2.1
+              - text: Encolher a largura do palpite sob pressão de memória
+            - generic [ref=f2e70]: O vigia de memória do servidor já emite níveis de aperto; o palpite passa a encolher quando o nível sobe.
+          - listitem [ref=f2e71]:
+            - generic [ref=f2e72]: ○
+            - generic [ref=f2e73]:
+              - generic [ref=f2e74]: F2.2
+              - text: Guardar o aceite por trecho, não só global
+            - generic [ref=f2e75]: O trecho que já falhou duas vezes vai pra geladeira sozinho, enquanto os trechos que rendem continuam servindo.
+          - listitem [ref=f2e76]:
+            - generic [ref=f2e77]: ○
+            - generic [ref=f2e78]:
+              - generic [ref=f2e79]: F2.3
+              - text: Buscar em cascata e copiar até onde o histórico sustenta
+            - generic [ref=f2e80]: A busca tenta janela 24, depois 16, depois 8, e o comprimento copiado segue o tamanho real da repetição encontrada.
+        - group [ref=f2e81]:
+          - generic "detalhes ›" [ref=f2e82] [cursor=pointer]:
+            - text: detalhes
+            - generic [ref=f2e84]: ›
+      - generic [ref=f2e85]:
+        - generic [ref=f2e86]:
+          - generic [ref=f2e87]: "3"
+          - generic [ref=f2e88]: F3 · Telemetria certa e visível
+          - generic [ref=f2e89]:
+            - generic [ref=f2e90] [cursor=pointer]: ✓ Manter
+            - generic [ref=f2e91] [cursor=pointer]: ✏️ Mudar
+            - generic [ref=f2e92] [cursor=pointer]: ✗ Remover
+        - list [ref=f2e93]:
+          - listitem [ref=f2e94]:
+            - generic [ref=f2e95]: ○
+            - generic [ref=f2e96]:
+              - generic [ref=f2e97]: F3.1
+              - text: Mostrar a fatia da cópia na tela de estado
+            - generic [ref=f2e98]: Um chip a mais na sub-linha de especulação do modelo ativo, lendo os campos que o payload já entrega.
+          - listitem [ref=f2e99]:
+            - generic [ref=f2e100]: ○
+            - generic [ref=f2e101]:
+              - generic [ref=f2e102]: F3.2
+              - text: Separar o acumulador de estatísticas por modelo
+            - generic [ref=f2e103]: O acumulador é um só por processo; com dois modelos de palpite carregados, os números se misturam.
+          - listitem [ref=f2e104]:
+            - generic [ref=f2e105]: ○
+            - generic [ref=f2e106]:
+              - generic [ref=f2e107]: F3.3
+              - text: Limpar a emenda da semente do histórico
+            - generic [ref=f2e108]: Com processadores de logits ativos, a semente pode repetir um ou dois tokens na emenda entre prompt e geração.
+        - group [ref=f2e109]:
+          - generic "detalhes ›" [ref=f2e110] [cursor=pointer]:
+            - text: detalhes
+            - generic [ref=f2e112]: ›
+      - generic [ref=f2e113]:
+        - generic [ref=f2e114]:
+          - generic [ref=f2e115]: "4"
+          - generic [ref=f2e116]: F4 · Pool compartilhado entre pedidos
+          - generic [ref=f2e117]:
+            - generic [ref=f2e118] [cursor=pointer]: ✓ Manter
+            - generic [ref=f2e119] [cursor=pointer]: ✏️ Mudar
+            - generic [ref=f2e120] [cursor=pointer]: ✗ Remover
+        - list [ref=f2e121]:
+          - listitem [ref=f2e122]:
+            - generic [ref=f2e123]: ○
+            - generic [ref=f2e124]:
+              - generic [ref=f2e125]: F4.1
+              - text: Escrever o pool com trava e teto de memória
+            - generic [ref=f2e126]: Um mapa compartilhado entre pedidos, protegido por trava, que descarta os trechos mais velhos ao passar do teto.
+          - listitem [ref=f2e127]:
+            - generic [ref=f2e128]: ○
+            - generic [ref=f2e129]:
+              - generic [ref=f2e130]: F4.2
+              - text: Provar o ganho no padrão de agente
+            - generic [ref=f2e131]: Dois pedidos seguidos carregando o mesmo arquivo simulam o loop de agente que motiva o pool.
+        - group [ref=f2e132]:
+          - generic "detalhes ›" [ref=f2e133] [cursor=pointer]:
+            - text: detalhes
+            - generic [ref=f2e135]: ›
+      - generic [ref=f2e136]:
+        - generic [ref=f2e137]:
+          - generic [ref=f2e138]: "5"
+          - generic [ref=f2e139]: F5 · Alcance maior
+          - generic [ref=f2e140]:
+            - generic [ref=f2e141] [cursor=pointer]: ✓ Manter
+            - generic [ref=f2e142] [cursor=pointer]: ✏️ Mudar
+            - generic [ref=f2e143] [cursor=pointer]: ✗ Remover
+        - list [ref=f2e144]:
+          - listitem [ref=f2e145]:
+            - generic [ref=f2e146]: ○
+            - generic [ref=f2e147]:
+              - generic [ref=f2e148]: F5.1
+              - text: Estudo do suporte a fila múltipla
+            - generic [ref=f2e149]: Dimensionar o que falta para palpites com mais de um pedido simultâneo, sem construir nada ainda.
+          - listitem [ref=f2e150]:
+            - generic [ref=f2e151]: ○
+            - generic [ref=f2e152]:
+              - generic [ref=f2e153]: F5.2
+              - text: Preparar o pacote do PR pro projeto original
+            - generic [ref=f2e154]: Texto do PR com os commits, os números medidos e os testes, deixando a publicação na mão do dono.
+        - group [ref=f2e155]:
+          - generic "detalhes ›" [ref=f2e156] [cursor=pointer]:
+            - text: detalhes
+            - generic [ref=f2e158]: ›
+    - generic [ref=f2e159]:
+      - heading "🏁 Fechamento" [level=2] [ref=f2e160]
+      - paragraph [ref=f2e161]: Os vereditos já estão nas fases acima — aqui não tem segunda tabela, só o progresso, uma observação geral e o envio.
+      - generic [ref=f2e162]:
+        - strong [ref=f2e163]: "0"
+        - text: /
+        - generic [ref=f2e164]: "5"
+        - text: itens revisados
+      - generic [ref=f2e166]:
+        - generic [ref=f2e167]: Observação geral (opcional)
+        - textbox "Observação geral (opcional)" [ref=f2e168]:
+          - /placeholder: Algo sobre o plano como um todo...
+      - generic [ref=f2e169]:
+        - button "✓ Aprovar tudo" [ref=f2e170] [cursor=pointer]
+        - button "📋 Copiar feedback" [ref=f2e171] [cursor=pointer]
+  - generic [ref=f2e172]:
+    - heading "📝 Como ficou esta página?" [level=2] [ref=f2e173]
+    - paragraph [ref=f2e174]: Opcional — serve só pra próxima página sair melhor
+    - generic [ref=f2e175]:
+      - generic [ref=f2e176]:
+        - text: Clareza
+        - emphasis [ref=f2e177]: deu pra entender sem esforço?
+      - generic [ref=f2e178]:
+        - button "👍" [ref=f2e179] [cursor=pointer]
+        - button "😐" [ref=f2e180] [cursor=pointer]
+        - button "👎" [ref=f2e181] [cursor=pointer]
+    - generic [ref=f2e182]:
+      - generic [ref=f2e183]:
+        - text: Escaneabilidade
+        - emphasis [ref=f2e184]: achou o que importa batendo o olho?
+      - generic [ref=f2e185]:
+        - button "👍" [ref=f2e186] [cursor=pointer]
+        - button "😐" [ref=f2e187] [cursor=pointer]
+        - button "👎" [ref=f2e188] [cursor=pointer]
+    - generic [ref=f2e189]:
+      - generic [ref=f2e190]:
+        - text: Detalhamento
+        - emphasis [ref=f2e191]: tinha o suficiente pra decidir, sem sobra?
+      - generic [ref=f2e192]:
+        - button "👍" [ref=f2e193] [cursor=pointer]
+        - button "😐" [ref=f2e194] [cursor=pointer]
+        - button "👎" [ref=f2e195] [cursor=pointer]
+    - generic [ref=f2e196]:
+      - generic [ref=f2e197]: O que exatamente ficou ruim — é o que mais ensina
+      - textbox "O que exatamente ficou ruim — é o que mais ensina" [ref=f2e198]:
+        - /placeholder: "Ex: o bloco de prova da decisão 2 não dizia por que aquilo era problema..."

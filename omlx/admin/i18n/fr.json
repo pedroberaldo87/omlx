@@ -1138,5 +1138,7 @@
   "modal.model_settings.ngram_spec_draft_max": "Max draft length",
   "modal.model_settings.ngram_spec_draft_max_hint": "Verify width is memory-bound; 16 is the safe default on 128 GB. Larger values can exhaust Metal memory on long generations.",
   "modal.model_settings.ngram_spec_draft_min": "Min draft length",
-  "status.active_models.ngram_share": "history-copy cycles"
+  "status.active_models.ngram_share": "history-copy cycles",
+  "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
+  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule."
 }

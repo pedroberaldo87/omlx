@@ -134,6 +134,7 @@ class ModelSettingsRequest(BaseModel):
     ngram_spec_match_len: int | None = None
     ngram_spec_draft_max: int | None = None
     ngram_spec_draft_min: int | None = None
+    ngram_spec_freq_rule: bool | None = None
     thinking_budget_enabled: bool | None = None
     thinking_budget_tokens: int | None = None
     # TurboQuant KV cache (mlx-vlm backend)
@@ -2819,6 +2820,8 @@ async def update_model_settings(
         current_settings.ngram_spec_draft_min = (
             int(value) if value is not None and value >= 1 else None
         )
+    if "ngram_spec_freq_rule" in sent:
+        current_settings.ngram_spec_freq_rule = bool(request.ngram_spec_freq_rule)
 
     if "reasoning_parser" in sent:
         current_settings.reasoning_parser = request.reasoning_parser or None
@@ -7194,10 +7197,9 @@ async def start_spec_ab(
     if not model_id:
         raise HTTPException(status_code=400, detail="model_id is required")
     state = _get_server_state()
-    port = getattr(getattr(state, "settings", None), "server", None)
-    port = getattr(port, "port", 8000) if port is not None else 8000
-    api_key = getattr(getattr(state, "settings", None), "auth", None)
-    api_key = getattr(api_key, "api_key", "") if api_key is not None else ""
+    gs = getattr(state, "global_settings", None)
+    port = getattr(getattr(gs, "server", None), "port", 8000)
+    api_key = getattr(getattr(gs, "auth", None), "api_key", "")
     result = spec_ab.start(
         model_id,
         port,

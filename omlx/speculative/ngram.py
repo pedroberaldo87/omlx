@@ -17,6 +17,14 @@ v3 upgrades (plan 2026-08-27-ngram-v3-aprimoramentos):
   volunteering, while productive keys keep serving. Replaces the v2
   global cooloff, which silenced the whole source over one bad region.
 
+v4 upgrade (plan 2026-08-27-ngram-v4-frequencia-e-sistema): frequency
+rule. ``extend`` counts how many times each gram occurred; with
+``freq_rule=True`` the copy cap follows that count — a suffix repeated
+3+ times buys the full draft_max even through a short window, one seen
+a single time is halved. SuffixDecoding's per-step scoring, without the
+suffix tree. Off (the default) reproduces v3 byte for byte; the freeze
+memory stays a separate mechanism (a brake, never a length signal).
+
 Not to be confused with Qwen4-Exp's PLE "n-gram embedding", a trained
 table inside the model. This module never touches weights.
 """
@@ -24,6 +32,10 @@ table inside the model. This module never touches weights.
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
+
+# llama.cpp's ngram-mod lookup length — the F1.3 candidate the A/B flips
+# against the v3 default of 16. match_len=24 yields windows (36, 24, 12).
+NGRAM_MOD_MATCH_LEN = 24
 
 
 class NGramDraftSource:
@@ -42,6 +54,7 @@ class NGramDraftSource:
         match_len: int = 16,
         draft_max: int = 16,
         draft_min: int = 4,
+        freq_rule: bool = False,
     ):
         if match_len < 2:
             raise ValueError("match_len must be >= 2")
@@ -53,11 +66,16 @@ class NGramDraftSource:
         )
         self.draft_max = int(draft_max)
         self.draft_min = int(draft_min)
+        self.freq_rule = bool(freq_rule)
         self._tokens: List[int] = []
         # per window size: gram-ending-at-p -> p, plus the previous holder
         # so the suffix's own registration never shadows what lookup needs
         self._last: Dict[int, dict] = {n: {} for n in self.windows}
         self._prev: Dict[int, dict] = {n: {} for n in self.windows}
+        # per window size: gram -> occurrence count over the whole history.
+        # Rebuilt histories (the pool's trim) re-derive it by re-extending,
+        # so the count always reflects the tokens actually held.
+        self._count: Dict[int, Dict[tuple, int]] = {n: {} for n in self.windows}
         # per-key acceptance memory: key -> consecutive sub-min failures;
         # at _FREEZE_AT the key stops volunteering (thawed by one success)
         self._fails: Dict[tuple, int] = {}
@@ -71,6 +89,8 @@ class NGramDraftSource:
         self.frozen_keys = 0
 
     _FREEZE_AT = 2
+    # freq_rule: this many earlier occurrences of the suffix buy draft_max
+    _STRONG_AT = 3
 
     def __len__(self) -> int:
         return len(self._tokens)
@@ -88,13 +108,30 @@ class NGramDraftSource:
                     if old is not None:
                         self._prev[n][key] = old
                     last[key] = p
+                    cnt = self._count[n]
+                    cnt[key] = cnt.get(key, 0) + 1
 
-    def _copy_cap(self, window: int) -> int:
+    def _copy_cap(self, window: int, reps: Optional[int] = None) -> int:
         # A short-window match is weaker evidence: cap its copy at the
         # window size so it cannot buy the widest verify forward.
         if window >= self.windows[len(self.windows) // 2]:
+            base = self.draft_max
+        else:
+            base = min(self.draft_max, max(self.draft_min, window))
+        if not self.freq_rule or reps is None:
+            return base
+        # Frequency rule (v4): the copy length follows how often the
+        # suffix repeated in history — never the acceptance memory.
+        if reps >= self._STRONG_AT:
             return self.draft_max
-        return min(self.draft_max, max(self.draft_min, window))
+        if reps <= 1:
+            return max(self.draft_min, min(base, max(1, window // 2)))
+        return base
+
+    def _reps(self, window: int, key: tuple) -> int:
+        # Earlier occurrences of the gram, excluding the registration of
+        # the suffix now being looked up (extend already counted it).
+        return max(0, self._count[window].get(key, 0) - 1)
 
     def lookup(self) -> Optional[List[int]]:
         toks = self._tokens
@@ -110,7 +147,7 @@ class NGramDraftSource:
                 p = self._prev[n].get(key)
             if p is None:
                 continue
-            cont = toks[p + 1 : p + 1 + self._copy_cap(n)]
+            cont = toks[p + 1 : p + 1 + self._copy_cap(n, self._reps(n, key))]
             if len(cont) < self.draft_min:
                 continue
             self.hits += 1
@@ -161,13 +198,14 @@ class SharedNGramPool:
     FENCE = -1
 
     def __init__(self, match_len: int = 16, draft_max: int = 16,
-                 draft_min: int = 4, max_tokens: int = 65536):
+                 draft_min: int = 4, freq_rule: bool = False,
+                 max_tokens: int = 65536):
         # ponytail: global lock + full rebuild on trim; per-shard locks and
         # incremental eviction only if contention ever shows up in profiles
         import threading
 
         self._lock = threading.Lock()
-        self._args = (match_len, draft_max, draft_min)
+        self._args = (match_len, draft_max, draft_min, freq_rule)
         self._src = NGramDraftSource(*self._args)
         self.max_tokens = int(max_tokens)
 
@@ -202,7 +240,10 @@ class SharedNGramPool:
                     p = src._prev[n].get(key)
                 if p is None:
                     continue
-                cont = toks[p + 1 : p + 1 + src._copy_cap(n)]
+                # Same frequency rule as the per-request path (F1.5). The
+                # querying request usually feeds the pool too, so its own
+                # registration is excluded the same way.
+                cont = toks[p + 1 : p + 1 + src._copy_cap(n, src._reps(n, key))]
                 if self.FENCE in cont:
                     cont = cont[: cont.index(self.FENCE)]
                 if len(cont) < src.draft_min:
