@@ -99,7 +99,7 @@
   "status.active_models.generating": "生成中...",
   "status.active_models.unload": "卸载模型",
   "status.active_models.enforcer_disabled": "内存强制管理已禁用",
-  "status.active_models.dflash_label": "DFlash",
+  "status.active_models.dflash_label": "投机解码",
   "status.active_models.dflash_fallback_ar": "回退 AR",
   "status.active_models.dflash_draft_share": "草稿分享比",
   "status.active_models.dflash_accepted_draft_per_cycle": "接受草稿/周期",

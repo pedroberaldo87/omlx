@@ -99,7 +99,7 @@
   "status.active_models.generating": "생성 중...",
   "status.active_models.unload": "모델 언로드",
   "status.active_models.enforcer_disabled": "메모리 enforcer 비활성",
-  "status.active_models.dflash_label": "DFlash",
+  "status.active_models.dflash_label": "추측 디코딩",
   "status.active_models.dflash_fallback_ar": "fallback AR",
   "status.active_models.dflash_draft_share": "draft share",
   "status.active_models.dflash_accepted_draft_per_cycle": "accepted draft/cycle",

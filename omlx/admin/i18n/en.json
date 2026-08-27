@@ -99,7 +99,7 @@
   "status.active_models.generating": "Generating...",
   "status.active_models.unload": "Unload model",
   "status.active_models.enforcer_disabled": "Enforcer disabled",
-  "status.active_models.dflash_label": "DFlash",
+  "status.active_models.dflash_label": "Speculation",
   "status.active_models.dflash_fallback_ar": "fallback AR",
   "status.active_models.dflash_draft_share": "draft share",
   "status.active_models.dflash_accepted_draft_per_cycle": "accepted draft/cycle",

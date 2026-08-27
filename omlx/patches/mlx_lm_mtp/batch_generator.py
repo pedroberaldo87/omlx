@@ -2899,6 +2899,12 @@ def _log_mtp_stats(uid: Any, stats: "_MtpStats", finish_reason: str) -> None:
         emits[init=<i>,draft=<d>,bonus=<b>,verify=<v>]
         timing[backbone=<X>ms mtp=<Y>ms sample=<S>ms cache=<C>ms]
     """
+    from . import spec_stats as _spec_stats
+
+    try:
+        _spec_stats.record(stats, finish_reason)
+    except Exception:  # noqa: BLE001 — telemetry must never break emit paths
+        pass
     total_emits = (
         stats.init_emits + stats.draft_emits + stats.bonus_emits + stats.verify_emits
     )
