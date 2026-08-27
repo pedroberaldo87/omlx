@@ -276,3 +276,51 @@ async def test_qwen_ane_prefill_rejects_other_model_families():
             ModelSettings(),
             admin_routes.ModelSettingsRequest(qwen35_ane_prefill_enabled=True),
         )
+
+
+@pytest.mark.asyncio
+async def test_ngram_spec_is_persisted_when_mtp_enabled():
+    pool, entry = _failed_pool()
+    settings = ModelSettings(mtp_enabled=True)
+
+    await _update_settings(
+        pool,
+        settings,
+        admin_routes.ModelSettingsRequest(
+            ngram_spec_enabled=True, ngram_spec_draft_max=128
+        ),
+    )
+
+    assert settings.ngram_spec_enabled is True
+    # draft_max is clamped to the lab-proven 64 cap
+    assert settings.ngram_spec_draft_max == 64
+
+
+@pytest.mark.asyncio
+async def test_ngram_spec_rejected_without_mtp():
+    from fastapi import HTTPException
+
+    pool, _ = _failed_pool()
+    settings = ModelSettings()
+
+    with pytest.raises(HTTPException) as exc:
+        await _update_settings(
+            pool,
+            settings,
+            admin_routes.ModelSettingsRequest(ngram_spec_enabled=True),
+        )
+    assert "requires Lightning MTP" in exc.value.detail
+
+
+@pytest.mark.asyncio
+async def test_disabling_mtp_sweeps_ngram_rider():
+    pool, entry = _failed_pool()
+    entry.config_model_type = "qwen4_exp"
+    settings = ModelSettings(mtp_enabled=True, ngram_spec_enabled=True)
+
+    await _update_settings(
+        pool, settings, admin_routes.ModelSettingsRequest(mtp_enabled=False)
+    )
+
+    assert settings.mtp_enabled is False
+    assert settings.ngram_spec_enabled is False

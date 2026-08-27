@@ -586,6 +586,12 @@ class EnginePool:
         # force a reload when the corresponding feature is disabled.
         mtp_active = bool(data.get("mtp_enabled", False))
         add("mtp_enabled", mtp_active)
+        ngram_active = mtp_active and bool(data.get("ngram_spec_enabled", False))
+        add("ngram_spec_enabled", ngram_active)
+        if ngram_active:
+            add("ngram_spec_match_len", data.get("ngram_spec_match_len"))
+            add("ngram_spec_draft_max", data.get("ngram_spec_draft_max"))
+            add("ngram_spec_draft_min", data.get("ngram_spec_draft_min"))
         if entry is not None:
             qwen4_offload, _, _ = self._qwen4_ple_offload_status(entry, settings)
             add("qwen4_ple_ssd_offload", qwen4_offload)

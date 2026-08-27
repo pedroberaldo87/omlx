@@ -130,6 +130,10 @@ class ModelSettingsRequest(BaseModel):
     index_cache_freq: int | None = None
     enable_thinking: bool | None = None
     qwen4_ple_ssd_offload: bool | None = None
+    ngram_spec_enabled: bool | None = None
+    ngram_spec_match_len: int | None = None
+    ngram_spec_draft_max: int | None = None
+    ngram_spec_draft_min: int | None = None
     thinking_budget_enabled: bool | None = None
     thinking_budget_tokens: int | None = None
     # TurboQuant KV cache (mlx-vlm backend)
@@ -571,6 +575,7 @@ def _sanitize_diffusion_settings_dict(settings: dict) -> None:
     settings["dflash_ssd_cache"] = False
     settings["dflash_ssd_cache_max_bytes"] = 20 * 1024 * 1024 * 1024
     settings["mtp_enabled"] = False
+    settings["ngram_spec_enabled"] = False
     settings["vlm_mtp_enabled"] = False
 
     unsupported_ct_kwargs = {
@@ -659,6 +664,7 @@ def _sanitize_diffusion_model_settings(settings) -> None:
     settings.dflash_block_size = None
     settings.dflash_verify_mode = None
     settings.mtp_enabled = False
+    settings.ngram_spec_enabled = False
     settings.vlm_mtp_enabled = False
     settings.vlm_mtp_draft_model = None
     settings.vlm_mtp_draft_block_size = None
@@ -2720,6 +2726,18 @@ async def update_model_settings(
                     detail="MTP and DFlash cannot both be enabled; choose one speculative-decoding path.",
                 )
         current_settings.mtp_enabled = new_mtp_enabled
+        if not new_mtp_enabled:
+            ngram_after = (
+                bool(request.ngram_spec_enabled)
+                if "ngram_spec_enabled" in sent
+                else current_settings.ngram_spec_enabled
+            )
+            if ngram_after and not (
+                "ngram_spec_enabled" in sent and request.ngram_spec_enabled
+            ):
+                # MTP off sweeps the rider off too instead of tripping the
+                # __post_init__ mutex on the next settings load.
+                current_settings.ngram_spec_enabled = False
 
     # VLM MTP (mlx-vlm f96138e+, gemma4_assistant drafter)
     if "vlm_mtp_enabled" in sent:
@@ -2765,6 +2783,42 @@ async def update_model_settings(
         current_settings.vlm_mtp_draft_model = request.vlm_mtp_draft_model or None
     if "vlm_mtp_draft_block_size" in sent:
         current_settings.vlm_mtp_draft_block_size = request.vlm_mtp_draft_block_size
+
+    if "ngram_spec_enabled" in sent:
+        new_ngram = False if is_diffusion_model else bool(request.ngram_spec_enabled)
+        if new_ngram:
+            mtp_after = (
+                bool(request.mtp_enabled)
+                if "mtp_enabled" in sent
+                else current_settings.mtp_enabled
+            )
+            if not mtp_after:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "ngram_spec_enabled requires Lightning MTP: the n-gram "
+                        "drafter rides the MTP draft+verify cycle. Enable MTP "
+                        "first."
+                    ),
+                )
+        current_settings.ngram_spec_enabled = new_ngram
+    if "ngram_spec_match_len" in sent:
+        value = request.ngram_spec_match_len
+        current_settings.ngram_spec_match_len = (
+            int(value) if value is not None and value >= 2 else None
+        )
+    if "ngram_spec_draft_max" in sent:
+        value = request.ngram_spec_draft_max
+        # Verify width is memory-bound (k=16 sustains on 128GB with the
+        # resident-PLE Qwen4 checkpoint); clamp to the lab-proven 64 cap.
+        current_settings.ngram_spec_draft_max = (
+            min(int(value), 64) if value is not None and value >= 1 else None
+        )
+    if "ngram_spec_draft_min" in sent:
+        value = request.ngram_spec_draft_min
+        current_settings.ngram_spec_draft_min = (
+            int(value) if value is not None and value >= 1 else None
+        )
 
     if "reasoning_parser" in sent:
         current_settings.reasoning_parser = request.reasoning_parser or None
