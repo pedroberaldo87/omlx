@@ -684,7 +684,7 @@ def _mtp_compat_for_model(model_info: dict) -> tuple[bool, str]:
     from ..utils.model_loading import (
         _checkpoint_has_mtp_weights,
         _has_mtp_heads,
-        _is_mtp_compatible,
+        _is_mtp_settable,
     )
 
     is_paro, paro_reason = _paroquant_compat_for_model(model_info)
@@ -704,11 +704,11 @@ def _mtp_compat_for_model(model_info: dict) -> tuple[bool, str]:
     model_type = cfg.get("model_type")
     if not _has_mtp_heads(cfg):
         return False, "model has no MTP heads in config"
-    if not _is_mtp_compatible(cfg, model_type):
+    if not _is_mtp_settable(cfg, model_type):
         return False, (
             f"model_type={model_type!r} is not on the MTP whitelist "
-            "(supported: qwen3_5*, qwen3_6*, deepseek_v4*, glm_moe_dsa, "
-            "gemma4, gemma4_unified)"
+            "(supported: qwen3_5*, qwen3_6*, qwen4_exp, deepseek_v4*, "
+            "glm_moe_dsa, gemma4, gemma4_unified)"
         )
     if not _checkpoint_has_mtp_weights(model_path):
         from ..oq import _resolve_mtplx_sidecar
@@ -2666,7 +2666,7 @@ async def update_model_settings(
 
             from ..utils.model_loading import (
                 _checkpoint_has_mtp_weights,
-                _is_mtp_compatible,
+                _is_mtp_settable,
             )
 
             cfg_path = Path(entry.model_path) / "config.json"
@@ -2686,15 +2686,15 @@ async def update_model_settings(
                     detail=f"MTP enabled but failed to read model config: {e}",
                 )
             model_type = cfg.get("model_type")
-            if not _is_mtp_compatible(cfg, model_type):
+            if not _is_mtp_settable(cfg, model_type):
                 raise HTTPException(
                     status_code=400,
                     detail=(
                         f"Model is not MTP-compatible (model_type={model_type!r}, "
                         f"mtp_num_hidden_layers={cfg.get('mtp_num_hidden_layers', 0)}). "
-                        "Lightning MTP requires a Qwen3.5/3.6, DeepSeek-V4, "
-                        "GLM-5.2, or merged-assistant Gemma 4 checkpoint with "
-                        "MTP heads."
+                        "Lightning MTP requires a Qwen3.5/3.6, Qwen4-Exp, "
+                        "DeepSeek-V4, GLM-5.2, or merged-assistant Gemma 4 "
+                        "checkpoint with MTP heads."
                     ),
                 )
             if not _checkpoint_has_mtp_weights(entry.model_path):
