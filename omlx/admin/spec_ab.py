@@ -25,6 +25,12 @@ from typing import Any, Optional
 _RUNS: dict[str, dict] = {}
 _LOCK = threading.Lock()
 
+# The valid flips. "none" runs two identical arms (plan v5, F0.1/F0.3): the
+# measured "gain" between them is pure noise, which anchors the decision
+# threshold for every real flip. An unknown flip is an error, never a silent
+# fallback to "enabled" — that ran a whole benchmark measuring the wrong knob.
+_FLIPS = ("enabled", "none", "freq_rule", "match_len", "draft_max", "draft_min")
+
 _CODE = '''def process_orders(orders):
     total = 0
     for order in orders:
@@ -121,6 +127,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     from ..patches.mlx_lm_mtp import (
         get_ngram_spec_params,
         is_ngram_spec_enabled,
+        reset_ngram_pool,
         set_ngram_spec,
     )
 
@@ -141,36 +148,59 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         # llama.cpp's all-or-nothing: chains shorter than n_min=24 draft
         # NOTHING, so wide verifies only run on high-confidence copies
         arms = (("min_24", 24), ("min_4", 4))
+    elif flip == "none":
+        # two identical arms on the untouched config: the "gain" between
+        # them is the noise floor (plan v5, F0.3)
+        arms = (("null_a", None), ("null_b", None))
     else:
         arms = (("ngram_on", True), ("ngram_off", False))
+
+    def _apply(enabled) -> None:
+        # arm isolation (plan v5, F0.5): the shared pool never carries
+        # history — or copies — from one arm into the other
+        reset_ngram_pool()
+        if flip == "none":
+            return  # both arms run the production config untouched
+        if flip == "freq_rule":
+            # drafter stays ON; only the copy-length rule flips
+            set_ngram_spec(True, freq_rule=enabled)
+        elif flip == "match_len":
+            # drafter stays ON; only the lookup length flips
+            set_ngram_spec(True, match_len=enabled)
+        elif flip == "draft_max":
+            set_ngram_spec(True, draft_max=enabled)
+        elif flip == "draft_min":
+            set_ngram_spec(True, draft_min=enabled)
+        else:
+            set_ngram_spec(enabled)
+
     novel = run.get("workload") == "novel"
     seq = 0
+    samples: dict[str, list[dict]] = {arm: [] for arm, _ in arms}
     try:
         # warmup: one request outside the tally so both arms start hot
         _one_request(port, api_key, run["model_id"], run["max_tokens"])
-        for arm, enabled in arms:
-            if flip == "freq_rule":
-                # drafter stays ON; only the copy-length rule flips
-                set_ngram_spec(True, freq_rule=enabled)
-            elif flip == "match_len":
-                # drafter stays ON; only the lookup length flips
-                set_ngram_spec(True, match_len=enabled)
-            elif flip == "draft_max":
-                set_ngram_spec(True, draft_max=enabled)
-            elif flip == "draft_min":
-                set_ngram_spec(True, draft_min=enabled)
-            else:
-                set_ngram_spec(enabled)
-            samples = []
-            for i in range(run["repeats"]):
+        # interleaved A,B,A,B (plan v5, F0.1): thermal/memory drift lands on
+        # both arms instead of accumulating on whichever ran second
+        for i in range(run["repeats"]):
+            pair: dict[str, Any] = {}
+            for arm, enabled in arms:
+                _apply(enabled)
                 prompt = _novel_prompt(seq) if novel else _PROMPT
                 seq += 1
-                samples.append(
-                    _one_request(port, api_key, run["model_id"],
-                                 run["max_tokens"], prompt)
-                )
-                run["progress"] = f"{arm} {i + 1}/{run['repeats']}"
-            run["results"][arm] = _arm_summary(samples)
+                sample = _one_request(port, api_key, run["model_id"],
+                                      run["max_tokens"], prompt)
+                samples[arm].append(sample)
+                run["sequence"].append(arm)
+                run["progress"] = f"pair {i + 1}/{run['repeats']} · {arm}"
+                pair[arm] = sample["tok_s"]
+            a_rate, b_rate = pair[arms[0][0]], pair[arms[1][0]]
+            pair["pair_gain_pct"] = (
+                round((a_rate / b_rate - 1) * 100, 1) if b_rate else None
+            )
+            run["results"].setdefault("pairs", []).append(pair)
+        for arm, _ in arms:
+            run["results"][arm] = _arm_summary(samples[arm])
         on = run["results"][arms[0][0]]["mean_tok_s"]
         off = run["results"][arms[1][0]]["mean_tok_s"]
         if on and off:
@@ -188,6 +218,10 @@ def _worker(run: dict, port: int, api_key: str) -> None:
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,
           max_tokens: int = 400, flip: str = "enabled",
           workload: str = "rewrite") -> dict:
+    if flip not in _FLIPS:
+        raise ValueError(
+            f"unknown flip {flip!r}; valid: {', '.join(_FLIPS)}"
+        )
     with _LOCK:
         active = next(
             (r for r in _RUNS.values() if r["status"] == "running"), None
@@ -199,11 +233,11 @@ def start(model_id: str, port: int, api_key: str, repeats: int = 5,
             "model_id": model_id,
             "repeats": max(2, min(int(repeats), 20)),
             "max_tokens": max(64, min(int(max_tokens), 2048)),
-            "flip": (flip if flip in ("enabled", "freq_rule", "match_len",
-                                      "draft_max", "draft_min") else "enabled"),
+            "flip": flip,
             "workload": workload if workload in ("rewrite", "novel") else "rewrite",
             "status": "running",
             "progress": "warmup",
+            "sequence": [],
             "results": {},
             "started_ts": time.time(),
         }

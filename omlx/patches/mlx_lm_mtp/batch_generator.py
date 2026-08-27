@@ -2355,16 +2355,46 @@ _NGRAM_POOL = None
 
 
 def _ngram_shared_pool():
-    """Process-wide cross-request pool (plan v3, F4), created on first use
-    with the same knobs as the per-request source."""
+    """Process-wide cross-request pool (plan v3, F4). Rebuilt whenever the
+    knobs change (plan v5, F0.5): the A/B preset flips knobs live, and a
+    pool frozen on creation-time knobs would keep measuring the old config
+    on this path."""
     global _NGRAM_POOL
-    if _NGRAM_POOL is None:
-        from omlx.speculative.ngram import SharedNGramPool
+    from omlx.speculative.ngram import SharedNGramPool
 
-        from . import get_ngram_spec_params as _ng_p
+    from . import get_ngram_spec_params as _ng_p
 
-        _NGRAM_POOL = SharedNGramPool(*_ng_p())
+    params = tuple(_ng_p())
+    if _NGRAM_POOL is None or _NGRAM_POOL._args != params:
+        _NGRAM_POOL = SharedNGramPool(*params)
     return _NGRAM_POOL
+
+
+def _reset_ngram_pool() -> None:
+    """Drop the shared pool; the next cycle rebuilds it empty (plan v5,
+    F0.5 — the A/B preset zeroes it between arms for arm isolation)."""
+    global _NGRAM_POOL
+    _NGRAM_POOL = None
+
+
+def _pool_lookup(src):
+    # plan v5, F0.5: pass the configured match_len, never a literal 24 —
+    # a longer-window pool could never match through a 24-token peephole.
+    from . import get_ngram_spec_params as _ng_p
+
+    try:
+        return _ngram_shared_pool().lookup_suffix(
+            src._tokens[-int(_ng_p()[0]):]
+        )
+    except Exception:
+        return None
+
+
+# the A/B preset reaches the pool through the package hook, never by
+# importing this (mlx-heavy) module
+from . import set_ngram_pool_reset as _set_ngram_pool_reset  # noqa: E402
+
+_set_ngram_pool_reset(_reset_ngram_pool)
 
 
 def _ngram_source_for_cycle(gen_batch, state, committed, procs):
@@ -2510,10 +2540,7 @@ def _chain_next_drafts(
         if cont is None and len(src) >= 8:
             # Cross-request fallback (plan v3, F4): another request may have
             # seen this suffix — an agent loop re-sending the same file.
-            try:
-                cont = _ngram_shared_pool().lookup_suffix(src._tokens[-24:])
-            except Exception:
-                cont = None
+            cont = _pool_lookup(src)
         if cont is not None:
             # Memory pressure gate (plan v3, F2.1): "soft" halves the copy,
             # "hard" stands the drafter down for this cycle — the k=32 OOM

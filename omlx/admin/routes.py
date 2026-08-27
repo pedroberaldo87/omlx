@@ -7220,15 +7220,20 @@ async def start_spec_ab(
     gs = getattr(state, "global_settings", None)
     port = getattr(getattr(gs, "server", None), "port", 8000)
     api_key = getattr(getattr(gs, "auth", None), "api_key", "")
-    result = spec_ab.start(
-        model_id,
-        port,
-        api_key,
-        repeats=int(body.get("repeats") or 5),
-        max_tokens=int(body.get("max_tokens") or 400),
-        flip=str(body.get("flip") or "enabled"),
-        workload=str(body.get("workload") or "rewrite"),
-    )
+    try:
+        result = spec_ab.start(
+            model_id,
+            port,
+            api_key,
+            repeats=int(body.get("repeats") or 5),
+            max_tokens=int(body.get("max_tokens") or 400),
+            flip=str(body.get("flip") or "enabled"),
+            workload=str(body.get("workload") or "rewrite"),
+        )
+    except ValueError as exc:
+        # unknown flip: refuse loudly instead of silently benchmarking
+        # another knob (plan v5, F0.1)
+        raise HTTPException(status_code=400, detail=str(exc))
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["error"])
     return result

@@ -241,3 +241,55 @@ def test_shared_pool_eviction_keeps_size_bounded():
     for t in threads:
         t.join()
     assert len(pool) <= 2000
+
+
+def test_shared_pool_rebuilt_on_knob_change_and_kept_otherwise():
+    # plan v5, F0.5: the A/B flips knobs live; the pool must follow
+    from omlx.patches import mlx_lm_mtp as mtp
+    from omlx.patches.mlx_lm_mtp import batch_generator as bg
+
+    before = mtp.get_ngram_spec_params()
+    try:
+        mtp.set_ngram_spec(True, match_len=16, draft_max=16, draft_min=4)
+        bg._reset_ngram_pool()
+        p1 = bg._ngram_shared_pool()
+        p1.feed(list(range(100)))
+        assert bg._ngram_shared_pool() is p1          # same knobs: kept
+        mtp.set_ngram_spec(True, match_len=24)
+        p2 = bg._ngram_shared_pool()
+        assert p2 is not p1 and len(p2) == 0          # knob change: fresh
+    finally:
+        bg._reset_ngram_pool()
+        mtp.set_ngram_spec(False, *before[:3], freq_rule=before[3])
+
+
+def test_pool_lookup_passes_match_len_not_literal_24(monkeypatch):
+    # plan v5, F0.5: a 48-window pool never matches through a 24 peephole
+    from omlx.patches import mlx_lm_mtp as mtp
+    from omlx.patches.mlx_lm_mtp import batch_generator as bg
+    from omlx.speculative.ngram import NGramDraftSource
+
+    captured = {}
+
+    class _FakePool:
+        def lookup_suffix(self, suffix):
+            captured["len"] = len(suffix)
+            return None
+
+    before = mtp.get_ngram_spec_params()
+    monkeypatch.setattr(bg, "_ngram_shared_pool", lambda: _FakePool())
+    try:
+        mtp.set_ngram_spec(True, match_len=48, draft_max=16, draft_min=4)
+        src = NGramDraftSource(match_len=48)
+        src.extend(list(range(200)))
+        bg._pool_lookup(src)
+        assert captured["len"] == 48
+    finally:
+        mtp.set_ngram_spec(False, *before[:3], freq_rule=before[3])
+
+
+def test_reset_hook_registered_by_batch_generator():
+    from omlx.patches import mlx_lm_mtp as mtp
+    from omlx.patches.mlx_lm_mtp import batch_generator as bg
+
+    assert mtp._NGRAM_POOL_RESET is bg._reset_ngram_pool

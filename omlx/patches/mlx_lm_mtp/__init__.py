@@ -119,6 +119,26 @@ def get_ngram_spec_params() -> tuple:
     return _NGRAM_SPEC_PARAMS
 
 
+# Shared-pool reset hook (plan v5, F0.5). The A/B preset zeroes the
+# cross-request pool between arms so arm B never serves copies drafted
+# from arm A's history; the batch generator registers the actual reset
+# when it is imported, and without it the call is a no-op.
+_NGRAM_POOL_RESET = None
+
+
+def set_ngram_pool_reset(fn) -> None:
+    global _NGRAM_POOL_RESET
+    _NGRAM_POOL_RESET = fn
+
+
+def reset_ngram_pool() -> None:
+    if _NGRAM_POOL_RESET is not None:
+        try:
+            _NGRAM_POOL_RESET()
+        except Exception:  # noqa: BLE001 — bench hygiene must never break a run
+            pass
+
+
 # Memory-pressure probe for the n-gram drafter (plan v3, F2.1). The server
 # registers the enforcer's get_pressure_level at startup; the draft wiring
 # shrinks the copy under "soft" pressure and stands down under "hard", so a
