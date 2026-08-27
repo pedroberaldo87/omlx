@@ -2317,6 +2317,40 @@ def _lab_synthetic_drafts(state: "_MtpState", k: int):
     return mx.array(toks, dtype=mx.uint32)
 
 
+_GPUTRACE_PATH = os.environ.get("OMLX_GPUTRACE", "")
+_GPUTRACE_START_AT = 5   # skip warm-up cycles
+_GPUTRACE_STOP_AT = 15   # ~10 verify cycles of decode
+_gputrace_cycle = 0
+_gputrace_state = "idle"
+
+
+def _gputrace_tick() -> None:
+    """OMLX_GPUTRACE=<path.gputrace>: capture ~10 decode cycles (E2 tooling).
+
+    Requires launching with MTL_CAPTURE_ENABLED=1; the file must not exist.
+    Diagnostic only — the capture wraps the existing eval, no extra barrier.
+    """
+    global _gputrace_cycle, _gputrace_state
+    if not _GPUTRACE_PATH or _gputrace_state == "done":
+        return
+    import mlx.core as mx
+
+    _gputrace_cycle += 1
+    try:
+        if _gputrace_state == "idle" and _gputrace_cycle >= _GPUTRACE_START_AT:
+            mx.metal.start_capture(_GPUTRACE_PATH)
+            _gputrace_state = "capturing"
+            logger.info("gputrace: capture started -> %s", _GPUTRACE_PATH)
+        elif _gputrace_state == "capturing" and _gputrace_cycle >= _GPUTRACE_STOP_AT:
+            mx.metal.stop_capture()
+            _gputrace_state = "done"
+            logger.info("gputrace: capture stopped (%d cycles)",
+                        _GPUTRACE_STOP_AT - _GPUTRACE_START_AT)
+    except Exception:
+        logger.warning("gputrace capture failed", exc_info=True)
+        _gputrace_state = "done"
+
+
 _NGRAM_POOL = None
 
 
@@ -2394,6 +2428,8 @@ def _chain_next_drafts(
     single sync resolves them.
     """
     import mlx.core as mx
+
+    _gputrace_tick()
 
     if _NGRAM_LAB == "cost":
         k = _ngram_lab_k()

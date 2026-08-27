@@ -126,9 +126,12 @@ def _worker(run: dict, port: int, api_key: str) -> None:
 
     flip = run.get("flip", "enabled")
     original = is_ngram_spec_enabled()
-    original_freq = get_ngram_spec_params()[3]
+    original_match, _, _, original_freq = get_ngram_spec_params()
     if flip == "freq_rule":
         arms = (("freq_on", True), ("freq_off", False))
+    elif flip == "match_len":
+        # llama.cpp's ngram-mod lookup length (24) vs the v3 default (16)
+        arms = (("match_24", 24), ("match_16", 16))
     else:
         arms = (("ngram_on", True), ("ngram_off", False))
     novel = run.get("workload") == "novel"
@@ -140,6 +143,9 @@ def _worker(run: dict, port: int, api_key: str) -> None:
             if flip == "freq_rule":
                 # drafter stays ON; only the copy-length rule flips
                 set_ngram_spec(True, freq_rule=enabled)
+            elif flip == "match_len":
+                # drafter stays ON; only the lookup length flips
+                set_ngram_spec(True, match_len=enabled)
             else:
                 set_ngram_spec(enabled)
             samples = []
@@ -161,7 +167,8 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         run["status"] = "error"
         run["error"] = str(exc)
     finally:
-        set_ngram_spec(original, freq_rule=original_freq)
+        set_ngram_spec(original, match_len=original_match,
+                       freq_rule=original_freq)
 
 
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,
@@ -178,7 +185,7 @@ def start(model_id: str, port: int, api_key: str, repeats: int = 5,
             "model_id": model_id,
             "repeats": max(2, min(int(repeats), 20)),
             "max_tokens": max(64, min(int(max_tokens), 2048)),
-            "flip": flip if flip in ("enabled", "freq_rule") else "enabled",
+            "flip": flip if flip in ("enabled", "freq_rule", "match_len") else "enabled",
             "workload": workload if workload in ("rewrite", "novel") else "rewrite",
             "status": "running",
             "progress": "warmup",
