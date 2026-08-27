@@ -126,12 +126,21 @@ def _worker(run: dict, port: int, api_key: str) -> None:
 
     flip = run.get("flip", "enabled")
     original = is_ngram_spec_enabled()
-    original_match, _, _, original_freq = get_ngram_spec_params()
+    (original_match, original_max, original_min,
+     original_freq) = get_ngram_spec_params()
     if flip == "freq_rule":
         arms = (("freq_on", True), ("freq_off", False))
     elif flip == "match_len":
         # llama.cpp's ngram-mod lookup length (24) vs the v3 default (16)
         arms = (("match_24", 24), ("match_16", 16))
+    elif flip == "draft_max":
+        # llama.cpp's best run used n-max 112 (accept 0.73, mean len 83);
+        # our route clamp is 64 — probe the next step up from 48
+        arms = (("draft_64", 64), ("draft_48", 48))
+    elif flip == "draft_min":
+        # llama.cpp's all-or-nothing: chains shorter than n_min=24 draft
+        # NOTHING, so wide verifies only run on high-confidence copies
+        arms = (("min_24", 24), ("min_4", 4))
     else:
         arms = (("ngram_on", True), ("ngram_off", False))
     novel = run.get("workload") == "novel"
@@ -146,6 +155,10 @@ def _worker(run: dict, port: int, api_key: str) -> None:
             elif flip == "match_len":
                 # drafter stays ON; only the lookup length flips
                 set_ngram_spec(True, match_len=enabled)
+            elif flip == "draft_max":
+                set_ngram_spec(True, draft_max=enabled)
+            elif flip == "draft_min":
+                set_ngram_spec(True, draft_min=enabled)
             else:
                 set_ngram_spec(enabled)
             samples = []
@@ -168,6 +181,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         run["error"] = str(exc)
     finally:
         set_ngram_spec(original, match_len=original_match,
+                       draft_max=original_max, draft_min=original_min,
                        freq_rule=original_freq)
 
 
@@ -185,7 +199,8 @@ def start(model_id: str, port: int, api_key: str, repeats: int = 5,
             "model_id": model_id,
             "repeats": max(2, min(int(repeats), 20)),
             "max_tokens": max(64, min(int(max_tokens), 2048)),
-            "flip": flip if flip in ("enabled", "freq_rule", "match_len") else "enabled",
+            "flip": (flip if flip in ("enabled", "freq_rule", "match_len",
+                                      "draft_max", "draft_min") else "enabled"),
             "workload": workload if workload in ("rewrite", "novel") else "rewrite",
             "status": "running",
             "progress": "warmup",
