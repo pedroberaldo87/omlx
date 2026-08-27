@@ -376,3 +376,94 @@ def test_pool_chain_gate_discards_short_chain():
                            chain=True, chain_min=16, chain_max=32)
     pool.feed([1, 2, 3, 4, 5, 6])
     assert pool.lookup_suffix([1, 2, 3, 4]) is None
+
+
+# --- plan v5, F3.1: patient brake -----------------------------------------
+
+
+def _served(src):
+    got = src.lookup()
+    assert got is not None
+    return got
+
+
+def test_patient_resets_on_5th_bad_round_not_4th():
+    src = NGramDraftSource(match_len=4, draft_max=8, draft_min=2, patient=True)
+    a = [1, 2, 3, 4]
+    src.extend(a + [5, 6, 7, 8] + a)
+    for _ in range(4):                       # 4 rodadas ruins: nada de reset
+        _served(src)
+        src.feedback(0)                      # 0 < 25% do servido
+    assert len(src) > 0 and src._bad_rounds == 4
+    _served(src)
+    src.feedback(0)                          # a 5ª reseta o índice inteiro
+    assert len(src) == 0
+    assert src._bad_rounds == 0 and src._fails == {}
+
+
+def test_patient_good_round_clears_counter():
+    src = NGramDraftSource(match_len=4, draft_max=8, draft_min=2, patient=True)
+    a = [1, 2, 3, 4]
+    src.extend(a + [5, 6, 7, 8] + a)
+    for _ in range(4):
+        _served(src)
+        src.feedback(0)
+    got = _served(src)
+    src.feedback(len(got))                   # rodada boa zera o contador
+    assert src._bad_rounds == 0 and len(src) > 0
+
+
+def test_patient_off_keeps_freeze_intact():
+    # off-state: o freeze por região atual segue byte a byte
+    src = NGramDraftSource(match_len=4, draft_max=6, draft_min=2)
+    a = [1, 2, 3, 4]
+    src.extend(a + [9, 9] + a)
+    assert src.lookup() is not None
+    src.feedback(0)
+    src.feedback(0)
+    assert any(v >= 2 for v in src._fails.values())   # congelou
+    assert len(src) > 0                               # e nada de reset
+
+
+# --- plan v5, F4.1: candidate margin --------------------------------------
+
+
+def test_margin_silences_50_50_and_serves_3_1():
+    # o contexto [9,9]+a é idêntico nas duas ocorrências, então TODAS as
+    # janelas da cascata (6, 4, 2) veem a mesma ambiguidade — sem isso a
+    # janela longa desambigua sozinha e serve com razão
+    amb = NGramDraftSource(match_len=4, draft_max=8, draft_min=2, margin=True)
+    a = [9, 9, 1, 2, 3, 4]
+    # (…1,2,3,4) seguido 1x de 50 e 1x de 60 → 50/50 em toda janela
+    amb.extend(a + [50, 7, 7, 7] + a + [60, 7, 7, 7] + a)
+    assert amb.lookup() is None
+
+    dom = NGramDraftSource(match_len=4, draft_max=8, draft_min=2, margin=True)
+    # seguido 1x de 60 e 3x de 50 → dominante 3 >= 2*(4-3): palpita,
+    # e a cópia segue a ocorrência MAIS RECENTE (uma das de 50)
+    seq = []
+    for nxt in (60, 50, 50, 50):
+        seq += a + [nxt, 7, 7, 7]
+    dom.extend(seq + a)
+    got = dom.lookup()
+    assert got is not None and got[0] == 50
+
+
+def test_margin_off_state_intact():
+    hist = [1, 2, 3, 4, 50, 9, 9, 9, 1, 2, 3, 4, 60, 9, 9, 9, 1, 2, 3, 4]
+    off = NGramDraftSource(match_len=4, draft_max=8, draft_min=2)
+    on_data_off_knob = NGramDraftSource(match_len=4, draft_max=8, draft_min=2,
+                                        margin=False)
+    off.extend(hist)
+    on_data_off_knob.extend(hist)
+    assert off.lookup() == on_data_off_knob.lookup()
+    assert off.lookup() is not None           # o 50/50 é servido sem o knob
+
+
+def test_margin_pool_gate_matches_drafter():
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=8, draft_min=2, margin=True)
+    a = [1, 2, 3, 4]
+    pool.feed(a + [50, 9, 9, 9] + a + [60, 9, 9, 9])
+    assert pool.lookup_suffix(a) is None      # 50/50: o pool também silencia

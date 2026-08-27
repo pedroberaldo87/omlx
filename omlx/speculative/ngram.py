@@ -56,6 +56,8 @@ class NGramDraftSource:
         draft_min: int = 4,
         freq_rule: bool = False,
         chain: bool = False,
+        patient: bool = False,
+        margin: bool = False,
         chain_min: int = 16,
         chain_max: int = 64,
     ):
@@ -82,6 +84,20 @@ class NGramDraftSource:
         self.chain = bool(chain)
         self.chain_min = int(chain_min)
         self.chain_max = int(chain_max)
+        # Patient brake (plan v5, F3.1): behind the knob, the per-key freeze
+        # is replaced by one counter of consecutive bad rounds — the index
+        # resets whole on the 5th round with acceptance under 25%, instead
+        # of silencing productive regions after 2 failures.
+        self.patient = bool(patient)
+        self._bad_rounds = 0
+        self._last_len = 0
+        # Candidate margin (plan v5, F4.1): per key, up to 4 next-tokens
+        # with counts; without a dominant candidate at 2x the sum of the
+        # rivals, the key does not start a chain that step.
+        self.margin = bool(margin)
+        self._next: Dict[int, Dict[tuple, Dict[int, int]]] = {
+            n: {} for n in self.windows
+        }
         self._tokens: List[int] = []
         # per window size: gram-ending-at-p -> p, plus the previous holder
         # so the suffix's own registration never shadows what lookup needs
@@ -106,6 +122,10 @@ class NGramDraftSource:
     _FREEZE_AT = 2
     # freq_rule: this many earlier occurrences of the suffix buy draft_max
     _STRONG_AT = 3
+    # patient brake (v5 F3.1): reset the index on the Nth consecutive round
+    # with acceptance under this share of the served draft
+    _PATIENT_ROUNDS = 5
+    _PATIENT_ACCEPT = 0.25
 
     def __len__(self) -> int:
         return len(self._tokens)
@@ -125,6 +145,18 @@ class NGramDraftSource:
                     last[key] = p
                     cnt = self._count[n]
                     cnt[key] = cnt.get(key, 0) + 1
+                if self.margin and p >= n:
+                    # v5 F4.1: register this token as a next-token candidate
+                    # of the gram that precedes it, up to 4 distinct rivals.
+                    # ponytail: a 5th distinct candidate is ignored (no
+                    # eviction); such a key is ambiguous far before that.
+                    key_prev = tuple(toks[p - n : p])
+                    cand = self._next[n].setdefault(key_prev, {})
+                    ti = toks[p]
+                    if ti in cand:
+                        cand[ti] += 1
+                    elif len(cand) < 4:
+                        cand[ti] = 1
 
     def _copy_cap(self, window: int, reps: Optional[int] = None) -> int:
         # A short-window match is weaker evidence: cap its copy at the
@@ -147,6 +179,30 @@ class NGramDraftSource:
         # Earlier occurrences of the gram, excluding the registration of
         # the suffix now being looked up (extend already counted it).
         return max(0, self._count[window].get(key, 0) - 1)
+
+    def _ambiguous(self, window: int, key: tuple) -> bool:
+        # v5 F4.1: a key without a dominant next-token (2x the sum of the
+        # rivals) buys an expensive verify with no evidence — skip it.
+        cand = self._next[window].get(key)
+        if not cand or len(cand) < 2:
+            return False
+        top = max(cand.values())
+        return top < 2 * (sum(cand.values()) - top)
+
+    def _reset_index(self) -> None:
+        # v5 F3.1: the patient brake drops the WHOLE index — history, maps,
+        # freezes — instead of silencing regions early; the history rebuilds
+        # from the tokens that follow.
+        self._tokens.clear()
+        for n in self.windows:
+            self._last[n].clear()
+            self._prev[n].clear()
+            self._count[n].clear()
+            self._next[n].clear()
+        self._fails.clear()
+        self._last_key = None
+        self._last_region = ()
+        self._bad_rounds = 0
 
     def _walk(self, entry_p: int, fence: Optional[int] = None) -> List[int]:
         """Chained walk from an entry match (plan v5, F1.1).
@@ -192,6 +248,8 @@ class NGramDraftSource:
             key = tuple(toks[end - n + 1 :])
             if self._fails.get(key, 0) >= self._FREEZE_AT:
                 continue
+            if self.margin and self._ambiguous(n, key):
+                continue
             p = self._last[n].get(key)
             if p == end:
                 p = self._prev[n].get(key)
@@ -207,6 +265,7 @@ class NGramDraftSource:
                 self.hits += 1
                 self.drafted_tokens += len(cont)
                 self._last_key = key
+                self._last_len = len(cont)
                 # punish only the entry key (plan v5, F1.1): the walk is
                 # index-guided, so the entry is the only decision to blame
                 self._last_region = (key,)
@@ -217,6 +276,7 @@ class NGramDraftSource:
             self.hits += 1
             self.drafted_tokens += len(cont)
             self._last_key = key
+            self._last_len = len(cont)
             # Freezing must silence the REGION, not just the serving key:
             # otherwise the cascade re-offers the same bad copy through a
             # shorter window. Remember every window's key for this suffix.
@@ -232,6 +292,18 @@ class NGramDraftSource:
         """Report how many tokens of the last served copy were accepted."""
         self.accepted_tokens += int(accepted)
         if self._last_key is None:
+            return
+        if self.patient:
+            # v5 F3.1: one counter of consecutive bad rounds replaces the
+            # per-key freeze; the 5th round under 25% acceptance resets the
+            # whole index. A single good round clears the counter.
+            served = self._last_len
+            if served > 0 and accepted < self._PATIENT_ACCEPT * served:
+                self._bad_rounds += 1
+                if self._bad_rounds >= self._PATIENT_ROUNDS:
+                    self._reset_index()
+            else:
+                self._bad_rounds = 0
             return
         region = getattr(self, "_last_region", (self._last_key,))
         if accepted < self.draft_min:
@@ -263,7 +335,8 @@ class SharedNGramPool:
 
     def __init__(self, match_len: int = 16, draft_max: int = 16,
                  draft_min: int = 4, freq_rule: bool = False,
-                 chain: bool = False, chain_min: int = 16,
+                 chain: bool = False, patient: bool = False,
+                 margin: bool = False, chain_min: int = 16,
                  chain_max: int = 64, max_tokens: int = 65536):
         # ponytail: global lock + full rebuild on trim; per-shard locks and
         # incremental eviction only if contention ever shows up in profiles
@@ -271,7 +344,7 @@ class SharedNGramPool:
 
         self._lock = threading.Lock()
         self._args = (match_len, draft_max, draft_min, freq_rule,
-                      chain, chain_min, chain_max)
+                      chain, patient, margin, chain_min, chain_max)
         self._src = NGramDraftSource(*self._args)
         self.max_tokens = int(max_tokens)
 
@@ -301,6 +374,10 @@ class SharedNGramPool:
                 if len(suffix) < n or len(toks) < n:
                     continue
                 key = tuple(int(t) for t in suffix[-n:])
+                if src.margin and src._ambiguous(n, key):
+                    # v5 F4.1: the same entry gate as the per-request path —
+                    # a rule living only in one of them measures old code
+                    continue
                 p = src._last[n].get(key)
                 if p is None or p == len(toks) - 1:
                     p = src._prev[n].get(key)
