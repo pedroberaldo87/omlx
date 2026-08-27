@@ -116,6 +116,27 @@ def get_ngram_spec_params() -> tuple:
     return _NGRAM_SPEC_PARAMS
 
 
+# Memory-pressure probe for the n-gram drafter (plan v3, F2.1). The server
+# registers the enforcer's get_pressure_level at startup; the draft wiring
+# shrinks the copy under "soft" pressure and stands down under "hard", so a
+# wide verify never pushes the process over the Metal ceiling.
+_NGRAM_PRESSURE_PROBE = None
+
+
+def set_ngram_pressure_probe(probe) -> None:
+    global _NGRAM_PRESSURE_PROBE
+    _NGRAM_PRESSURE_PROBE = probe
+
+
+def get_ngram_pressure_level() -> str:
+    if _NGRAM_PRESSURE_PROBE is None:
+        return "ok"
+    try:
+        return _NGRAM_PRESSURE_PROBE()
+    except Exception:  # noqa: BLE001 — telemetry probe must never break decode
+        return "ok"
+
+
 def apply_mlx_lm_mtp_patch() -> bool:
     """Apply the model-side and BatchGenerator monkey-patches.
 

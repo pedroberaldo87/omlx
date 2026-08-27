@@ -7178,6 +7178,51 @@ async def get_active_benchmark(is_admin: bool = Depends(require_admin)):
     }
 
 
+@router.post("/api/bench/spec-ab/start")
+async def start_spec_ab(
+    request: Request,
+    is_admin: bool = Depends(require_admin),
+):
+    """A/B do n-gram lookup drafting: N runs com o drafter ligado, N desligado,
+    mesma carga de reescrita de código, média e desvio de tok/s por braço.
+    O toggle é global de processo lido a cada ciclo — os braços viram ao vivo,
+    sem recarregar o engine (plano v3, F1.3)."""
+    from . import spec_ab
+
+    body = await request.json()
+    model_id = body.get("model_id")
+    if not model_id:
+        raise HTTPException(status_code=400, detail="model_id is required")
+    state = _get_server_state()
+    port = getattr(getattr(state, "settings", None), "server", None)
+    port = getattr(port, "port", 8000) if port is not None else 8000
+    api_key = getattr(getattr(state, "settings", None), "auth", None)
+    api_key = getattr(api_key, "api_key", "") if api_key is not None else ""
+    result = spec_ab.start(
+        model_id,
+        port,
+        api_key,
+        repeats=int(body.get("repeats") or 5),
+        max_tokens=int(body.get("max_tokens") or 400),
+    )
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@router.get("/api/bench/spec-ab/{run_id}/results")
+async def get_spec_ab_results(
+    run_id: str,
+    is_admin: bool = Depends(require_admin),
+):
+    from . import spec_ab
+
+    run = spec_ab.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="spec-ab run not found")
+    return run
+
+
 @router.post("/api/bench/start")
 async def start_benchmark(
     request: Request,

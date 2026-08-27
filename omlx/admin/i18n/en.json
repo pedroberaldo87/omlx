@@ -1137,5 +1137,6 @@
   "modal.model_settings.ngram_spec_match_len": "Match window (tokens)",
   "modal.model_settings.ngram_spec_draft_max": "Max draft length",
   "modal.model_settings.ngram_spec_draft_max_hint": "Verify width is memory-bound; 16 is the safe default on 128 GB. Larger values can exhaust Metal memory on long generations.",
-  "modal.model_settings.ngram_spec_draft_min": "Min draft length"
+  "modal.model_settings.ngram_spec_draft_min": "Min draft length",
+  "status.active_models.ngram_share": "history-copy cycles"
 }

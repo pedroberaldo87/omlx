@@ -2317,6 +2317,56 @@ def _lab_synthetic_drafts(state: "_MtpState", k: int):
     return mx.array(toks, dtype=mx.uint32)
 
 
+_NGRAM_POOL = None
+
+
+def _ngram_shared_pool():
+    """Process-wide cross-request pool (plan v3, F4), created on first use
+    with the same knobs as the per-request source."""
+    global _NGRAM_POOL
+    if _NGRAM_POOL is None:
+        from omlx.speculative.ngram import SharedNGramPool
+
+        from . import get_ngram_spec_params as _ng_p
+
+        _NGRAM_POOL = SharedNGramPool(*_ng_p())
+    return _NGRAM_POOL
+
+
+def _ngram_source_for_cycle(gen_batch, state, committed, procs):
+    """Create-or-fetch the request's n-gram source and feed it this cycle.
+
+    Seeded from the token buffer (full prompt at insert). With logits
+    processors active the buffer also holds every generated token —
+    including this cycle's committed ones — so the seeding call skips the
+    committed extend to keep the splice free of duplicates (plan v3, F3.3).
+    """
+    from omlx.speculative.ngram import NGramDraftSource
+
+    from . import get_ngram_spec_params as _ng_p
+
+    src = getattr(state, "_ngram_src", None)
+    skip_extend = False
+    if src is None:
+        src = NGramDraftSource(*_ng_p())
+        try:
+            seed = gen_batch._token_context[0].tokens.tolist()
+            src.extend(seed)
+            _ngram_shared_pool().feed(seed, new_segment=True)
+            skip_extend = procs is not None
+        except Exception:
+            pass
+        state._ngram_src = src
+    if not skip_extend:
+        toks = committed.tolist()
+        src.extend(toks)
+        try:
+            _ngram_shared_pool().feed(toks, new_segment=False)
+        except Exception:
+            pass
+    return src
+
+
 def _chain_next_drafts(
     gen_batch: Any,
     state: _MtpState,
@@ -2419,22 +2469,26 @@ def _chain_next_drafts(
     from . import is_ngram_spec_enabled as _ng_on, get_ngram_spec_params as _ng_p
 
     if _ng_on():
-        src = getattr(state, "_ngram_src", None)
-        if src is None:
-            from omlx.speculative.ngram import NGramDraftSource
-
-            src = NGramDraftSource(*_ng_p())
-            try:
-                # Seed with the prompt: the token buffer is created from the
-                # full prompt at insert. With logits processors active it may
-                # also hold a couple of already-generated tokens; the one
-                # spurious n-gram entry that creates is harmless.
-                src.extend(gen_batch._token_context[0].tokens.tolist())
-            except Exception:
-                pass
-            state._ngram_src = src
-        src.extend(committed.tolist())
+        src = _ngram_source_for_cycle(gen_batch, state, committed, procs)
         cont = src.lookup()
+        if cont is None and len(src) >= 8:
+            # Cross-request fallback (plan v3, F4): another request may have
+            # seen this suffix — an agent loop re-sending the same file.
+            try:
+                cont = _ngram_shared_pool().lookup_suffix(src._tokens[-24:])
+            except Exception:
+                cont = None
+        if cont is not None:
+            # Memory pressure gate (plan v3, F2.1): "soft" halves the copy,
+            # "hard" stands the drafter down for this cycle — the k=32 OOM
+            # from the gate run happened exactly under this kind of squeeze.
+            from . import get_ngram_pressure_level
+
+            level = get_ngram_pressure_level()
+            if level == "hard":
+                cont = None
+            elif level == "soft" and len(cont) > 8:
+                cont = cont[:8]
         if cont is not None:
             state._ngram_cycle = True
             state.stats.ngram_cycles += 1
@@ -2565,6 +2619,9 @@ def _post_init_mtp(gen_batch: Any) -> None:
         # are the first draft's distribution; the rest of the chain follows.
         mx.eval(main_tok, next_main_tok)
         state = _MtpState(uid=gen_batch.uids[0])
+        from .spec_stats import model_identity_keys
+
+        state.stats.model_keys = model_identity_keys(gen_batch.model)
         state.chain = True
         state.depth = depth
         state.head_clone = head_clone
@@ -2902,7 +2959,9 @@ def _log_mtp_stats(uid: Any, stats: "_MtpStats", finish_reason: str) -> None:
     from . import spec_stats as _spec_stats
 
     try:
-        _spec_stats.record(stats, finish_reason)
+        _spec_stats.record(
+            stats, finish_reason, keys=getattr(stats, "model_keys", None)
+        )
     except Exception:  # noqa: BLE001 — telemetry must never break emit paths
         pass
     total_emits = (

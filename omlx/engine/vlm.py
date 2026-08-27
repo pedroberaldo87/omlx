@@ -1394,10 +1394,15 @@ class VLMBatchedEngine(BaseEngine):
         models when several are loaded at once).
         """
         try:
-            from ..patches.mlx_lm_mtp.spec_stats import get_speculation_stats
+            from ..patches.mlx_lm_mtp.spec_stats import (
+                get_speculation_stats,
+                model_identity_keys,
+            )
         except Exception:  # noqa: BLE001
             return None
-        return get_speculation_stats()
+        core_model = getattr(getattr(self, "_engine", None), "model", None)
+        candidates = model_identity_keys(core_model) if core_model is not None else None
+        return get_speculation_stats(candidates)
 
     def __init__(
         self,
