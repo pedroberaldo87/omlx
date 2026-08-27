@@ -404,3 +404,25 @@ async def test_disabling_mtp_sweeps_ngram_rider():
 
     assert settings.mtp_enabled is False
     assert settings.ngram_spec_enabled is False
+
+
+@pytest.mark.asyncio
+async def test_ngram_chain_round_trips_through_the_route():
+    # v5 F1.4: vermelho se ngram_spec_chain nao existir na rota (silent-drop
+    # do ModelSettingsRequest) ou nao for atribuido ao settings
+    pool, entry = _failed_pool()
+    settings = ModelSettings(mtp_enabled=True, ngram_spec_enabled=True)
+
+    await _update_settings(
+        pool,
+        settings,
+        admin_routes.ModelSettingsRequest(ngram_spec_chain=True),
+    )
+    assert settings.ngram_spec_chain is True
+
+    await _update_settings(
+        pool,
+        settings,
+        admin_routes.ModelSettingsRequest(ngram_spec_chain=False),
+    )
+    assert settings.ngram_spec_chain is False

@@ -315,6 +315,7 @@ class ModelSettings:
     ngram_spec_draft_max: Optional[int] = None  # None = default 16
     ngram_spec_draft_min: Optional[int] = None  # None = default 4
     ngram_spec_freq_rule: bool = False  # copy length follows occurrence count
+    ngram_spec_chain: bool = False  # chained walk stitching occurrences (v5 F1)
 
     # VLM MTP speculative decoding via external MTP drafter (mlx-vlm f96138e+).
     # Supported drafter types: gemma4_assistant (for Gemma 4 VLMs), qwen3_5_mtp

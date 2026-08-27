@@ -1140,5 +1140,7 @@
   "modal.model_settings.ngram_spec_draft_min": "Min draft length",
   "status.active_models.ngram_share": "history-copy cycles",
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
-  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule."
+  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
+  "modal.model_settings.ngram_spec_chain": "Цепной обход черновика",
+  "modal.model_settings.ngram_spec_chain_hint": "Вместо одной блочной копии за цикл черновик растёт токен за токеном, повторно сверяясь с индексом и сшивая вхождения в более длинные черновики (обход ngram-mod из llama.cpp). Цепочки короче порога ничего не предлагают."
 }

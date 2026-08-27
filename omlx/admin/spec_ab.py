@@ -29,7 +29,8 @@ _LOCK = threading.Lock()
 # measured "gain" between them is pure noise, which anchors the decision
 # threshold for every real flip. An unknown flip is an error, never a silent
 # fallback to "enabled" — that ran a whole benchmark measuring the wrong knob.
-_FLIPS = ("enabled", "none", "freq_rule", "match_len", "draft_max", "draft_min")
+_FLIPS = ("enabled", "none", "freq_rule", "match_len", "draft_max",
+          "draft_min", "chain")
 
 _CODE = '''def process_orders(orders):
     total = 0
@@ -134,7 +135,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     flip = run.get("flip", "enabled")
     original = is_ngram_spec_enabled()
     (original_match, original_max, original_min,
-     original_freq) = get_ngram_spec_params()
+     original_freq, original_chain) = get_ngram_spec_params()
     if flip == "freq_rule":
         arms = (("freq_on", True), ("freq_off", False))
     elif flip == "match_len":
@@ -148,6 +149,9 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         # llama.cpp's all-or-nothing: chains shorter than n_min=24 draft
         # NOTHING, so wide verifies only run on high-confidence copies
         arms = (("min_24", 24), ("min_4", 4))
+    elif flip == "chain":
+        # v5 F1: chained walk stitching occurrences vs the block copy
+        arms = (("chain_on", True), ("chain_off", False))
     elif flip == "none":
         # two identical arms on the untouched config: the "gain" between
         # them is the noise floor (plan v5, F0.3)
@@ -171,6 +175,8 @@ def _worker(run: dict, port: int, api_key: str) -> None:
             set_ngram_spec(True, draft_max=enabled)
         elif flip == "draft_min":
             set_ngram_spec(True, draft_min=enabled)
+        elif flip == "chain":
+            set_ngram_spec(True, chain=enabled)
         else:
             set_ngram_spec(enabled)
 
@@ -212,7 +218,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     finally:
         set_ngram_spec(original, match_len=original_match,
                        draft_max=original_max, draft_min=original_min,
-                       freq_rule=original_freq)
+                       freq_rule=original_freq, chain=original_chain)
 
 
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,

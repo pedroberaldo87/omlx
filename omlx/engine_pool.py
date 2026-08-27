@@ -593,6 +593,7 @@ class EnginePool:
             add("ngram_spec_draft_max", data.get("ngram_spec_draft_max"))
             add("ngram_spec_draft_min", data.get("ngram_spec_draft_min"))
             add("ngram_spec_freq_rule", data.get("ngram_spec_freq_rule"))
+            add("ngram_spec_chain", data.get("ngram_spec_chain"))
         if entry is not None:
             qwen4_offload, _, _ = self._qwen4_ple_offload_status(entry, settings)
             add("qwen4_ple_ssd_offload", qwen4_offload)

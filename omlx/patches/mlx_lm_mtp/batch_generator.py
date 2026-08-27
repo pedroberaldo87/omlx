@@ -2365,8 +2365,9 @@ def _ngram_shared_pool():
     from . import get_ngram_spec_params as _ng_p
 
     params = tuple(_ng_p())
-    if _NGRAM_POOL is None or _NGRAM_POOL._args != params:
+    if _NGRAM_POOL is None or getattr(_NGRAM_POOL, "_built_from", None) != params:
         _NGRAM_POOL = SharedNGramPool(*params)
+        _NGRAM_POOL._built_from = params
     return _NGRAM_POOL
 
 

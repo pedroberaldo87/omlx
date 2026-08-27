@@ -1140,5 +1140,7 @@
   "modal.model_settings.ngram_spec_draft_min": "Min draft length",
   "status.active_models.ngram_share": "history-copy cycles",
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
-  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule."
+  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
+  "modal.model_settings.ngram_spec_chain": "链式草稿游走",
+  "modal.model_settings.ngram_spec_chain_hint": "不再每周期整块复制，草稿逐 token 增长，反复查询索引并把多处出现缝合成更长的草稿（llama.cpp 的 ngram-mod 游走）。短于门槛的链不提交任何草稿。"
 }

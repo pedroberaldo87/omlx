@@ -135,6 +135,7 @@ class ModelSettingsRequest(BaseModel):
     ngram_spec_draft_max: int | None = None
     ngram_spec_draft_min: int | None = None
     ngram_spec_freq_rule: bool | None = None
+    ngram_spec_chain: bool | None = None
     thinking_budget_enabled: bool | None = None
     thinking_budget_tokens: int | None = None
     # TurboQuant KV cache (mlx-vlm backend)
@@ -2842,6 +2843,8 @@ async def update_model_settings(
         )
     if "ngram_spec_freq_rule" in sent:
         current_settings.ngram_spec_freq_rule = bool(request.ngram_spec_freq_rule)
+    if "ngram_spec_chain" in sent:
+        current_settings.ngram_spec_chain = bool(request.ngram_spec_chain)
 
     if "reasoning_parser" in sent:
         current_settings.reasoning_parser = request.reasoning_parser or None

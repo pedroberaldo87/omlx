@@ -1140,5 +1140,7 @@
   "modal.model_settings.ngram_spec_draft_min": "Tamanho mínimo do palpite",
   "status.active_models.ngram_share": "ciclos por cópia",
   "modal.model_settings.ngram_spec_freq_rule": "Palpite proporcional à repetição",
-  "modal.model_settings.ngram_spec_freq_rule_hint": "O tamanho da cópia segue quantas vezes o trecho se repetiu: visto 3+ vezes libera o palpite cheio, visto uma vez copia a metade. Desligado mantém a regra fixa por janela."
+  "modal.model_settings.ngram_spec_freq_rule_hint": "O tamanho da cópia segue quantas vezes o trecho se repetiu: visto 3+ vezes libera o palpite cheio, visto uma vez copia a metade. Desligado mantém a regra fixa por janela.",
+  "modal.model_settings.ngram_spec_chain": "Caminhada encadeada do palpite",
+  "modal.model_settings.ngram_spec_chain_hint": "Em vez de uma cópia de bloco por ciclo, o palpite cresce token a token, reconsultando o índice e costurando ocorrências em palpites mais longos (a caminhada ngram-mod do llama.cpp). Cadeias mais curtas que o portão não palpitam nada."
 }

@@ -84,6 +84,7 @@ MODEL_SPECIFIC_PROFILE_FIELDS = (
     "ngram_spec_draft_max",
     "ngram_spec_draft_min",
     "ngram_spec_freq_rule",
+    "ngram_spec_chain",
     "vlm_mtp_enabled",
     "vlm_mtp_draft_model",
     "vlm_mtp_draft_block_size",

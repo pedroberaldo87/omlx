@@ -293,3 +293,86 @@ def test_reset_hook_registered_by_batch_generator():
     from omlx.patches.mlx_lm_mtp import batch_generator as bg
 
     assert mtp._NGRAM_POOL_RESET is bg._reset_ngram_pool
+
+
+# --- plan v5, F1: chained walk -------------------------------------------
+
+
+def test_chain_stitches_two_occurrences():
+    # F1.1: a caminhada costura duas ocorrencias — o bloco unico copiaria
+    # [5, 9, 9, ...]; a cadeia salta para a ocorrencia mais recente da
+    # chave rolante e colhe [5, 6, 7, 8, ...]
+    src = NGramDraftSource(match_len=4, chain=True, chain_min=2, chain_max=32)
+    hist = [1, 2, 3, 4, 5, 9, 9, 9, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4]
+    src.extend(hist)
+    got = src.lookup()
+    assert got is not None
+    assert got[:4] == [5, 6, 7, 8]          # stitched, not [5, 9, 9, 9]
+    assert src.hits == 1
+
+
+def test_chain_stops_at_history_end():
+    # F1.1: a cadeia para quando o historico acaba — sem loop, sem invencao
+    src = NGramDraftSource(match_len=4, chain=True, chain_min=2, chain_max=32)
+    src.extend([1, 2, 3, 4, 5, 1, 2, 3, 4])
+    got = src.lookup()
+    assert got == [5, 1, 2, 3, 4]
+
+
+def test_chain_respects_chain_max():
+    src = NGramDraftSource(match_len=4, chain=True, chain_min=2, chain_max=3)
+    src.extend([1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4])
+    got = src.lookup()
+    assert got is not None and len(got) == 3
+
+
+def test_chain_punishes_only_entry_key():
+    # F1.1: feedback ruim congela SO a chave de entrada, nunca a regiao
+    src = NGramDraftSource(match_len=4, chain=True, chain_min=2, chain_max=8)
+    src.extend([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4])
+    assert src.lookup() is not None
+    src.feedback(0)
+    assert set(src._fails) == {(1, 2, 3, 4)}
+
+
+def test_chain_gate_discards_short_chain():
+    # F1.2: cadeia menor que chain_min descarta o palpite INTEIRO
+    src = NGramDraftSource(match_len=4, chain=True, chain_min=16, chain_max=32)
+    src.extend([1, 2, 3, 4, 5, 1, 2, 3, 4])   # a cadeia possivel tem 5
+    assert src.lookup() is None
+    assert src.misses == 1 and src.hits == 0
+
+
+def test_chain_off_keeps_block_path_byte_identical():
+    # F1.2: com o knob desligado o caminho de bloco e byte a byte o atual
+    hist = [1, 2, 3, 4, 5, 9, 9, 9, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4]
+    default = NGramDraftSource(match_len=4)
+    default.extend(hist)
+    off = NGramDraftSource(match_len=4, chain=False, chain_min=16, chain_max=64)
+    off.extend(hist)
+    assert off.lookup() == default.lookup()
+    assert off.windows == default.windows
+
+
+def test_pool_chain_stops_at_fence():
+    # F1.3: a cadeia via pool para na cerca — nunca emenda dois pedidos
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=8, draft_min=2,
+                           chain=True, chain_min=2, chain_max=32)
+    doc = [1, 2, 3, 4, 5, 6, 7, 8]
+    pool.feed(doc)                     # pedido 1
+    pool.feed([70, 71, 72, 73])        # pedido 2, atras da cerca
+    got = pool.lookup_suffix([1, 2, 3, 4])
+    assert got == [5, 6, 7, 8]         # para na cerca, nada de 70..73
+    # vermelho se a cadeia existir so no drafter por pedido:
+    assert pool._src.chain is True
+
+
+def test_pool_chain_gate_discards_short_chain():
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=8, draft_min=2,
+                           chain=True, chain_min=16, chain_max=32)
+    pool.feed([1, 2, 3, 4, 5, 6])
+    assert pool.lookup_suffix([1, 2, 3, 4]) is None

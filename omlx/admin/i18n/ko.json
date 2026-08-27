@@ -1140,5 +1140,7 @@
   "modal.model_settings.ngram_spec_draft_min": "Min draft length",
   "status.active_models.ngram_share": "history-copy cycles",
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
-  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule."
+  "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
+  "modal.model_settings.ngram_spec_chain": "체인 드래프트 탐색",
+  "modal.model_settings.ngram_spec_chain_hint": "사이클마다 블록 복사를 하는 대신, 드래프트가 토큰 단위로 자라며 인덱스를 다시 조회해 출현 구간을 이어 붙여 더 긴 드래프트를 만듭니다(llama.cpp의 ngram-mod 워크). 게이트보다 짧은 체인은 아무것도 제안하지 않습니다."
 }

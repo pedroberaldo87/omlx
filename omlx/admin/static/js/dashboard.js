@@ -70,6 +70,7 @@
         'ngram_spec_draft_max',
         'ngram_spec_draft_min',
         'ngram_spec_freq_rule',
+        'ngram_spec_chain',
         'vlm_mtp_enabled',
         'vlm_mtp_draft_model',
         'vlm_mtp_draft_block_size',
@@ -7444,6 +7445,7 @@
                     ngram_spec_draft_max: s.ngram_spec_draft_max ?? null,
                     ngram_spec_draft_min: s.ngram_spec_draft_min ?? null,
                     ngram_spec_freq_rule: s.ngram_spec_freq_rule || false,
+                    ngram_spec_chain: s.ngram_spec_chain || false,
                     mtp_compatible: model?.mtp_compatible === true,
                     mtp_compatibility_reason: model?.mtp_compatibility_reason || '',
                     is_paroquant: model?.is_paroquant === true,
@@ -8431,6 +8433,8 @@
                                     : null,
                                 ngram_spec_freq_rule: !!this.modelSettings.ngram_spec_enabled
                                     && !!this.modelSettings.ngram_spec_freq_rule,
+                                ngram_spec_chain: !!this.modelSettings.ngram_spec_enabled
+                                    && !!this.modelSettings.ngram_spec_chain,
                                 vlm_mtp_enabled: !!this.modelSettings.vlm_mtp_enabled,
                                 vlm_mtp_draft_model: this.modelSettings.vlm_mtp_enabled
                                     ? (this.modelSettings.vlm_mtp_draft_model || null)
@@ -8497,6 +8501,7 @@
                                     mtp_enabled: false,
                                     ngram_spec_enabled: false,
                                     ngram_spec_freq_rule: false,
+                                    ngram_spec_chain: false,
                                     vlm_mtp_enabled: false,
                                     vlm_mtp_draft_model: null,
                                     vlm_mtp_draft_block_size: null,
