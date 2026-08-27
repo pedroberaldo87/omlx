@@ -77,6 +77,45 @@ def get_mtp_depth() -> int:
     return _MTP_DEPTH
 
 
+# n-gram self-speculative drafting (prompt/history lookup). Same
+# construction-time-flag pattern as _MTP_ACTIVE. draft_max defaults to 16:
+# the widest verify this machine sustains under the Metal ceiling with the
+# resident-PLE Qwen3.8 checkpoint (k=32 OOMs past ~60 generated tokens).
+# OMLX_NGRAM_SPEC=1 enables it before the admin-settings plumbing lands.
+import os as _os
+
+_NGRAM_SPEC_ENABLED = _os.environ.get("OMLX_NGRAM_SPEC", "") == "1"
+_NGRAM_SPEC_PARAMS = (
+    int(_os.environ.get("OMLX_NGRAM_SPEC_MATCH", "16")),
+    int(_os.environ.get("OMLX_NGRAM_SPEC_MAX", "16")),
+    int(_os.environ.get("OMLX_NGRAM_SPEC_MIN", "4")),
+)
+
+
+def set_ngram_spec(
+    enabled: bool,
+    match_len: int | None = None,
+    draft_max: int | None = None,
+    draft_min: int | None = None,
+) -> None:
+    global _NGRAM_SPEC_ENABLED, _NGRAM_SPEC_PARAMS
+    _NGRAM_SPEC_ENABLED = bool(enabled)
+    m, dx, dn = _NGRAM_SPEC_PARAMS
+    _NGRAM_SPEC_PARAMS = (
+        int(match_len) if match_len else m,
+        int(draft_max) if draft_max else dx,
+        int(draft_min) if draft_min else dn,
+    )
+
+
+def is_ngram_spec_enabled() -> bool:
+    return _NGRAM_SPEC_ENABLED
+
+
+def get_ngram_spec_params() -> tuple:
+    return _NGRAM_SPEC_PARAMS
+
+
 def apply_mlx_lm_mtp_patch() -> bool:
     """Apply the model-side and BatchGenerator monkey-patches.
 
