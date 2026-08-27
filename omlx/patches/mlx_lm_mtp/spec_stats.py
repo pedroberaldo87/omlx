@@ -66,6 +66,10 @@ def record(stats: Any, finish_reason: str, keys: Optional[set] = None) -> None:
         "draft_accept_rate": (stats.accepts / total_drafted if total_drafted else None),
         "ngram_served_cycles": stats.ngram_cycles,
         "ngram_miss_cycles": stats.ngram_misses,
+        # per-position draft/accept counts (plan v5, F2.2): the A/B preset
+        # diffs these per request to attribute depth telemetry per arm
+        "depth_drafted": list(getattr(stats, "depth_drafted", []) or []),
+        "depth_accepted": list(getattr(stats, "depth_accepted", []) or []),
         "fallback_ar": False,
     }
     keys = set(keys or ())

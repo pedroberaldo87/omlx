@@ -152,3 +152,24 @@ def test_params_restored_after_mid_run_error(monkeypatch):
     assert run["status"] == "error"
     assert mtp.get_ngram_spec_params() == before_params
     assert mtp.is_ngram_spec_enabled() == before_enabled
+
+
+def test_arm_telemetry_accumulates_per_arm(monkeypatch):
+    # v5 F1.4/F2.2: cada braço acumula ciclos, serviço e aceite por
+    # profundidade a partir do "last" do spec_stats (o warmup não snapshota)
+    def _fake_last():
+        return {"cycles": 10, "ngram_served_cycles": 4,
+                "ngram_miss_cycles": 6, "generation_tokens": 30,
+                "accepted_draft_tokens": 12,
+                "depth_drafted": [10, 8], "depth_accepted": [9, 5]}
+
+    monkeypatch.setattr(spec_ab, "_last_request_stats", _fake_last)
+    _stub_requests(monkeypatch)
+    run = _run_dict("none")
+    spec_ab._worker(run, 8000, "k")
+    assert run["status"] == "done"
+    t = run["results"]["null_a"]["telemetry"]
+    assert t["cycles"] == 30                    # 3 pares × 10 ciclos
+    assert t["ngram_served_cycles"] == 12
+    assert t["depth_drafted"] == [30, 24]
+    assert t["depth_accepted"] == [27, 15]

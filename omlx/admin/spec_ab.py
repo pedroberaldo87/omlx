@@ -113,6 +113,36 @@ def _one_request(port: int, api_key: str, model_id: str, max_tokens: int,
     }
 
 
+def _last_request_stats() -> dict:
+    """The just-finished request's spec stats (``last``), or {}."""
+    try:
+        from ..patches.mlx_lm_mtp.spec_stats import get_speculation_stats
+
+        snap = get_speculation_stats()
+        return dict((snap or {}).get("last") or {})
+    except Exception:  # noqa: BLE001 — telemetry must never break the bench
+        return {}
+
+
+def _tele_add(tele: dict, last: dict) -> None:
+    """Fold one request's stats into an arm's telemetry accumulator."""
+    for k in ("cycles", "generation_tokens", "accepted_draft_tokens",
+              "ngram_served_cycles", "ngram_miss_cycles"):
+        try:
+            tele[k] = tele.get(k, 0) + int(last.get(k) or 0)
+        except (TypeError, ValueError):
+            pass
+    for k in ("depth_drafted", "depth_accepted"):
+        vals = last.get(k) or []
+        if not isinstance(vals, list):
+            continue
+        acc = tele.setdefault(k, [])
+        if len(acc) < len(vals):
+            acc.extend([0] * (len(vals) - len(acc)))
+        for j, v in enumerate(vals):
+            acc[j] += int(v)
+
+
 def _arm_summary(samples: list[dict]) -> dict:
     rates = [s["tok_s"] for s in samples]
     return {
@@ -202,6 +232,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     novel = run.get("workload") == "novel"
     seq = 0
     samples: dict[str, list[dict]] = {arm: [] for arm, _ in arms}
+    tele: dict[str, dict] = {arm: {} for arm, _ in arms}
     try:
         # warmup: one request outside the tally so both arms start hot
         _one_request(port, api_key, run["model_id"], run["max_tokens"])
@@ -216,6 +247,10 @@ def _worker(run: dict, port: int, api_key: str) -> None:
                 sample = _one_request(port, api_key, run["model_id"],
                                       run["max_tokens"], prompt)
                 samples[arm].append(sample)
+                # v5 F1.4/F2.2: the run is single-flight on an otherwise
+                # idle server, so the model's "last" request stats ARE this
+                # request's — fold them into this arm's telemetry
+                _tele_add(tele[arm], _last_request_stats())
                 run["sequence"].append(arm)
                 run["progress"] = f"pair {i + 1}/{run['repeats']} · {arm}"
                 pair[arm] = sample["tok_s"]
@@ -226,6 +261,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
             run["results"].setdefault("pairs", []).append(pair)
         for arm, _ in arms:
             run["results"][arm] = _arm_summary(samples[arm])
+            run["results"][arm]["telemetry"] = tele[arm]
         on = run["results"][arms[0][0]]["mean_tok_s"]
         off = run["results"][arms[1][0]]["mean_tok_s"]
         if on and off:
