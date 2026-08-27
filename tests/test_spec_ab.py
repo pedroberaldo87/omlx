@@ -105,12 +105,14 @@ def test_params_restored_after_any_flip(monkeypatch, flip):
 
     before_params = mtp.get_ngram_spec_params()
     before_enabled = mtp.is_ngram_spec_enabled()
+    before_hyst = mtp.is_mtp_hysteresis()
     _stub_requests(monkeypatch)
     run = _run_dict(flip)
     spec_ab._worker(run, 8000, "k")
     assert run["status"] == "done"
     assert mtp.get_ngram_spec_params() == before_params
     assert mtp.is_ngram_spec_enabled() == before_enabled
+    assert mtp.is_mtp_hysteresis() == before_hyst
 
 
 def test_worker_zeroes_pool_between_arms(monkeypatch):

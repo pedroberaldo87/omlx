@@ -1896,12 +1896,18 @@ class _DepthController:
     # a hardcoded ratio.
     EXIT_MARGIN = 1.15
     EXIT_STREAK = 16
+    # Acceptance ladder (plan v5, F2.1): full-accept streaks needed to climb
+    # FROM depth d (index d-1). Third-party credential — llama.cpp-style
+    # hysteresis won 3 of 4 model x content cells there — measured on other
+    # models/machines, which is exactly why it ships behind a knob and an A/B.
+    CLIMB_THRESHOLD = (2, 4, 10, 6, 3, 2, 2)
 
     def __init__(
         self,
         max_depth: int,
         marginal_ms: Optional[float] = None,
         exit_margin: Optional[float] = None,
+        hysteresis: bool = False,
     ):
         if marginal_ms:
             self.MARGINAL_MS = float(marginal_ms)
@@ -1910,7 +1916,12 @@ class _DepthController:
                 _STD_TAX_MAX, max(1.0, float(exit_margin))
             )
         self.max_depth = max(1, int(max_depth))
-        self.cur = self.max_depth  # first cycle drafts deep; warmup sweeps down
+        # v5 F2.1: ladder mode replaces the CHOICE (never writes cur from
+        # outside — _best() runs every cycle and would erase that); it
+        # starts shallow and climbs by earned full accepts.
+        self.hysteresis = bool(hysteresis)
+        self._climb_streak = 0
+        self.cur = 1 if self.hysteresis else self.max_depth
         self.p = [0.6] * self.max_depth
         self.t: Dict[int, float] = {}
         self.t_age: Dict[int, float] = {}  # ms since each depth was measured
@@ -1961,6 +1972,24 @@ class _DepthController:
             self.t_age[used] = 0.0
         self._ms_probe += cycle_ms
         self._ms_explore += cycle_ms
+
+        if self.hysteresis:
+            # v5 F2.1: acceptance ladder decides the depth. EMAs above keep
+            # feeding telemetry, but warmup/probes/park never run — the A/B
+            # against the measured controller must not blend the two.
+            if used > 0 and accepted == used:
+                self._climb_streak += 1
+                idx = min(self.cur, len(self.CLIMB_THRESHOLD)) - 1
+                if (self._climb_streak >= self.CLIMB_THRESHOLD[idx]
+                        and self.cur < self.max_depth):
+                    self.cur += 1
+                    self._climb_streak = 0
+            elif used > 0:
+                # pressure: any rejected token steps one rung down
+                self._climb_streak = 0
+                if self.cur > 1:
+                    self.cur -= 1
+            return
 
         if self._speculation_losing():
             self.exit_streak += 1
@@ -2690,12 +2719,15 @@ def _post_init_mtp(gen_batch: Any) -> None:
         state.depth = depth
         state.head_clone = head_clone
         if depth > 1:
+            from . import is_mtp_hysteresis as _hyst_on
+
             state.controller = _DepthController(
                 depth,
                 marginal_ms=getattr(
                     gen_batch.model, "_omlx_mtp_marginal_ms", None
                 ),
                 exit_margin=_effective_loop_tax(gen_batch.model),
+                hysteresis=_hyst_on(),
             )
         primed = _prompt_priming.take_primed(
             gen_batch.model, gen_batch.prompt_cache, main_tok

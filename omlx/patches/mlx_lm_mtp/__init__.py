@@ -122,6 +122,22 @@ def get_ngram_spec_params() -> tuple:
     return _NGRAM_SPEC_PARAMS
 
 
+# Depth-hysteresis mode (plan v5, F2.1): behind this knob the MTP depth
+# comes from an acceptance ladder inside _DepthController instead of the
+# measured-score _best(). Same construction-time-flag pattern as the
+# n-gram knobs; the A/B preset flips it live between arms.
+_MTP_HYSTERESIS = _os.environ.get("OMLX_MTP_HYSTERESIS", "") == "1"
+
+
+def set_mtp_hysteresis(enabled: bool) -> None:
+    global _MTP_HYSTERESIS
+    _MTP_HYSTERESIS = bool(enabled)
+
+
+def is_mtp_hysteresis() -> bool:
+    return _MTP_HYSTERESIS
+
+
 # Shared-pool reset hook (plan v5, F0.5). The A/B preset zeroes the
 # cross-request pool between arms so arm B never serves copies drafted
 # from arm A's history; the batch generator registers the actual reset

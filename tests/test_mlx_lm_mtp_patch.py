@@ -2821,3 +2821,55 @@ class TestLoopTaxHygiene:
         assert tracker.recently_active(3.0)  # just-finished counts
         tracker.clear()
         assert not tracker.recently_active(3.0)
+
+
+# --- plan v5, F2.1: acceptance-ladder hysteresis mode ---------------------
+
+
+def test_ladder_climbs_by_full_accepts():
+    from omlx.patches.mlx_lm_mtp.batch_generator import _DepthController
+
+    c = _DepthController(6, hysteresis=True)
+    assert c.cur == 1                       # a escada nasce rasa
+    c.observe(used=1, accepted=1, cycle_ms=5.0)
+    assert c.cur == 1                       # 1 aceite cheio ainda nao sobe
+    c.observe(used=1, accepted=1, cycle_ms=5.0)
+    assert c.cur == 2                       # 2 aceites cheios sobem de d1
+    for _ in range(4):                      # d2 pede 4
+        c.observe(used=2, accepted=2, cycle_ms=5.0)
+    assert c.cur == 3
+    # teto: nunca passa do max_depth
+    c2 = _DepthController(2, hysteresis=True)
+    for _ in range(20):
+        c2.observe(used=c2.cur, accepted=c2.cur, cycle_ms=5.0)
+    assert c2.cur == 2
+
+
+def test_ladder_descends_on_pressure():
+    from omlx.patches.mlx_lm_mtp.batch_generator import _DepthController
+
+    c = _DepthController(6, hysteresis=True)
+    c.observe(used=1, accepted=1, cycle_ms=5.0)
+    c.observe(used=1, accepted=1, cycle_ms=5.0)
+    assert c.cur == 2
+    c.observe(used=2, accepted=1, cycle_ms=5.0)   # rejeicao = pressao
+    assert c.cur == 1
+    assert c._climb_streak == 0
+
+
+def test_ladder_replaces_best_and_off_state_keeps_it():
+    from omlx.patches.mlx_lm_mtp.batch_generator import _DepthController
+
+    # ligado: _best() nunca decide (a escada substitui a escolha)
+    on = _DepthController(6, hysteresis=True)
+    on._best = lambda: 5
+    for _ in range(10):
+        on.observe(used=on.cur, accepted=0, cycle_ms=5.0)
+    assert on.cur == 1                      # nunca virou 5
+
+    # desligado: o caminho atual segue mandando via _best()
+    off = _DepthController(6)
+    off._best = lambda: 5
+    for _ in range(12):                     # atravessa o warmup (6+3)
+        off.observe(used=off.cur, accepted=off.cur, cycle_ms=5.0)
+    assert off.cur == 5                     # _best() intacto e no comando

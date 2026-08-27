@@ -30,7 +30,7 @@ _LOCK = threading.Lock()
 # threshold for every real flip. An unknown flip is an error, never a silent
 # fallback to "enabled" — that ran a whole benchmark measuring the wrong knob.
 _FLIPS = ("enabled", "none", "freq_rule", "match_len", "draft_max",
-          "draft_min", "chain")
+          "draft_min", "chain", "hysteresis")
 
 _CODE = '''def process_orders(orders):
     total = 0
@@ -127,13 +127,16 @@ def _arm_summary(samples: list[dict]) -> dict:
 def _worker(run: dict, port: int, api_key: str) -> None:
     from ..patches.mlx_lm_mtp import (
         get_ngram_spec_params,
+        is_mtp_hysteresis,
         is_ngram_spec_enabled,
         reset_ngram_pool,
+        set_mtp_hysteresis,
         set_ngram_spec,
     )
 
     flip = run.get("flip", "enabled")
     original = is_ngram_spec_enabled()
+    original_hyst = is_mtp_hysteresis()
     (original_match, original_max, original_min,
      original_freq, original_chain) = get_ngram_spec_params()
     if flip == "freq_rule":
@@ -152,6 +155,9 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     elif flip == "chain":
         # v5 F1: chained walk stitching occurrences vs the block copy
         arms = (("chain_on", True), ("chain_off", False))
+    elif flip == "hysteresis":
+        # v5 F2: acceptance-ladder depth vs the measured controller
+        arms = (("hyst_on", True), ("hyst_off", False))
     elif flip == "none":
         # two identical arms on the untouched config: the "gain" between
         # them is the noise floor (plan v5, F0.3)
@@ -177,6 +183,9 @@ def _worker(run: dict, port: int, api_key: str) -> None:
             set_ngram_spec(True, draft_min=enabled)
         elif flip == "chain":
             set_ngram_spec(True, chain=enabled)
+        elif flip == "hysteresis":
+            # drafter config untouched; only the depth-controller mode flips
+            set_mtp_hysteresis(enabled)
         else:
             set_ngram_spec(enabled)
 
@@ -219,6 +228,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         set_ngram_spec(original, match_len=original_match,
                        draft_max=original_max, draft_min=original_min,
                        freq_rule=original_freq, chain=original_chain)
+        set_mtp_hysteresis(original_hyst)
 
 
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,
