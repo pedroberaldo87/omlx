@@ -3089,6 +3089,23 @@ def _log_mtp_stats(uid: Any, stats: "_MtpStats", finish_reason: str) -> None:
     total_emits = (
         stats.init_emits + stats.draft_emits + stats.bonus_emits + stats.verify_emits
     )
+    # v8 F2.3: com OMLX_PLE_CLOCK=1, publica quanto a consulta da tabela PLE
+    # custou nesta sequência — o suspeito nomeado do custo fixo do ciclo.
+    ple_str = ""
+    if os.environ.get("OMLX_PLE_CLOCK", "") == "1":
+        try:
+            from omlx.patches.mlx_vlm_qwen4_exp_compat.vendor.mlx_vlm.models.qwen4_exp.language import (  # noqa: E501
+                ple_clock_read,
+            )
+
+            _p = ple_clock_read(zerar=True)
+            if _p.get("chamadas"):
+                ple_str = (
+                    f" ple[chamadas={_p['chamadas']} total={_p['segundos']*1000:.1f}ms"
+                    f" por_chamada={_p['ms_por_chamada']:.3f}ms]"
+                )
+        except Exception:  # noqa: BLE001 — diagnóstico nunca quebra o log
+            pass
     total_drafted = sum(stats.depth_drafted) or stats.cycles
     if total_drafted > 0:
         rate_str = f"{stats.accepts / total_drafted * 100:.1f}%"
@@ -3113,7 +3130,7 @@ def _log_mtp_stats(uid: Any, stats: "_MtpStats", finish_reason: str) -> None:
     logger.info(
         "MTP[%s] finish=%s tokens=%d cycles=%d tok/cycle=%.2f accept=%d/%d (%s)%s "
         "emits[init=%d,draft=%d,bonus=%d,verify=%d] "
-        "timing[backbone=%.1fms mtp=%.1fms sample=%.1fms cache=%.1fms]",
+        "timing[backbone=%.1fms mtp=%.1fms sample=%.1fms cache=%.1fms]%s",
         uid,
         finish_reason,
         total_emits,
@@ -3131,6 +3148,7 @@ def _log_mtp_stats(uid: Any, stats: "_MtpStats", finish_reason: str) -> None:
         stats.mtp_head_ms,
         stats.sample_ms,
         stats.cache_ops_ms,
+        ple_str,
     )
 
 

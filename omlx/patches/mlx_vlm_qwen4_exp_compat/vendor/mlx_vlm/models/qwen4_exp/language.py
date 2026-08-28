@@ -7,6 +7,31 @@ import os
 import struct
 import weakref
 from bisect import bisect_right
+from time import perf_counter as _perf_counter
+
+# v8 F2.3: relógio da tabela PLE. O intercepto de ~82 ms por rodada não é
+# tráfego de bytes (a conta dá 21x menos), e o suspeito nomeado é esta consulta:
+# ela força uma sincronia com o host e varre até 128 pedaços em Python, toda
+# rodada. OMLX_PLE_CLOCK=1 acumula o tempo; o total sai pelo helper abaixo.
+_PLE_CLOCK = os.environ.get("OMLX_PLE_CLOCK", "") == "1"
+_PLE_CLOCK_STATE = {"chamadas": 0, "segundos": 0.0}
+
+
+def _ple_clock_add(dt: float) -> None:
+    _PLE_CLOCK_STATE["chamadas"] += 1
+    _PLE_CLOCK_STATE["segundos"] += dt
+
+
+def ple_clock_read(zerar: bool = False) -> dict:
+    """Lê (e opcionalmente zera) o acumulador do relógio da PLE."""
+    fora = dict(_PLE_CLOCK_STATE)
+    fora["ms_por_chamada"] = (
+        fora["segundos"] / fora["chamadas"] * 1000 if fora["chamadas"] else None
+    )
+    if zerar:
+        _PLE_CLOCK_STATE["chamadas"] = 0
+        _PLE_CLOCK_STATE["segundos"] = 0.0
+    return fora
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -1230,6 +1255,14 @@ class ShardedEmbedding(nn.Module):
         self.dims = dims
 
     def __call__(self, indices: mx.array) -> mx.array:
+        _t0 = _perf_counter() if _PLE_CLOCK else 0.0
+        try:
+            return self._lookup(indices)
+        finally:
+            if _PLE_CLOCK:
+                _ple_clock_add(_perf_counter() - _t0)
+
+    def _lookup(self, indices: mx.array) -> mx.array:
         flat = indices.reshape(-1)
         # One tiny host sync avoids scheduling gathers against all 128 giant
         # PLE shards for every token.
