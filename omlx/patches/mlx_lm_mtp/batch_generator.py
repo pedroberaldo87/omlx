@@ -3094,9 +3094,12 @@ def _log_mtp_stats(uid: Any, stats: "_MtpStats", finish_reason: str) -> None:
     ple_str = ""
     if os.environ.get("OMLX_PLE_CLOCK", "") == "1":
         try:
-            from omlx.patches.mlx_vlm_qwen4_exp_compat.vendor.mlx_vlm.models.qwen4_exp.language import (  # noqa: E501
-                ple_clock_read,
-            )
+            # Read the counter from the module the LOADED model actually uses.
+            # The compat patch exposes the vendor tree as mlx_vlm.models.*, so
+            # importing it by its omlx.patches.* path yields a SECOND module
+            # object with its own (always-zero) accumulator — which is why this
+            # probe reported "chamadas=0" for a lookup that runs every cycle.
+            from mlx_vlm.models.qwen4_exp.language import ple_clock_read
 
             _p = ple_clock_read(zerar=True)
             if _p.get("chamadas"):
