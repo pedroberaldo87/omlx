@@ -1224,6 +1224,12 @@ _KNOWN_SLICEABLE_CACHE_TYPES = frozenset(
         "BatchTurboQuantKVCache",
         "ChunkedKVCache",
         "MiniMaxM3KVCache",
+        # v8 F3.7: as duas do qwen4_exp expõem extract/filter (language.py:171
+        # e :312), que é o requisito desta lista — sem elas aqui, cada fronteira
+        # grava um retrato lateral com o KV inteiro junto do estado recorrente
+        # (medido: 63,3% do que vai a disco é KV duplicado e fatiável).
+        "QSAKVCache",
+        "BatchQSAKVCache",
     }
 )
 
