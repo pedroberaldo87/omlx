@@ -2517,7 +2517,7 @@ def _chain_next_drafts(
 
     _gputrace_tick()
 
-    if _NGRAM_LAB == "cost":
+    if _NGRAM_LAB in ("cost", "accept"):
         k = _ngram_lab_k()
         # stats/emit index by state.depth; the controller would fight the
         # fixed k, so pin both for the duration of the lab run.
@@ -3257,6 +3257,20 @@ def _run_verify_cycle_chain(gen_batch: Any, state: _MtpState) -> None:
     elif is_greedy:
         targets = mx.argmax(rows, axis=-1).astype(mx.int32)  # (k+1,)
         matches = (targets[:k] == state.drafts.astype(mx.int32)).astype(mx.int32)
+        if _NGRAM_LAB == "accept":
+            # v8 F4.1: arreio de aceite. Cada posição casa com probabilidade p
+            # (semeada pelo número do ciclo, reprodutível), e o prefixo aceito
+            # continua sendo o produto acumulado — a mesma matemática do verify
+            # real. Varrendo k × p, o ciclo(k) com p=1 menos o ciclo(k) com p=0
+            # dá o preço ISOLADO do rollback do estado recorrente, número que o
+            # projeto nunca teve. Só laboratório: a saída é lixo.
+            _p = float(os.environ.get("OMLX_NGRAM_LAB_RATE", "0.734"))
+            _semente = int(getattr(state.stats, "cycles", 0))
+            _sorteio = [
+                (((_semente * 7919 + j * 104729 + 17) % 10000) / 10000.0) < _p
+                for j in range(k)
+            ]
+            matches = mx.array([1 if x else 0 for x in _sorteio], dtype=mx.int32)
         m_arr = mx.cumprod(matches).sum().reshape(1)
         host = mx.concatenate(
             [m_arr, targets, state.drafts.astype(mx.int32)]

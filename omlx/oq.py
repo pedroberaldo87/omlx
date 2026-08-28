@@ -4277,6 +4277,14 @@ def _is_mtp_protected_tensor(name: str) -> bool:
     # head is tiny and precision-sensitive, so neither is worth compressing.
     if ".markov_head." in name or ".confidence_head." in name:
         return True
+    # v8 F5.1 (higiene, sem medição): a fusão do MTP do qwen4_exp usa outros
+    # nomes — ``fc_embedding``/``fc_hidden`` para as duas entradas, e os pesos
+    # de mistura da hiper-conexão, que entram somados na proposta. São os
+    # mesmos papéis já protegidos acima sob os nomes das outras famílias.
+    if name.endswith((".fc_embedding.weight", ".fc_hidden.weight")):
+        return True
+    if ".hyper_connection_mixer.input_mix_weight" in name:
+        return True
     return False
 
 
