@@ -2368,6 +2368,11 @@ def _lab_synthetic_drafts(state: "_MtpState", k: int):
 
 
 _GPUTRACE_PATH = os.environ.get("OMLX_GPUTRACE", "")
+# OMLX_MTP_TIME_SYNC=1 (v8 F2.4): barreira de diagnóstico que fecha o tempo da
+# cabeça MTP no próprio ciclo. Sem ela, a cabeça só dispara async_eval e o
+# tempo de GPU dela aparece no backbone_ms do ciclo seguinte — a divisão
+# corpo × cabeça do log fica trocada. Ligada, mata o overlap: só medição.
+_MTP_TIME_SYNC = os.environ.get("OMLX_MTP_TIME_SYNC", "") == "1"
 _GPUTRACE_START_AT = 5   # skip warm-up cycles
 _GPUTRACE_STOP_AT = 15   # ~10 verify cycles of decode
 _gputrace_cycle = 0
@@ -3405,6 +3410,15 @@ def _run_verify_cycle_chain(gen_batch: Any, state: _MtpState) -> None:
         prev_buf = gen_batch._token_context[0].tokens
     _chain_next_drafts(gen_batch, state, hidden_rows, committed, prev_buf)
     state.next_main = next_main
+    if _MTP_TIME_SYNC and state.drafts is not None:
+        # v8 F2.4 (diagnóstico, desligado por padrão): a cabeça só dispara
+        # async_eval, então o tempo de GPU dela é cobrado dentro do
+        # backbone_ms do ciclo SEGUINTE. Esta barreira fecha a conta no
+        # próprio ciclo — ao custo de matar o overlap e pagar um round-trip.
+        try:
+            mx.eval(state.drafts)
+        except Exception:  # noqa: BLE001 — diagnóstico nunca quebra decode
+            pass
     state.stats.mtp_head_ms += (time.perf_counter() - t0) * 1000
     if materialize_boundary_emit:
         _materialize_mtp_boundary_emit(gen_batch, state)

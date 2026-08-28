@@ -3515,6 +3515,12 @@ async def create_completion(
                         if model_load_duration > 1.0
                         else None
                     ),
+                    # v8 F2.6: mesmo conserto no caminho de completions.
+                    time_to_first_token=(
+                        round(prefill_duration, 2) if prefill_duration > 0 else None
+                    ),
+                    prompt_eval_duration=round(prefill_duration, 2),
+                    generation_duration=round(gen_duration, 2),
                     total_time=round(elapsed, 2),
                 ),
             ).model_dump_json(exclude_none=True)
@@ -4052,6 +4058,14 @@ async def create_chat_completion(
                         if model_load_duration > 1.0
                         else None
                     ),
+                    # v8 F2.6: o caminho streaming ja publica estes dois, e eles
+                    # sao calculados 80 linhas acima de todo jeito. Sem eles aqui,
+                    # todo consumidor nao-streaming — inclusive o preset A/B
+                    # (spec_ab.py:108) — cai em total_time e cobra o preparo do
+                    # prompt no relogio de decode (medido: 1,62s de 6,69s, 24%).
+                    time_to_first_token=round(ttft, 2) if ttft > 0 else None,
+                    prompt_eval_duration=round(metric_prefill_duration, 2),
+                    generation_duration=round(metric_gen_duration, 2),
                     total_time=round(elapsed, 2),
                 ),
             ).model_dump_json(exclude_none=True)
