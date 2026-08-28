@@ -467,3 +467,38 @@ def test_margin_pool_gate_matches_drafter():
     a = [1, 2, 3, 4]
     pool.feed(a + [50, 9, 9, 9] + a + [60, 9, 9, 9])
     assert pool.lookup_suffix(a) is None      # 50/50: o pool também silencia
+
+
+def test_pool_emenda_commits_de_dois_pedidos_sem_cerca():
+    # v8 F2.5: em lote 2, cada pedido alimenta a pool com new_segment=False a
+    # cada commit (batch_generator.py:2470). Os commits se intercalam e a pool
+    # nao poe cerca entre eles — o historico vira uma costura A,B,A,B.
+    from omlx.speculative.ngram import SharedNGramPool
+
+    pool = SharedNGramPool(match_len=4, draft_max=8, draft_min=2)
+    A = [10, 11, 12, 13]
+    B = [90, 91, 92, 93]
+    pool.feed(A, new_segment=True)          # pedido A entra
+    pool.feed(B, new_segment=True)          # pedido B entra, atras da cerca
+    # dai em diante os dois pedidos commitam alternado, sem cerca:
+    for a_tok, b_tok in zip([14, 15, 16, 17], [94, 95, 96, 97]):
+        pool.feed([a_tok], new_segment=False)
+        pool.feed([b_tok], new_segment=False)
+
+    # o historico da pool agora e ...90,91,92,93,14,94,15,95,16,96,17,97
+    toks = pool._src._tokens
+    fence = SharedNGramPool.FENCE
+    limpos = [t for t in toks if t != fence]
+    # prova da costura: um token de A e seguido por um de B no historico
+    costurado = any(
+        limpos[i] in (14, 15, 16, 17) and limpos[i + 1] in (94, 95, 96, 97)
+        for i in range(len(limpos) - 1)
+    )
+    assert costurado, f"esperava costura A/B no historico da pool: {limpos}"
+
+    # e a consequencia: consultar o sufixo de A devolve continuacao de B
+    got = pool.lookup_suffix([13, 14, 94, 15])
+    if got is not None:
+        assert any(t in (94, 95, 96, 97) for t in got), (
+            "a consulta devolveu tokens do outro pedido: " + repr(got)
+        )
