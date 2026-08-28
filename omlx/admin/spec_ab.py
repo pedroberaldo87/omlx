@@ -127,7 +127,11 @@ def _last_request_stats() -> dict:
 def _tele_add(tele: dict, last: dict) -> None:
     """Fold one request's stats into an arm's telemetry accumulator."""
     for k in ("cycles", "generation_tokens", "accepted_draft_tokens",
-              "ngram_served_cycles", "ngram_miss_cycles"):
+              "ngram_served_cycles", "ngram_miss_cycles",
+              # v8 F2.1: the slots the verify paid for, and the ngram counters
+              "drafted_slots", "ngram_drafted_slots",
+              "ngram_hits", "ngram_lookup_misses", "ngram_drafted_tokens",
+              "ngram_accepted_tokens", "ngram_frozen_keys"):
         try:
             tele[k] = tele.get(k, 0) + int(last.get(k) or 0)
         except (TypeError, ValueError):

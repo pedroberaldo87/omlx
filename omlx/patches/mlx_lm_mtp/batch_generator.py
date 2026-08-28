@@ -675,6 +675,16 @@ class _MtpStats:
     # of those were verified. Depth-1 legacy path fills index 0 only.
     depth_drafted: List[int] = field(default_factory=list)
     depth_accepted: List[int] = field(default_factory=list)
+    # Draft slots actually PAID for in the verify forward (plan v8, F2.1).
+    # depth_drafted stops at the first rejection (it answers "how deep did
+    # this cycle get?"), so it is NOT the denominator of an acceptance rate:
+    # with k=16 and one accepted token it reads 50% where the truth is 6.25%.
+    # drafted_slots counts every position the wide verify carried, which is
+    # the denominator that compares with llama.cpp's 493/672.
+    drafted_slots: int = 0
+    ngram_drafted_slots: int = 0  # of those, the ones served by history copy
+    # copy-drafter counters, folded in at drop time (hits/misses/frozen keys)
+    ngram_src_counters: Optional[dict] = None
     # Cycles the depth controller parked at 0 (plain steps, no speculation).
     zero_cycles: int = 0
     # n-gram lookup drafting: cycles whose draft came from history copy,
@@ -924,6 +934,17 @@ def _drop_mtp_state(
         return None
     if log_stats:
         try:
+            # v8 F2.1: carry the copy drafter's own counters into the record —
+            # they live on the per-request source and are lost with the state.
+            src = getattr(state, "_ngram_src", None)
+            if src is not None:
+                state.stats.ngram_src_counters = {
+                    "hits": getattr(src, "hits", 0),
+                    "misses": getattr(src, "misses", 0),
+                    "drafted_tokens": getattr(src, "drafted_tokens", 0),
+                    "accepted_tokens": getattr(src, "accepted_tokens", 0),
+                    "frozen_keys": getattr(src, "frozen_keys", 0),
+                }
             _log_mtp_stats(
                 getattr(state, "uid", "?"),
                 state.stats,
@@ -3328,6 +3349,10 @@ def _run_verify_cycle_chain(gen_batch: Any, state: _MtpState) -> None:
 
     # --- stats ---
     state.stats.cycles += 1
+    # every slot the wide verify carried — the honest denominator (v8 F2.1)
+    state.stats.drafted_slots += k
+    if cycle_was_ngram:
+        state.stats.ngram_drafted_slots += k
     if len(state.stats.depth_drafted) < state.depth:
         pad = state.depth - len(state.stats.depth_drafted)
         state.stats.depth_drafted.extend([0] * pad)
@@ -3596,6 +3621,7 @@ def _run_verify_cycle_legacy(gen_batch: Any, state: _MtpState) -> None:
     hidden_at_draft = hidden[:, 1:2, :]
 
     state.stats.cycles += 1
+    state.stats.drafted_slots += 1  # legacy path drafts exactly one (v8 F2.1)
     if accept:
         state.stats.accepts += 1
         # --- cache cleanup (timed) ---

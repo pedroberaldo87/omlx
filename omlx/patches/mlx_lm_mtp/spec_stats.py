@@ -31,6 +31,10 @@ _TOTAL_FIELDS = (
     "cycles",
     "ngram_served_cycles",
     "ngram_miss_cycles",
+    # slots the wide verify actually paid for (plan v8, F2.1) — the honest
+    # denominator of the acceptance rate, comparable with llama.cpp's
+    "drafted_slots",
+    "ngram_drafted_slots",
 )
 
 
@@ -54,6 +58,7 @@ def record(stats: Any, finish_reason: str, keys: Optional[set] = None) -> None:
         stats.init_emits + stats.draft_emits + stats.bonus_emits + stats.verify_emits
     )
     total_drafted = sum(stats.depth_drafted) or stats.cycles
+    slots = int(getattr(stats, "drafted_slots", 0) or 0)
     cycles = stats.cycles
     last = {
         "finish_reason": finish_reason,
@@ -63,15 +68,44 @@ def record(stats: Any, finish_reason: str, keys: Optional[set] = None) -> None:
         "acceptance_ratio": (stats.accepts / total_emits) if total_emits else None,
         "tokens_per_cycle": (total_emits / cycles) if cycles else None,
         "accepted_draft_tokens_per_cycle": (stats.accepts / cycles) if cycles else None,
-        "draft_accept_rate": (stats.accepts / total_drafted if total_drafted else None),
+        # v8 F2.1: over every slot the verify paid for — comparable with the
+        # 493/672 of llama.cpp. Falls back to the old denominator only when
+        # the counter is absent (stubbed stats in tests).
+        "draft_accept_rate": (
+            stats.accepts / slots if slots
+            else (stats.accepts / total_drafted if total_drafted else None)
+        ),
+        # the old ratio, kept under its honest name: how deep a cycle got
+        # before the first rejection, never an acceptance rate
+        "accept_depth_ratio": (
+            stats.accepts / total_drafted if total_drafted else None
+        ),
+        "drafted_slots": slots,
+        "ngram_drafted_slots": int(getattr(stats, "ngram_drafted_slots", 0) or 0),
         "ngram_served_cycles": stats.ngram_cycles,
         "ngram_miss_cycles": stats.ngram_misses,
         # per-position draft/accept counts (plan v5, F2.2): the A/B preset
         # diffs these per request to attribute depth telemetry per arm
         "depth_drafted": list(getattr(stats, "depth_drafted", []) or []),
         "depth_accepted": list(getattr(stats, "depth_accepted", []) or []),
+        # v8 F2.1: a parked sequence hands over only its last stretch — the
+        # A/B reads this dict, and reading a partial one as a whole request
+        # silently under-reports every counter in it.
+        "partial": finish_reason == "parked-at-depth-0",
         "fallback_ar": False,
     }
+    # v8 F2.1: the copy drafter writes five counters that production never
+    # read (grep outside ngram.py only hits tests). Surface them when the
+    # sequence carried one.
+    src = getattr(stats, "ngram_src_counters", None)
+    if isinstance(src, dict):
+        last.update({
+            "ngram_hits": src.get("hits", 0),
+            "ngram_lookup_misses": src.get("misses", 0),
+            "ngram_drafted_tokens": src.get("drafted_tokens", 0),
+            "ngram_accepted_tokens": src.get("accepted_tokens", 0),
+            "ngram_frozen_keys": src.get("frozen_keys", 0),
+        })
     keys = set(keys or ())
     with _LOCK:
         entry = next(
@@ -94,6 +128,8 @@ def record(stats: Any, finish_reason: str, keys: Optional[set] = None) -> None:
         t["cycles"] += cycles
         t["ngram_served_cycles"] += stats.ngram_cycles
         t["ngram_miss_cycles"] += stats.ngram_misses
+        t["drafted_slots"] += slots
+        t["ngram_drafted_slots"] += int(getattr(stats, "ngram_drafted_slots", 0) or 0)
 
 
 def get_speculation_stats(candidates: Optional[Iterable] = None) -> Optional[dict]:
