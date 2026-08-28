@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import mmap
 import os
@@ -8,6 +9,8 @@ import struct
 import weakref
 from bisect import bisect_right
 from time import perf_counter as _perf_counter
+
+logger = logging.getLogger("omlx.qwen4_exp")
 
 # v8 F2.3: relógio da tabela PLE. O intercepto de ~82 ms por rodada não é
 # tráfego de bytes (a conta dá 21x menos), e o suspeito nomeado é esta consulta:
@@ -674,6 +677,9 @@ class Qwen4ExpGatedDeltaNet(Qwen3_5GatedDeltaNet):
 class Qwen4ExpQSAIndexer(nn.Module):
     """Select compressed key blocks using Qwen Sparse Attention scores."""
 
+    # Rate-limited counter for the defensive seq clamp in from_projected.
+    _seq_clamp_hits = 0
+
     def __init__(self, config: TextConfig, rotary_emb):
         super().__init__()
         self.n_heads = config.indexer_n_heads
@@ -774,6 +780,23 @@ class Qwen4ExpQSAIndexer(nn.Module):
         selected_blocks = mx.argpartition(scores, kth=-self.block_topk, axis=-1)[
             ..., -self.block_topk :
         ]
+
+        # Defensive seq clamp. Under multi-row decode with the sparse path live,
+        # a stale MTP-verify position can leak into the batched query; the
+        # put_along_axis below then broadcasts that stale seq axis and the tail
+        # concatenate in update_indexer raises, killing every concurrent stream
+        # with a 500. Keep the freshest query rows — the selection is at most
+        # one position stale, which is acceptance-neutral.
+        if selected_blocks.shape[1] != seq_len:
+            Qwen4ExpQSAIndexer._seq_clamp_hits += 1
+            if Qwen4ExpQSAIndexer._seq_clamp_hits % 256 == 1:
+                logger.warning(
+                    "QSA mask seq clamp fired x%d (selected %d rows for seq_len %d)",
+                    Qwen4ExpQSAIndexer._seq_clamp_hits,
+                    selected_blocks.shape[1],
+                    seq_len,
+                )
+            selected_blocks = selected_blocks[:, -seq_len:, :]
 
         # Mark the winners on the block axis and widen that to tokens. Comparing
         # every token against every pick costs seq_len * key_len * block_topk
