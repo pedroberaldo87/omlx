@@ -992,6 +992,14 @@ def _to_batched_cache_layer(cache_obj: Any) -> Any:
         and type(cache_obj) is _TQ_SINGLETON_CACHE_TYPE
     ):
         return cache_obj.merge([cache_obj])
+    # Model-owned conversion, the same interface _patched_make_cache probes for
+    # via has_model_owned_conversion. qwen4_exp's QSAKVCache reaches here when a
+    # second request joins an in-flight one: without this it stays a singleton
+    # and _extend_cache_layer dies on the missing extend(), aborting the whole
+    # batch with "Cache corruption not recoverable after retries".
+    to_batch = getattr(cache_obj, "to_batch", None)
+    if callable(to_batch):
+        return to_batch([0])
     return cache_obj
 
 
