@@ -50,7 +50,7 @@ def _run_dict(flip: str, repeats: int = 3, workload: str = "rewrite") -> dict:
 def _stub_requests(monkeypatch):
     rates = iter([50.0, 100.0, 90.0, 102.0, 88.0, 101.0, 91.0])
 
-    def _fake(port, api_key, model_id, max_tokens, prompt=spec_ab._PROMPT):
+    def _fake(port, api_key, model_id, max_tokens, prompt=spec_ab._PROMPT, sampling=None):
         r = next(rates)
         return {"tokens": 100, "seconds": 1.0, "tok_s": r}
 
@@ -140,7 +140,7 @@ def test_params_restored_after_mid_run_error(monkeypatch):
     calls = {"n": 0}
 
     def _dies_on_third(port, api_key, model_id, max_tokens,
-                      prompt=spec_ab._PROMPT):
+                      prompt=spec_ab._PROMPT, sampling=None):
         calls["n"] += 1
         if calls["n"] >= 3:
             raise RuntimeError("boom")

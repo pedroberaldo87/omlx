@@ -80,15 +80,20 @@ def _novel_prompt(seq: int) -> str:
 
 
 def _one_request(port: int, api_key: str, model_id: str, max_tokens: int,
-                 prompt: str = _PROMPT) -> dict:
+                 prompt: str = _PROMPT, sampling: Optional[dict] = None) -> dict:
+    # Card sampling by default (the operator's standing rule: never greedy
+    # unless the sweep declares it). v8 F4.5 lets a run declare its own
+    # sampling so the temperature curve can be measured — the flip that
+    # separates "cost of sampling" from "loss of draft acceptance".
+    amostra = {"temperature": 1.0, "top_p": 0.95, "top_k": 20}
+    if sampling:
+        amostra.update(sampling)
     body = json.dumps(
         {
             "model": model_id,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_k": 20,
+            **amostra,
         }
     ).encode()
     req = urllib.request.Request(
@@ -239,7 +244,8 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     tele: dict[str, dict] = {arm: {} for arm, _ in arms}
     try:
         # warmup: one request outside the tally so both arms start hot
-        _one_request(port, api_key, run["model_id"], run["max_tokens"])
+        _one_request(port, api_key, run["model_id"], run["max_tokens"],
+                     sampling=run.get("sampling"))
         # interleaved A,B,A,B (plan v5, F0.1): thermal/memory drift lands on
         # both arms instead of accumulating on whichever ran second
         for i in range(run["repeats"]):
@@ -249,7 +255,8 @@ def _worker(run: dict, port: int, api_key: str) -> None:
                 prompt = _novel_prompt(seq) if novel else _PROMPT
                 seq += 1
                 sample = _one_request(port, api_key, run["model_id"],
-                                      run["max_tokens"], prompt)
+                                      run["max_tokens"], prompt,
+                                      sampling=run.get("sampling"))
                 samples[arm].append(sample)
                 # v5 F1.4/F2.2: the run is single-flight on an otherwise
                 # idle server, so the model's "last" request stats ARE this
@@ -284,7 +291,8 @@ def _worker(run: dict, port: int, api_key: str) -> None:
 
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,
           max_tokens: int = 400, flip: str = "enabled",
-          workload: str = "rewrite") -> dict:
+          workload: str = "rewrite",
+          sampling: Optional[dict] = None) -> dict:
     if flip not in _FLIPS:
         raise ValueError(
             f"unknown flip {flip!r}; valid: {', '.join(_FLIPS)}"
@@ -304,6 +312,7 @@ def start(model_id: str, port: int, api_key: str, repeats: int = 5,
             "workload": workload if workload in ("rewrite", "novel") else "rewrite",
             "status": "running",
             "progress": "warmup",
+            "sampling": sampling or None,
             "sequence": [],
             "results": {},
             "started_ts": time.time(),

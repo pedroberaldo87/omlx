@@ -7232,6 +7232,9 @@ async def start_spec_ab(
             max_tokens=int(body.get("max_tokens") or 400),
             flip=str(body.get("flip") or "enabled"),
             workload=str(body.get("workload") or "rewrite"),
+            # v8 F4.5: a corrida pode declarar o próprio sampling para a
+            # varredura de temperatura; sem isso vale o do card.
+            sampling=body.get("sampling") or None,
         )
     except ValueError as exc:
         # unknown flip: refuse loudly instead of silently benchmarking
