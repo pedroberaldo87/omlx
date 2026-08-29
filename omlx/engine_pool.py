@@ -621,6 +621,11 @@ class EnginePool:
         # force a reload when the corresponding feature is disabled.
         mtp_active = bool(data.get("mtp_enabled", False))
         add("mtp_enabled", mtp_active)
+        # Draft depth is read once at engine construction; it must be in the
+        # signature while Lightning MTP is active so a change reloads the
+        # engine, but a stale value must not force one when MTP is off.
+        if mtp_active:
+            add("mtp_num_draft_tokens", data.get("mtp_num_draft_tokens"))
         ngram_active = mtp_active and bool(data.get("ngram_spec_enabled", False))
         add("ngram_spec_enabled", ngram_active)
         if ngram_active:

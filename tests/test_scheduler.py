@@ -1734,6 +1734,13 @@ class TestSchedulerReset:
     def test_reset_clears_state(self, mock_model, mock_tokenizer):
         """Test reset() clears all scheduler state."""
         scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer)
+        scheduler._boundary_snapshot_diagnostics.record(
+            "capture_attempt",
+            request_id="before-reset",
+            token_count=4,
+            block_size=4,
+        )
+        scheduler._last_prefix_cache_lookup = {"request_id": "before-reset"}
 
         # Add some requests
         for i in range(3):
@@ -1751,11 +1758,35 @@ class TestSchedulerReset:
         assert len(scheduler.running) == 0
         assert len(scheduler.requests) == 0
         assert scheduler.batch_generator is None
+        diagnostics = scheduler._boundary_snapshot_diagnostics.snapshot()
+        assert diagnostics["capture_attempts"] == 0
+        assert diagnostics["last_event"] is None
+        assert scheduler._last_prefix_cache_lookup is None
         # reset() only drops Python references (bytes move INTO the pooled
         # cache), so an enforcer reclaim request must survive it: the
         # enforcer never re-issues below hard pressure, and dropping the
         # request anywhere re-opens the 2179 wedge.
         assert scheduler._pending_reclaim_request is True
+
+    def test_cache_recovery_clears_cache_observability(
+        self, mock_model, mock_tokenizer
+    ):
+        scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer)
+        scheduler.block_aware_cache = MagicMock()
+        scheduler._boundary_snapshot_diagnostics.record(
+            "capture_attempt",
+            request_id="before-recovery",
+            token_count=4,
+            block_size=4,
+        )
+        scheduler._last_prefix_cache_lookup = {"request_id": "before-recovery"}
+
+        scheduler._recover_from_cache_error()
+
+        diagnostics = scheduler._boundary_snapshot_diagnostics.snapshot()
+        assert diagnostics["capture_attempts"] == 0
+        assert diagnostics["last_event"] is None
+        assert scheduler._last_prefix_cache_lookup is None
 
     def test_reset_clears_async_store_cache_bookkeeping(
         self, mock_model, mock_tokenizer
@@ -2425,6 +2456,10 @@ class TestSchedulerBoundarySnapshots:
         scheduler._maybe_capture_boundary_snapshot(request, 123)
 
         assert 4 in scheduler._boundary_cache_snapshots["req-boundary"]
+        diagnostics = scheduler._boundary_snapshot_diagnostics.snapshot()
+        assert diagnostics["capture_attempts"] == 1
+        assert diagnostics["captures"] == 1
+        assert diagnostics["captures_memory"] == 1
         snapshot = scheduler._boundary_cache_snapshots["req-boundary"][4]
         # The in-memory fallback pre-extracts eagerly (retaining raw cache
         # objects kept the full KV member of pm-eligible CacheLists alive
@@ -2472,6 +2507,10 @@ class TestSchedulerBoundarySnapshots:
         scheduler._maybe_capture_boundary_snapshot(request, 123)
 
         assert "req-skew" not in scheduler._boundary_cache_snapshots
+        diagnostics = scheduler._boundary_snapshot_diagnostics.snapshot()
+        assert diagnostics["capture_attempts"] == 1
+        assert diagnostics["captures"] == 0
+        assert diagnostics["reasons"]["cache_offset_mismatch"] == 1
 
     @staticmethod
     def _cache_list_layer(leaf_offset: int):
@@ -2548,7 +2587,7 @@ class TestSchedulerBoundarySnapshots:
         assert 4 in scheduler._boundary_cache_snapshots["req-cl-ok"]
 
     def test_cleanup_finished_skips_store_without_boundary_snapshot(
-        self, mock_model, mock_tokenizer
+        self, mock_model, mock_tokenizer, caplog
     ):
         """Snapshot-needing models must not store live non-sliceable state
         when no boundary-aligned snapshot exists (e.g. every capture was
@@ -2574,12 +2613,56 @@ class TestSchedulerBoundarySnapshots:
         scheduler.requests["req-no-snap"] = request
         # No boundary snapshots recorded for this request.
 
-        scheduler._cleanup_finished({"req-no-snap"})
+        with caplog.at_level("INFO", logger="omlx.scheduler"):
+            scheduler._cleanup_finished({"req-no-snap"})
 
         scheduler.block_aware_cache.store_cache.assert_not_called()
         scheduler.block_aware_cache.clear_request_entry.assert_called_with(
             "req-no-snap"
         )
+        diagnostics = scheduler._boundary_snapshot_diagnostics.snapshot()
+        assert diagnostics["override_attempts"] == 1
+        assert diagnostics["override_misses"] == 1
+        assert diagnostics["store_skips"] == 1
+        assert diagnostics["reasons"] == {
+            "boundary_snapshot_unavailable": 1,
+            "no_snapshots": 1,
+        }
+        assert diagnostics["last_event"]["cause"] == "no_snapshots"
+        assert "reason=boundary_snapshot_unavailable" in caplog.text
+
+    def test_prefix_lookup_observation_explains_reprefill_boundary(
+        self, mock_model, mock_tokenizer
+    ):
+        config = SchedulerConfig(paged_cache_block_size=4)
+        scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer, config=config)
+        scheduler._cache_probe_seqs.append(
+            ("stored-a", [1, 2, 3, 4, 5, 6, 7, 8])
+        )
+        request = Request(
+            request_id="lookup-a",
+            prompt="hello",
+            sampling_params=SamplingParams(),
+        )
+        request.prompt_token_ids = [1, 2, 3, 4, 5, 6, 7, 99]
+        request.num_prompt_tokens = 8
+        request.cached_tokens = 4
+
+        scheduler._log_prefix_divergence(request)
+
+        assert scheduler._last_prefix_cache_lookup == {
+            "request_id": "lookup-a",
+            "prompt_tokens": 8,
+            "reused_kv_tokens": 4,
+            "reprefill_tokens": 4,
+            "block_size": 4,
+            "matched_blocks": 1,
+            "reason": "closest_recent_store",
+            "closest_request_id": "stored-a",
+            "common_prefix_tokens": 7,
+            "comparable_tokens": 8,
+            "unreused_common_prefix_tokens": 3,
+        }
 
     def test_cleanup_finished_skips_output_tokens_for_reasoning_model(
         self, mock_model, mock_tokenizer
@@ -3246,6 +3329,76 @@ class TestSchedulerArraysCacheBlockAlignment:
             assert scheduler._qwen35_prefill_floor == 4096
             assert scheduler._prefill_step_size_for_progress(0, 4096) == 4096
             assert scheduler.config.paged_cache_block_size == 4096
+        finally:
+            scheduler.shutdown()
+
+    def test_qwen4_wide_prefill_aligns_block_size_to_4096(
+        self, mock_tokenizer, tmp_path
+    ):
+        with (
+            patch("omlx.settings.get_system_memory", return_value=256 * 1024**3),
+            patch("omlx.custom_kernels.nax.is_nax_available", return_value=False),
+            patch(
+                "omlx.custom_kernels.glm_moe_dsa.fast.is_native_available",
+                return_value=True,
+            ),
+            patch(
+                "omlx.custom_kernels.glm_moe_dsa.fast.has_symbol",
+                return_value=True,
+            ),
+        ):
+            scheduler = Scheduler(
+                model=self._hybrid_model(model_type="qwen4_exp_text"),
+                tokenizer=mock_tokenizer,
+                config=SchedulerConfig(
+                    paged_ssd_cache_dir=str(tmp_path),
+                    paged_cache_block_size=256,
+                ),
+            )
+
+        try:
+            assert scheduler._qwen35_prefill_floor == 4096
+            assert scheduler._prefill_step_size_for_progress(0, 4096) == 4096
+            assert scheduler.config.paged_cache_block_size == 4096
+        finally:
+            scheduler.shutdown()
+
+    @pytest.mark.parametrize(
+        ("native_available", "symbol_available"),
+        [(False, False), (True, False)],
+    )
+    def test_qwen4_keeps_2048_without_sparse_native_path(
+        self,
+        mock_tokenizer,
+        tmp_path,
+        native_available,
+        symbol_available,
+    ):
+        with (
+            patch("omlx.settings.get_system_memory", return_value=256 * 1024**3),
+            patch("omlx.custom_kernels.nax.is_nax_available", return_value=False),
+            patch(
+                "omlx.custom_kernels.glm_moe_dsa.fast.is_native_available",
+                return_value=native_available,
+            ),
+            patch(
+                "omlx.custom_kernels.glm_moe_dsa.fast.has_symbol",
+                return_value=symbol_available,
+            ),
+        ):
+            scheduler = Scheduler(
+                model=self._hybrid_model(model_type="qwen4_exp_text"),
+                tokenizer=mock_tokenizer,
+                config=SchedulerConfig(
+                    paged_ssd_cache_dir=str(tmp_path),
+                    paged_cache_block_size=256,
+                ),
+            )
+
+        try:
+            assert scheduler._qwen35_prefill_floor == 0
+            assert scheduler._prefill_step_size_for_progress(0, 4096) == 2048
+            assert scheduler.config.paged_cache_block_size == 2048
         finally:
             scheduler.shutdown()
 
