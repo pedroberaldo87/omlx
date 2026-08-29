@@ -199,38 +199,6 @@ def get_effective_metal_cap_bytes() -> int:
         return sysctl_cap
     return _get_max_metal_working_set_bytes()
 
-
-def get_memory_capability_ceiling_bytes(
-    memory_guard_tier: str = "balanced",
-    memory_guard_custom_ceiling_bytes: int = 0,
-) -> int:
-    """Return the stable machine/configuration memory ceiling.
-
-    Unlike the enforcer's dynamic ceiling, this deliberately excludes live
-    free/active/inactive page counts.  It answers whether the machine is
-    fundamentally capable of a workload: total RAM minus the tier's static OS
-    reserve, capped by Metal and by an explicit custom ceiling when configured.
-    """
-    tier = (memory_guard_tier or "").strip().lower()
-    if tier not in _STATIC_RESERVE_LARGE:
-        tier = "balanced"
-    try:
-        total = max(0, int(_settings.get_system_memory()))
-    except Exception:  # noqa: BLE001
-        total = 0
-
-    static_ceiling = _static_memory_ceiling_bytes(total, tier)
-
-    candidates = [static_ceiling] if static_ceiling > 0 else []
-    metal_cap = get_effective_metal_cap_bytes()
-    if metal_cap > 0:
-        candidates.append(int(metal_cap))
-    custom_ceiling = max(0, int(memory_guard_custom_ceiling_bytes))
-    if tier == "custom" and custom_ceiling > 0:
-        candidates.append(custom_ceiling)
-    return min(candidates) if candidates else 0
-
-
 def _wired_limit_suggestion_bytes(desired_bytes: int) -> int:
     """Clamp and align a wired-limit recommendation to leave 5% of RAM.
 

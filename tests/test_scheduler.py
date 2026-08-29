@@ -265,6 +265,31 @@ class TestSchedulerStepOutputs:
         assert output.finished_request_ids == {"running"}
         scheduler._cleanup_finished.assert_called_once_with({"running"})
 
+    def test_decode_materializes_cache_at_configured_interval(
+        self, mock_model, mock_tokenizer
+    ):
+        scheduler = Scheduler(model=mock_model, tokenizer=mock_tokenizer)
+
+        scheduler._schedule_waiting = MagicMock(return_value=([], []))
+        scheduler._process_batch_responses = MagicMock(return_value=([], set()))
+        scheduler._cleanup_finished = MagicMock()
+
+        scheduler.running = {"running": MagicMock()}
+        scheduler.batch_generator = MagicMock()
+        scheduler.batch_generator.next_generated.return_value = iter([MagicMock()])
+        scheduler._decode_eval_kv_cache_interval = 256
+        scheduler._tokens_since_kv_cache_eval = 255
+
+        with patch.object(
+            scheduler_module,
+            "_eval_generation_batch_cache",
+            return_value=1,
+        ) as eval_cache:
+            scheduler.step()
+
+        eval_cache.assert_called_once_with(scheduler.batch_generator)
+        assert scheduler._tokens_since_kv_cache_eval == 0
+
 
 class TestSchedulerInitialization:
     """Tests for Scheduler initialization."""
@@ -5751,17 +5776,101 @@ class TestVLMPositionStateClearing:
         request.num_prompt_tokens = 4
         request.cached_tokens = 2048
 
-        scheduler._do_external_prefill(
-            request,
-            tokens=[1, 2, 3, 4],
-            existing_cache=[],
-            vlm_embeds=None,
-        )
+        with patch.object(
+            scheduler_module,
+            "_seed_text_only_mrope_delta_for_cached_prefill",
+            wraps=scheduler_module._seed_text_only_mrope_delta_for_cached_prefill,
+        ) as seed_mrope:
+            scheduler._do_external_prefill(
+                request,
+                tokens=[1, 2, 3, 4],
+                existing_cache=[],
+                vlm_embeds=None,
+            )
 
         model.clear_vlm_position_state.assert_called_once()
+        seed_mrope.assert_called_once_with(model, request)
         seeded = model._language_model._rope_deltas
         assert seeded.shape == (1, 1)
+        assert seeded.dtype == mx.int64
         assert seeded.item() == 0
+
+    def test_cached_text_only_mrope_seed_is_materialized(self):
+        """The exact restore-only seed must be concrete before prefill starts."""
+        language_model = SimpleNamespace(_rope_deltas=mx.array([[123]]))
+        model = SimpleNamespace(_language_model=language_model)
+        request = SimpleNamespace(cached_tokens=2048)
+
+        with patch.object(scheduler_module.mx, "eval") as eval_mock:
+            scheduler_module._seed_text_only_mrope_delta_for_cached_prefill(
+                model, request
+            )
+
+        seeded = language_model._rope_deltas
+        assert seeded.shape == (1, 1)
+        assert seeded.dtype == mx.int64
+        assert eval_mock.call_count == 1
+        assert eval_mock.call_args.args[0] is seeded
+
+    def test_fresh_text_only_prefill_does_not_seed_or_evaluate_mrope(self):
+        previous = mx.array([[123]])
+        language_model = SimpleNamespace(_rope_deltas=previous)
+        model = SimpleNamespace(_language_model=language_model)
+        request = SimpleNamespace(cached_tokens=0)
+
+        with patch.object(scheduler_module.mx, "eval") as eval_mock:
+            scheduler_module._seed_text_only_mrope_delta_for_cached_prefill(
+                model, request
+            )
+
+        assert language_model._rope_deltas is previous
+        eval_mock.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "model",
+        [
+            SimpleNamespace(),
+            SimpleNamespace(_language_model=SimpleNamespace()),
+        ],
+    )
+    def test_text_only_mrope_seed_ignores_models_without_state(self, model):
+        before = vars(model).copy()
+        request = SimpleNamespace(cached_tokens=2048)
+
+        with patch.object(scheduler_module.mx, "eval") as eval_mock:
+            scheduler_module._seed_text_only_mrope_delta_for_cached_prefill(
+                model, request
+            )
+
+        assert vars(model) == before
+        eval_mock.assert_not_called()
+
+    def test_chunked_prefill_initialization_seeds_cached_text_mrope(
+        self, mock_tokenizer
+    ):
+        model = self._make_vlm_model()
+        model._language_model = SimpleNamespace(_rope_deltas=mx.array([[123]]))
+        scheduler = Scheduler(model=model, tokenizer=mock_tokenizer)
+        request = Request(
+            request_id="text-cached-chunked-001",
+            prompt="hello world",
+            sampling_params=SamplingParams(max_tokens=50),
+        )
+        request.cached_tokens = 2048
+
+        with patch.object(
+            scheduler_module,
+            "_seed_text_only_mrope_delta_for_cached_prefill",
+            wraps=scheduler_module._seed_text_only_mrope_delta_for_cached_prefill,
+        ) as seed_mrope:
+            scheduler._begin_prefill(
+                request,
+                tokens=[1, 2, 3, 4],
+                existing_cache=[],
+            )
+
+        model.clear_vlm_position_state.assert_called_once()
+        seed_mrope.assert_called_once_with(model, request)
 
 
 class TestBuildStateMachineStopStrings:
@@ -6289,3 +6398,144 @@ class TestSupportsSkipLmHead:
 
         scheduler = self._scheduler_with_model(NoCall())
         assert scheduler._supports_skip_lm_head() is False
+
+
+class TestFailAllRequestsSnapshotCleanup:
+    """fail_all_requests must release boundary snapshots and block refs.
+
+    Regression tests for the failure-path leak (#3226): every engine-loop
+    error used to strand the failed requests' boundary snapshot sets (live
+    mx.arrays in the in-memory fallback, orphaned dirs on SSD) and their
+    paged-cache reservations until process exit.
+    """
+
+    def _scheduler(self, mock_model, mock_tokenizer):
+        config = SchedulerConfig(paged_cache_block_size=4)
+        return Scheduler(
+            model=mock_model, tokenizer=mock_tokenizer, config=config
+        )
+
+    def test_fail_all_requests_drops_boundary_snapshots(
+        self, mock_model, mock_tokenizer
+    ):
+        scheduler = self._scheduler(mock_model, mock_tokenizer)
+        request = Request(
+            request_id="req-fail",
+            prompt="hello",
+            sampling_params=SamplingParams(),
+        )
+        scheduler.running["req-fail"] = request
+        scheduler.requests["req-fail"] = request
+        scheduler._boundary_cache_snapshots["req-fail"] = {4: [MagicMock()]}
+        store = MagicMock()
+        scheduler._boundary_snapshot_store = store
+
+        with patch.object(
+            scheduler, "_release_paged_cache_for_request"
+        ) as release:
+            failed = scheduler.fail_all_requests()
+
+        assert failed == ["req-fail"]
+        assert "req-fail" not in scheduler._boundary_cache_snapshots
+        store.cleanup_request.assert_called_once_with("req-fail")
+        release.assert_called_once_with("req-fail")
+
+    def test_fail_all_requests_keeps_inflight_store_snapshots(
+        self, mock_model, mock_tokenizer
+    ):
+        scheduler = self._scheduler(mock_model, mock_tokenizer)
+        request = Request(
+            request_id="req-storing",
+            prompt="hello",
+            sampling_params=SamplingParams(),
+        )
+        scheduler.requests["req-storing"] = request
+        scheduler._inflight_store_futures["req-storing"] = MagicMock()
+        scheduler._boundary_cache_snapshots["req-storing"] = {4: None}
+        store = MagicMock()
+        scheduler._boundary_snapshot_store = store
+
+        failed = scheduler.fail_all_requests()
+
+        assert "req-storing" not in failed
+        assert "req-storing" in scheduler._boundary_cache_snapshots
+        store.cleanup_request.assert_not_called()
+
+    def test_drop_helper_tolerates_store_errors(
+        self, mock_model, mock_tokenizer
+    ):
+        scheduler = self._scheduler(mock_model, mock_tokenizer)
+        scheduler._boundary_cache_snapshots["req-x"] = {4: None}
+        store = MagicMock()
+        store.cleanup_request.side_effect = OSError("disk gone")
+        scheduler._boundary_snapshot_store = store
+
+        scheduler._drop_boundary_snapshots_for_request("req-x")
+
+        assert "req-x" not in scheduler._boundary_cache_snapshots
+
+
+class TestPeriodicClearThresholdCap:
+    """The periodic-clear byte gate must stay reachable on big machines."""
+
+    def test_threshold_capped_at_16gib(self, mock_model, mock_tokenizer):
+        scheduler = Scheduler(
+            model=mock_model,
+            tokenizer=mock_tokenizer,
+            config=SchedulerConfig(),
+        )
+        scheduler._memory_limit_bytes = 438 * 1024**3  # 512GB-class soft limit
+        assert scheduler._periodic_clear_threshold_bytes() == 16 * 1024**3
+
+    def test_threshold_small_limits_unchanged(self, mock_model, mock_tokenizer):
+        scheduler = Scheduler(
+            model=mock_model,
+            tokenizer=mock_tokenizer,
+            config=SchedulerConfig(),
+        )
+        scheduler._memory_limit_bytes = 24 * 1024**3
+        assert scheduler._periodic_clear_threshold_bytes() == 8 * 1024**3
+        scheduler._memory_limit_bytes = 0
+        assert scheduler._periodic_clear_threshold_bytes() == 2 * 1024**3
+
+
+class TestHybridDecodeKvEvalDefault:
+    """ArraysCache hybrids get periodic decode KV materialization by default.
+
+    Regression test for the Metal resource-count exhaustion (#3226): the
+    lazily rebound recurrent state of ArraysCache hybrid models (GLM-5.3,
+    Qwen3.5-Next, ...) pins one buffer chain per decode step unless it is
+    periodically materialized; the interval used to default on only for
+    MiniMax by name.
+    """
+
+    class _ArraysCacheStub:
+        pass
+
+    def _model_with_cache(self, cache_objs):
+        model = MagicMock()
+        model.make_cache = MagicMock(return_value=cache_objs)
+        model.config = SimpleNamespace(model_type="test")
+        return model
+
+    def test_arrays_cache_model_defaults_to_256(self, mock_tokenizer):
+        stub = type("ArraysCache", (), {})()
+        model = self._model_with_cache([stub])
+        scheduler = Scheduler(
+            model=model, tokenizer=mock_tokenizer, config=SchedulerConfig()
+        )
+        assert scheduler._decode_eval_kv_cache_interval == 256
+
+    def test_plain_kv_model_defaults_to_0(self, mock_tokenizer):
+        stub = type("KVCache", (), {})()
+        model = self._model_with_cache([stub])
+        scheduler = Scheduler(
+            model=model, tokenizer=mock_tokenizer, config=SchedulerConfig()
+        )
+        assert scheduler._decode_eval_kv_cache_interval == 0
+
+    def test_no_make_cache_defaults_to_0(self, mock_model, mock_tokenizer):
+        scheduler = Scheduler(
+            model=mock_model, tokenizer=mock_tokenizer, config=SchedulerConfig()
+        )
+        assert scheduler._decode_eval_kv_cache_interval == 0
