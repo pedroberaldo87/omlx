@@ -142,7 +142,7 @@ def test_env_false_overrides_auto_for_supported(monkeypatch):
 def test_supported_set_is_pinned():
     """Pin the supported layouts: widening the set is a conscious, reviewed change."""
     assert (
-        frozenset({"minimax_m3_vl", "qwen4_exp"})
+        frozenset({"minimax_m3_vl", "qwen4_exp", "glm5_next"})
         == _STREAM_CALIBRATION_SUPPORTED_MODEL_TYPES
     )
 

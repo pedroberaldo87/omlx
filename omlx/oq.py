@@ -3742,6 +3742,37 @@ def _oqe_calibration_batch_plan(
     )
     hard_cap = 16 if num_experts > 0 else 32
     micro_batch_size = max(1, min(micro_batch_size, hard_cap))
+    # Escape hatch for checkpoints whose real per-sample peak is far above
+    # sample_bytes. The estimate above prices one hidden state per routed
+    # expert; a very wide MoE (GLM-5.3-Flash: 288 experts, top-8) materializes
+    # far more than that inside a layer, and the gap is not small -- measured
+    # here, a micro-batch of 6 peaked at 69.4 GB against an estimate of 402 MB.
+    # The streaming budget check only sees memory left BETWEEN layers, so the
+    # in-layer peak has no other ceiling. Set OMLX_OQ_MAX_MICRO_BATCH when a
+    # run swaps or gets jetsammed; leave it unset for the estimator's choice.
+    env_cap = os.environ.get("OMLX_OQ_MAX_MICRO_BATCH", "").strip()
+    if env_cap:
+        try:
+            requested_cap = int(env_cap)
+        except ValueError:
+            logger.warning(
+                "OMLX_OQ_MAX_MICRO_BATCH=%r is not an integer; ignoring it",
+                env_cap,
+            )
+        else:
+            if requested_cap < 1:
+                logger.warning(
+                    "OMLX_OQ_MAX_MICRO_BATCH=%d must be >= 1; ignoring it",
+                    requested_cap,
+                )
+            elif requested_cap < micro_batch_size:
+                logger.info(
+                    "oQe calibration micro-batch capped at %d by "
+                    "OMLX_OQ_MAX_MICRO_BATCH (estimator chose %d)",
+                    requested_cap,
+                    micro_batch_size,
+                )
+                micro_batch_size = requested_cap
     return {
         "micro_batch_size": int(micro_batch_size),
         "estimated_sample_bytes": int(sample_bytes),
@@ -8298,7 +8329,9 @@ _STREAM_EMBED_KEY = "language_model.model.embed_tokens.weight"
 # keeps the RAM-safe proxy calibration path: the auto rule never streams them,
 # and an explicit stream_calibration request for one fails fast (see
 # _resolve_stream_calibration). Keep this in lockstep with the sourcer above.
-_STREAM_CALIBRATION_SUPPORTED_MODEL_TYPES = frozenset({"minimax_m3_vl", "qwen4_exp"})
+_STREAM_CALIBRATION_SUPPORTED_MODEL_TYPES = frozenset(
+    {"minimax_m3_vl", "qwen4_exp", "glm5_next"}
+)
 
 
 def _stream_calibration_supported(model_type: str | None) -> bool:
@@ -8335,7 +8368,12 @@ def _streamed_text_args(model_path, *, trust_remote_code: bool = False):
         nn.Module.load_weights = orig_load_weights
 
     lm = model.language_model.model
-    args = lm.args
+    # GLM-5.x (glm5_next) names the layer-args attribute `config`; the other
+    # streamed layouts name it `args`. Both carry num_hidden_layers and the
+    # per-layer geometry the bare decoder block is constructed from.
+    args = getattr(lm, "args", None)
+    if args is None:
+        args = lm.config
     layer_cls = type(lm.layers[0])
     del lm, model
     mx.clear_cache()
@@ -8601,6 +8639,40 @@ def _streamed_qwen4_exp_slot_state(calib_data, position_ids, lo: int, hi: int) -
     }
 
 
+def _streamed_glm5_next_state(config: dict, embedded):
+    """GLM-5.3 streaming boundary: hc-tiled inputs and the mask schedule.
+
+    Mirrors the glm5_next branch of _prepare_layer_inputs, which cannot
+    dispatch here: it reads is_linear off live layer objects, and a
+    one-block-at-a-time generator never materializes that list. The same
+    schedule comes from config.text_config.layer_types, and it MUST be
+    indexed per layer -- the 11 sparse-attention layers take the causal
+    array mask while the 34 linear-attention ones take None, so reusing one
+    mask for all of them would calibrate on the wrong forward, silently.
+
+    Returns (tiled_inputs, layer_masks). Unlike qwen4_exp there is no
+    per-micro-batch slot state: the GLM block takes (x, mask, cache) only.
+    """
+    text_config = config.get("text_config") or {}
+    hc_mult = int(text_config.get("hc_mult") or 0)
+    layer_types = list(text_config.get("layer_types") or [])
+    if hc_mult <= 0 or not layer_types:
+        raise RuntimeError(
+            "glm5_next streaming requires text_config.hc_mult and layer_types"
+        )
+    hidden = mx.broadcast_to(
+        embedded[:, :, None, :],
+        (embedded.shape[0], embedded.shape[1], hc_mult, embedded.shape[2]),
+    )
+    hidden = mx.contiguous(hidden)
+    attention_mask = create_attention_mask(embedded, None, return_array=True)
+    layer_masks = [
+        None if layer_type == "linear_attention" else attention_mask
+        for layer_type in layer_types
+    ]
+    return hidden, layer_masks
+
+
 # Default seed for the streaming collector's calibration draw. The permutation
 # inside _load_calibration_data is otherwise unseeded, which would make two
 # streaming runs incomparable.
@@ -8683,6 +8755,16 @@ def _streamed_sensitivity_state(
             "position_ids": _streamed_qwen4_exp_slot_state(
                 calib_data, position_ids, 0, int(calib_data.shape[0])
             ),
+            "scores": {},
+        }
+    if _stream_source_model_type(config) == "glm5_next":
+        inputs, layer_masks = _streamed_glm5_next_state(config, inputs)
+        mx.eval(inputs)
+        return {
+            "inputs": inputs,
+            "mask": None,
+            "layer_masks": layer_masks,
+            "position_ids": {"kind": _GLM5_NEXT_LAYER_STATE_KIND},
             "scores": {},
         }
     inputs, masks, position_ids = _prepare_layer_inputs(
@@ -8842,6 +8924,8 @@ def _collect_imatrix_streaming(
     # for its own sample slice instead of re-running stage 0.
     calib_data = calib_data[:max_samples]
     is_qwen4_exp = _stream_source_model_type(config) == "qwen4_exp"
+    is_glm5_next = _stream_source_model_type(config) == "glm5_next"
+    glm_layer_masks = None
     if is_qwen4_exp:
         # Must precede stage 0: the sanitize-plan discovery inside
         # _streamed_embed_weight needs mlx_vlm.models.qwen4_exp resolvable.
@@ -8884,6 +8968,15 @@ def _collect_imatrix_streaming(
         mx.eval(embedded)
         mask = None
         position_ids = None
+    elif is_glm5_next:
+        # Same shape of boundary as qwen4_exp: hc-tile once at stage 0 and
+        # index the mask per layer. The GLM block takes no per-micro-batch
+        # state, so position_ids is the constant kind marker that routes
+        # _forward_layer_result to the (x, mask, cache) call.
+        embedded, glm_layer_masks = _streamed_glm5_next_state(config, embedded)
+        mx.eval(embedded)
+        mask = None
+        position_ids = {"kind": _GLM5_NEXT_LAYER_STATE_KIND}
     else:
         # One causal mask and one position-id row serve every layer and every
         # micro-batch: both depend only on seq_length and the activation dtype.
@@ -8962,7 +9055,12 @@ def _collect_imatrix_streaming(
                         "layout does not match the capture predicate. Refusing "
                         f"to sweep all {total_layers} layers for an empty imatrix"
                     )
-            layer_mask = q4_layer_masks[layer_idx] if is_qwen4_exp else mask
+            if is_qwen4_exp:
+                layer_mask = q4_layer_masks[layer_idx]
+            elif is_glm5_next:
+                layer_mask = glm_layer_masks[layer_idx]
+            else:
+                layer_mask = mask
             try:
                 for slot in range(len(working)):
                     out, _ = _forward_layer_result(
