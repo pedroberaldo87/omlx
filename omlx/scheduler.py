@@ -9771,6 +9771,36 @@ class Scheduler:
         transient = int(self._admission_transient_bound(floor_chunk, kv_len))
         if kv_exact <= 0 and transient <= 0:
             return None
+        # The rejection message shows only the sum, so a term that is an order
+        # of magnitude off is invisible from the outside. Break it down.
+        tracker = self._prefill_transient_tracker
+        logger.debug(
+            "Admission terms: prompt=%d new=%d floor_chunk=%d kv_len=%d | "
+            "kv_exact=%.3fGB transient=%.3fGB (predicted=%.3fGB observed_max=%.3fGB "
+            "learned_per_token=%.2fKB last=%.2fKB static=%.3fGB) | total=%.2fGB",
+            num_prompt_tokens,
+            new_tokens,
+            floor_chunk,
+            kv_len,
+            kv_exact / 1024**3,
+            transient / 1024**3,
+            self._predicted_chunk_transient(floor_chunk, kv_len) / 1024**3,
+            (float(tracker.observed_max_bytes) if tracker is not None else 0.0)
+            / 1024**3,
+            (float(tracker.bytes_per_token) if tracker is not None else 0.0) / 1024,
+            (
+                float(tracker.last_delta_bytes) / max(tracker.last_n_tokens, 1)
+                if tracker is not None and tracker.last_n_tokens
+                else 0.0
+            )
+            / 1024,
+            (
+                monitor.estimate_chunk_transient_bytes(floor_chunk, kv_len + floor_chunk)
+                + monitor.estimate_prompt_kv_bytes(floor_chunk)
+            )
+            / 1024**3,
+            (int(current) + kv_exact + transient) / 1024**3,
+        )
         return _AdmissionEstimate(
             kv_exact=kv_exact,
             transient=transient,

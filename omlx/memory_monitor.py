@@ -491,6 +491,21 @@ class MemoryMonitor:
             if count > 0 and window > 0
         )
         self._prefill_memory_profile = prefill_memory_profile
+        # Which pricing strategy is live decides admission by an order of
+        # magnitude on hybrid models, and nothing logged it: a dropped profile
+        # silently charges dense O(L^2) and rejects prompts that fit.
+        logger.info(
+            "Prefill pricing: %s (layers=%s, kv_cache_layers=%s, kv_heads=%s, "
+            "head_dim=%s, dtype_size=%s)",
+            type(prefill_memory_profile).__name__
+            if prefill_memory_profile is not None
+            else "generic estimator (no model-specific profile)",
+            num_layers,
+            self._num_kv_cache_layers,
+            num_kv_heads,
+            head_dim,
+            dtype_size,
+        )
         # ANE prefill I/O surfaces are dirtied by the first long prompt, on
         # top of the KV+SDPA peak, so admission must price them or the hard
         # watermark aborts the request mid-prefill (issue #2841).

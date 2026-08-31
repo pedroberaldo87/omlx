@@ -126,7 +126,30 @@ class PrefillTransientTracker:
 
         per_token = transient_bytes / n_tokens
         if self._samples == 0:
-            self._ewma_per_token = per_token
+            # The seeding sample carries the same load-residue noise the
+            # running max is already protected from, and until now it entered
+            # raw: one contaminated reading became the EWMA and every later
+            # sample was measured against it, so the outlier ratio below could
+            # never pull the rate back down. Measured on GLM-5.3-Flash-oQ2e:
+            # a 10GB seed at a 2048-token chunk set 4.9MB/token against a
+            # 0.38MB/token static truth, and admission then charged 12.75GB
+            # for a prompt that costs 1.02GB — rejecting every request.
+            if transient_bytes <= self._OBSERVED_MAX_CLAMP_BYTES:
+                self._ewma_per_token = per_token
+            else:
+                logger.debug(
+                    "PrefillTransientTracker(%s): rejected %d-byte seeding "
+                    "sample from EWMA (clamp %d); the static estimator holds "
+                    "until a sample within the clamp arrives",
+                    self._model_id,
+                    transient_bytes,
+                    self._OBSERVED_MAX_CLAMP_BYTES,
+                )
+                # last_delta_bytes is NOT recorded here on purpose: the
+                # predictor reads it as a per-token rate of its own, so
+                # keeping the contaminated reading would reintroduce the
+                # exact number this branch exists to reject.
+                return
         elif per_token > self._ewma_per_token * self._EWMA_OUTLIER_RATIO:
             # Reject from the EWMA blend: a single sample this far above
             # the running rate is more likely a noisy phys_footprint()
