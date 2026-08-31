@@ -160,7 +160,9 @@ def test_plan_helper_classification():
         "mixed kv+arrays": (["KVCache", "ArraysCache"], True),
         "kv only": (["KVCache", "KVCache"], False),
         "arrays only": (["ArraysCache"], False),
-        "pooling member": (["KVCache", "PoolingCache"], False),
+        # GLM-5.x usa CacheList(KVCache, PoolingCache) e entra no modo por
+        # membro de proposito — o pool cumulativo vem do retrato de fronteira.
+        "pooling member": (["KVCache", "PoolingCache"], True),
         "no names": ([], False),
     }
     live = _build_mixed_cachelist(BLOCK_SIZE)

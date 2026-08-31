@@ -58,11 +58,16 @@ def cachelist_pm_member_plan(
 
     Returns a list aligned with the sub-caches: ``"slice"`` for 4D
     sliceable KV members (stored as true per-block slices), ``"boundary"``
-    for ArraysCache-style members (stored from the block's boundary
-    snapshot). ``None`` means the layer is not eligible for per-member
-    storage (missing class info, unknown / PoolingCache / rotating
-    members, or nothing to slice) and must use the legacy cumulative
-    last-block-only path.
+    for boundary members (ArraysCache-style and PoolingCache, stored from
+    the block's boundary snapshot). ``None`` means the layer is not
+    eligible for per-member storage (missing class info, unknown or
+    rotating members, or nothing to slice) and must use the legacy
+    cumulative last-block-only path.
+
+    ``PoolingCache`` is deliberately IN the boundary set: GLM-5.x builds
+    ``CacheList(KVCache, PoolingCache)`` for its sparse layers, and the
+    boundary snapshot carries its cumulative pool. Round-trip guard:
+    tests/test_prefix_cache_glm5_pooling_roundtrip.py.
 
     Without this split, a mixed CacheList (e.g. inkling's
     ``CacheList(KVCache, ArraysCache)``) stores the FULL cumulative state
