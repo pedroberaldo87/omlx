@@ -3742,37 +3742,6 @@ def _oqe_calibration_batch_plan(
     )
     hard_cap = 16 if num_experts > 0 else 32
     micro_batch_size = max(1, min(micro_batch_size, hard_cap))
-    # Escape hatch for checkpoints whose real per-sample peak is far above
-    # sample_bytes. The estimate above prices one hidden state per routed
-    # expert; a very wide MoE (GLM-5.3-Flash: 288 experts, top-8) materializes
-    # far more than that inside a layer, and the gap is not small -- measured
-    # here, a micro-batch of 6 peaked at 69.4 GB against an estimate of 402 MB.
-    # The streaming budget check only sees memory left BETWEEN layers, so the
-    # in-layer peak has no other ceiling. Set OMLX_OQ_MAX_MICRO_BATCH when a
-    # run swaps or gets jetsammed; leave it unset for the estimator's choice.
-    env_cap = os.environ.get("OMLX_OQ_MAX_MICRO_BATCH", "").strip()
-    if env_cap:
-        try:
-            requested_cap = int(env_cap)
-        except ValueError:
-            logger.warning(
-                "OMLX_OQ_MAX_MICRO_BATCH=%r is not an integer; ignoring it",
-                env_cap,
-            )
-        else:
-            if requested_cap < 1:
-                logger.warning(
-                    "OMLX_OQ_MAX_MICRO_BATCH=%d must be >= 1; ignoring it",
-                    requested_cap,
-                )
-            elif requested_cap < micro_batch_size:
-                logger.info(
-                    "oQe calibration micro-batch capped at %d by "
-                    "OMLX_OQ_MAX_MICRO_BATCH (estimator chose %d)",
-                    requested_cap,
-                    micro_batch_size,
-                )
-                micro_batch_size = requested_cap
     return {
         "micro_batch_size": int(micro_batch_size),
         "estimated_sample_bytes": int(sample_bytes),
