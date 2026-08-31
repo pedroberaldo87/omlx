@@ -595,6 +595,26 @@ class Glm5NextSparseAttention(nn.Module):
             cache=cache[1],
             kv_cache=cache[0],
         )
+
+        # A barreira vem AQUI, antes de qualquer saida antecipada: o indexer
+        # acabou de atualizar o acumulado de compressao e o KV ja foi
+        # atualizado acima, entao amarrar os dois neste ponto vale para os
+        # quatro caminhos de atencao abaixo -- tres deles retornam antes do
+        # fim da funcao e ficavam sem a amarra. Enquanto nada avalia o grafo
+        # no meio da geracao isso nao aparece; o cache de prefixo liga a
+        # captura de retratos de fronteira, que avalia no meio, e o seletor
+        # passa a escolher com base num acumulado dessincronizado do KV.
+        # A implementacao irma (glm_moe_dsa/deepseek_v32.py) ja faz assim.
+        if (
+            cache is not None
+            and cache[0] is not None
+            and cache[1] is not None
+            and cache[1].pooled is not None
+        ):
+            deps = tuple(v for v in cache[1].state if isinstance(v, mx.array))
+            if deps:
+                cache[0].keys = mx.depends(cache[0].keys, deps)
+
         attn_mask = mask
         if topk_indices is not None:
             Kv = kv_latent.shape[2]
@@ -672,16 +692,6 @@ class Glm5NextSparseAttention(nn.Module):
                 if mask is not None and mask.dtype == mx.bool_:
                     sparse_mask = sparse_mask & mask
                 attn_mask = sparse_mask
-
-        if (
-            cache is not None
-            and cache[0] is not None
-            and cache[1] is not None
-            and cache[1].pooled is not None
-        ):
-            deps = tuple(v for v in cache[1].state if isinstance(v, mx.array))
-            if deps:
-                cache[0].keys = mx.depends(cache[0].keys, deps)
 
         if L == 1:
             q = self.embed_q(q)
