@@ -51,6 +51,11 @@ cannot import name '_ext' ... (most likely due to a circular import)
 esperado; qualquer número medido com o aviso presente está no caminho lento e
 não vale.
 
+**Mas zero avisos não prova que os núcleos existem.** O aviso só sai quando o
+arquivo está lá e falha ao carregar; quando ele não está, o registro fica limpo.
+Dois builds do Fork saíram sem núcleo nenhum por isso. Confira por presença de
+arquivo — [BUILD-DO-FORK.md](BUILD-DO-FORK.md), seção "Levar os núcleos Metal".
+
 **Medição exige a máquina em repouso.** Confira a memória livre e os processos
 antes de medir, não depois de estranhar o número. Calibração de quantização com
 um modelo carregado no servidor já derrubou o servidor por falta de memória.
