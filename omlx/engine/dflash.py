@@ -102,10 +102,15 @@ def is_dflash_compatible(model_path: str | Path) -> tuple[bool, str]:
     is_gemma4 = model_type in ("gemma4", "gemma4_text", "gemma4_unified")
     is_laguna = model_type == "laguna"
     is_muse = model_type in ("muse_glimmer", "muse_glimmer_text")
-    if not (is_qwen or is_gemma4 or is_laguna or is_muse):
+    # GLM-5.x rides omlx's own target backend (patches/dflash_glm5_next.py);
+    # dflash-mlx 0.1.10 ships none. The drafter needs no work: the published
+    # GLM-5.3-Flash-DFlash2 declares architectures ["DFlash2DraftModel"],
+    # which dflash-mlx already resolves.
+    is_glm5 = model_type in ("glm5_next", "glm5_next_text")
+    if not (is_qwen or is_gemma4 or is_laguna or is_muse or is_glm5):
         return False, (
-            f"DFlash supports only Qwen, Gemma4, Laguna, and Muse Glimmer "
-            f"models (model_type='{cfg.get('model_type', '')}')"
+            f"DFlash supports only Qwen, Gemma4, Laguna, Muse Glimmer, and "
+            f"GLM-5.x models (model_type='{cfg.get('model_type', '')}')"
         )
     return True, ""
 
@@ -562,6 +567,23 @@ class DFlashEngine(ActivityTrackingMixin, BaseEngine):
             from ..patches.dflash_laguna import install_dflash_laguna_backend
 
             install_dflash_laguna_backend()
+
+            # Same reason for GLM-5.x: dflash-mlx has no glm5_next backend, so
+            # resolve_target_ops would raise before the drafter is even read.
+            # Registered next to Laguna so the compatibility gate above and the
+            # resolver never disagree about which architectures are supported.
+            from ..patches.dflash_glm5_next import install_dflash_glm5_next_backend
+
+            install_dflash_glm5_next_backend()
+
+            # DFlash loads the TARGET through mlx_lm.utils.load, which resolves
+            # mlx_lm.models.<model_type>. GLM-5.x only exists here as an
+            # mlx-vlm model, so without this the load dies with "Model type
+            # glm5_next not supported" and engine_pool silently falls back to
+            # the VLM engine -- the backend above never gets a chance to run.
+            from ..patches.mlx_lm_glm5_next import register_into_mlx_lm
+
+            register_into_mlx_lm()
 
             # Wrap dflash's hook installers so we can revert the class-level
             # __call__ patches when this engine stops. Without this, a later
