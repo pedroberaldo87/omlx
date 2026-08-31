@@ -105,3 +105,28 @@ def test_a_limpeza_de_nomes_nao_pode_descartar_a_cabeca():
         f"limpeza de nomes: entraram {len(cabeca)} pesos dela, sobraram 0. "
         "É por isso que o modelo sai com o sufixo no nome e sem a cabeça dentro."
     )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="defeito aberto: o portao de compatibilidade aceita glm_moe_dsa "
+    "(o GLM-5.2) e nao glm5_next (o 5.3), entao a previsao multipla nao liga "
+    "nem no modelo ORIGINAL — observado pelo dono na tela de configuracoes.",
+)
+def test_o_portao_reconhece_o_tipo_do_glm_5_3():
+    """Segundo bloqueio, independente da quantizacao.
+
+    O dono relatou que, abrindo o modelo ORIGINAL nas configuracoes, a previsao
+    multipla tambem nao fica ativada. Confere: o portao enxerga a cabeca no
+    config e mesmo assim recusa, porque decide pelo nome da familia.
+    """
+    from omlx.utils.model_loading import _is_mtp_compatible
+
+    cfg = _config()
+    tipo = cfg.get("model_type")
+    assert tipo == "glm5_next", f"o tipo mudou: {tipo}"
+    assert _has_mtp_heads(cfg) is True, "o config precisa declarar a cabeca"
+    assert _is_mtp_compatible(cfg, tipo) is True, (
+        f"o portao ve a cabeca no config mas recusa o tipo {tipo!r}; a lista "
+        "aceita glm_moe_dsa, que e a geracao anterior"
+    )
