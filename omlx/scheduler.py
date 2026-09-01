@@ -2776,6 +2776,17 @@ class Scheduler:
         aligned to its window size) or if the configured block size already
         meets the effective model-specific target.
         """
+        # O botão de A/B vale também com o cache desligado: o braço de controle
+        # precisa da MESMA geometria de prefill (mesmo passo), senão a
+        # acumulação muda e o greedy diverge por empates, não por corrupção.
+        alvo_env = os.environ.get("OMLX_ARRAYS_CACHE_BLOCK")
+        if alvo_env and not self.config.paged_ssd_cache_dir:
+            self.config.prefill_step_size = int(alvo_env)
+            logger.info(
+                "OMLX_ARRAYS_CACHE_BLOCK=%s sem cache: prefill_step_size=%s",
+                alvo_env, alvo_env,
+            )
+            return
         if not self.config.paged_ssd_cache_dir:
             return
 
