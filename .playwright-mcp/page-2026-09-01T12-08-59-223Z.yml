@@ -1,0 +1,100 @@
+- generic [ref=f4e2]:
+  - navigation [ref=f4e3]:
+    - generic [ref=f4e4]:
+      - generic [ref=f4e5]:
+        - link [ref=f4e6] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f4e7]
+        - generic [ref=f4e8]:
+          - link "oMLX" [ref=f4e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.4" [ref=f4e10] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - generic [ref=f4e11]:
+        - button "Dashboard" [ref=f4e12] [cursor=pointer]
+        - generic [ref=f4e15]:
+          - button "Models" [active] [ref=f4e16] [cursor=pointer]
+          - generic [ref=f4e303]:
+            - button "Manager" [ref=f4e304] [cursor=pointer]
+            - button "Downloader" [ref=f4e307] [cursor=pointer]
+            - button "oQ Quantization" [ref=f4e312] [cursor=pointer]
+            - button "oQ Uploader" [ref=f4e315] [cursor=pointer]
+        - button "Settings" [ref=f4e21] [cursor=pointer]
+        - button "Logs" [ref=f4e25] [cursor=pointer]
+        - button "Bench" [ref=f4e30] [cursor=pointer]
+        - link "Chat" [ref=f4e34] [cursor=pointer]:
+          - /url: /admin/chat
+      - generic [ref=f4e37]:
+        - button "Auto" [ref=f4e39] [cursor=pointer]
+        - button "Logout" [ref=f4e46] [cursor=pointer]
+  - main [ref=f4e50]:
+    - generic [ref=f4e320]:
+      - generic [ref=f4e321]:
+        - button "Manager" [ref=f4e322] [cursor=pointer]
+        - button "Downloader" [ref=f4e323] [cursor=pointer]
+        - button "oQ Quantization" [ref=f4e324] [cursor=pointer]
+        - button "oQ Uploader" [ref=f4e325] [cursor=pointer]
+      - generic [ref=f4e326]:
+        - generic [ref=f4e327]:
+          - heading "Models" [level=2] [ref=f4e328]
+          - generic [ref=f4e329]:
+            - heading "Model Manager" [level=3] [ref=f4e330]
+            - button "Reload" [ref=f4e331] [cursor=pointer]
+          - paragraph [ref=f4e337]: Manage your local models.
+        - generic [ref=f4e338]:
+          - generic [ref=f4e339]:
+            - generic [ref=f4e340]:
+              - generic [ref=f4e343]: Local Models
+              - generic [ref=f4e344]: 4 models
+            - button "Refresh" [ref=f4e345] [cursor=pointer]
+          - generic [ref=f4e351]:
+            - textbox "Search models..." [ref=f4e353]
+            - button "Reset sort" [disabled] [ref=f4e354]
+          - generic [ref=f4e359]:
+            - generic [ref=f4e360]:
+              - generic [ref=f4e361] [cursor=pointer]:
+                - text: Model
+                - generic [ref=f4e362]: ▲
+              - generic [ref=f4e363] [cursor=pointer]: Type
+              - generic [ref=f4e364] [cursor=pointer]: Size
+            - generic [ref=f4e365]:
+              - generic [ref=f4e366]:
+                - generic [ref=f4e367]:
+                  - button [ref=f4e368] [cursor=pointer]
+                  - generic "incoai/GLM-5.3-Flash-DFlash2" [ref=f4e371]
+                  - button "Copy model name" [ref=f4e372] [cursor=pointer]
+                - generic [ref=f4e376]: llm
+                - generic [ref=f4e378]: 2.18 GB
+                - generic [ref=f4e379]:
+                  - button "Model settings" [ref=f4e380] [cursor=pointer]
+                  - button "Delete model" [ref=f4e384] [cursor=pointer]
+              - generic [ref=f4e388]:
+                - generic [ref=f4e389]:
+                  - button [ref=f4e390] [cursor=pointer]
+                  - generic "Qwen3.8-Flash-Next-oQ3.5e-fp16-mtp" [ref=f4e393]
+                  - button "Copy model name" [ref=f4e394] [cursor=pointer]
+                - generic [ref=f4e398]: vlm
+                - generic [ref=f4e400]: 84.48 GB
+                - generic [ref=f4e401]:
+                  - button "Model settings" [ref=f4e402] [cursor=pointer]
+                  - button "Delete model" [ref=f4e406] [cursor=pointer]
+              - generic [ref=f4e410]:
+                - generic [ref=f4e411]:
+                  - button [ref=f4e412] [cursor=pointer]
+                  - generic "Vontra/GLM-5.3-Flash-MLX-2bit-MTP" [ref=f4e415]
+                  - button "Copy model name" [ref=f4e416] [cursor=pointer]
+                - generic [ref=f4e420]: vlm
+                - generic [ref=f4e422]: 103.72 GB
+                - generic [ref=f4e423]:
+                  - button "Model settings" [ref=f4e424] [cursor=pointer]
+                  - button "Delete model" [ref=f4e428] [cursor=pointer]
+              - generic [ref=f4e432]:
+                - generic [ref=f4e433]:
+                  - button [ref=f4e434] [cursor=pointer]
+                  - generic "zai-org/GLM-5.3-Flash" [ref=f4e437]
+                  - button "Copy model name" [ref=f4e438] [cursor=pointer]
+                - generic [ref=f4e442]: vlm
+                - generic [ref=f4e444]: 305.81 GB
+                - generic [ref=f4e445]:
+                  - button "Model settings" [ref=f4e446] [cursor=pointer]
+                  - button "Delete model" [ref=f4e450] [cursor=pointer]

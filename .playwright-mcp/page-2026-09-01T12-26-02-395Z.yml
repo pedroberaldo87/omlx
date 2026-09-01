@@ -1,0 +1,111 @@
+- generic [ref=f7e4]:
+  - generic [ref=f7e7]:
+    - generic [ref=f7e8]:
+      - button "New session" [ref=f7e9] [cursor=pointer]:
+        - generic [ref=f7e16]:
+          - generic [ref=f7e17]: DSH Local Build
+          - generic [ref=f7e18]: b150a55
+      - button "Collapse sidebar" [ref=f7e19] [cursor=pointer]
+    - button "New session" [ref=f7e22] [cursor=pointer]:
+      - generic [ref=f7e25]: New Session
+    - generic [ref=f7e28]:
+      - generic [ref=f7e29]:
+        - generic [ref=f7e30]: Workspaces
+        - generic [ref=f7e32]:
+          - button "Search sessions" [ref=f7e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f7e37]:
+          - button "View options" [ref=f7e39] [cursor=pointer]
+          - button "Add workspace" [ref=f7e42] [cursor=pointer]
+      - tree "Sessions" [ref=f7e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f7e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f7e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f7e112] [cursor=pointer]
+        - generic [ref=f7e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f7e120] [cursor=pointer]
+          - treeitem "Running Explique em três frases por now" [selected] [ref=f7e366] [cursor=pointer]:
+            - generic [ref=f7e367]: Running
+            - generic [ref=f7e378]: Explique em três frases por
+            - generic [ref=f7e379]: now
+          - treeitem "Explique em três frases por 5min" [ref=f7e380] [cursor=pointer]:
+            - generic [ref=f7e130]: Explique em três frases por
+            - generic [ref=f7e278]: 5min
+          - treeitem "Preciso de um diagnóstico técnico 9h" [ref=f7e132] [cursor=pointer]:
+            - generic [ref=f7e134]: Preciso de um diagnóstico técnico
+            - generic [ref=f7e135]: 9h
+          - treeitem "Olá 12h" [ref=f7e137] [cursor=pointer]:
+            - generic [ref=f7e139]: Olá
+            - generic [ref=f7e140]: 12h
+          - treeitem "Oi 13h" [ref=f7e142] [cursor=pointer]:
+            - generic [ref=f7e144]: Oi
+            - generic [ref=f7e145]: 13h
+          - button "Show 37 more sessions" [ref=f7e381] [cursor=pointer]
+    - button "Settings" [ref=f7e53] [cursor=pointer]
+  - generic [ref=f7e382]:
+    - banner [ref=f7e384]:
+      - generic [ref=f7e385]:
+        - generic [ref=f7e386]:
+          - navigation "Session hierarchy" [ref=f7e387]:
+            - button "Explique em três frases por" [disabled] [ref=f7e389]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f7e392]': Standard Bl
+        - button "Session log" [ref=f7e400] [cursor=pointer]
+      - tablist [ref=f7e404]:
+        - tab "Chat" [selected] [ref=f7e405] [cursor=pointer]
+        - tab "Trajectory" [ref=f7e406] [cursor=pointer]
+    - generic [ref=f7e407]:
+      - generic [ref=f7e413]:
+        - generic [ref=f7e416]:
+          - generic [ref=f7e417]: Explique em três frases por que o céu é azul, e depois dê um exemplo cotidiano do mesmo fenômeno.
+          - generic [ref=f7e420]:
+            - generic [ref=f7e421]: 09:21
+            - button "Copy" [ref=f7e422] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f7e428] [cursor=pointer]:
+          - generic [ref=f7e437]: Context injection
+          - generic [ref=f7e439]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f7e443] [cursor=pointer]:
+          - generic [ref=f7e452]: Context injection
+          - generic [ref=f7e454]: skill-catalog
+        - generic [ref=f7e458]:
+          - button "Think" [ref=f7e461] [cursor=pointer]
+          - generic [ref=f7e471]:
+            - paragraph [ref=f7e472]:
+              - strong [ref=f7e473]: "Por que o céu é azul:"
+            - list [ref=f7e474]:
+              - listitem [ref=f7e475]: O sol envia luz branca com todos os colores possíveis, de modo que alguma interação com moléculas de gás (principalmente oxigênio e nitrogênio) é necessária para alcançar nossos olhos no chão.
+              - listitem [ref=f7e476]: A energia de cada cor da luz é diferente, e a luz azul-violeta tem a maior energia, o que leva a mais interações com moléculas do que a luz vermelha.
+              - listitem [ref=f7e477]: Então, a luz azul é dispersada/redirected por moléculas; assim, quando olhamos pro céu, encontramos luz azul em todos os lugares e direções; e é essa que alcança nossos olhos.
+            - paragraph [ref=f7e478]:
+              - strong [ref=f7e479]: "Exemplo cotidiano do mesmo fenômeno:"
+              - text: um pouco de leite misturado num copo de água, sob a luz de uma janela. O líquido parece levemente azul — igual ao céu, porque a luz azul-violeta é dispersada pelo leite —, enquanto a luz que atravessa a solução e projeta na parede atrás mostra um tom laranja-amarelado, porque já perdeu o azul. É o efeito Tyndall, exatamente o mesmo mecanismo que colore o céu.
+        - generic [ref=f7e483]:
+          - button "Copy" [ref=f7e484] [cursor=pointer]
+          - generic [ref=f7e487]:
+            - button "Good response" [ref=f7e488] [cursor=pointer]
+            - button "Bad response" [ref=f7e491] [cursor=pointer]
+          - button "Branch into a new conversation" [ref=f7e494] [cursor=pointer]
+          - generic [ref=f7e497]: 09:24 · Ran for 2m 45s · TTFT 115s · 16 tok/s
+        - generic [ref=f7e500]:
+          - generic [ref=f7e501]: E por que o pôr do sol é avermelhado? Responda em duas frases.
+          - generic [ref=f7e504]:
+            - generic [ref=f7e505]: 09:26
+            - button "Copy" [ref=f7e506] [cursor=pointer]
+        - status [ref=f7e509]: Deep diving...
+      - generic [ref=f7e515]:
+        - generic [ref=f7e516]:
+          - textbox "Message the agent" [active] [ref=f7e519]
+          - generic [ref=f7e520]:
+            - generic [ref=f7e521]:
+              - button "Commands" [ref=f7e522] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f7e527] [cursor=pointer]':
+                - generic [ref=f7e535]: Workspace Write
+            - generic [ref=f7e539]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f7e542] [cursor=pointer]:
+                - generic [ref=f7e543]: GLM 5.3 Flash (Ultra)
+              - button "5% of context used" [ref=f7e547] [cursor=pointer]
+              - button "Stop generating" [ref=f7e551] [cursor=pointer]
+        - generic [ref=f7e554]: 1 turns · 1 steps| LLM 2m45s| TTFT avg 1m55s · 16 tok/s| Cache hit 0%| Input 11.1K tok · Output 775 tok
+  - generic [ref=f7e556]:
+    - generic [ref=f7e557]:
+      - generic: Details
+      - button "Close details" [ref=f7e558] [cursor=pointer]
+    - generic [ref=f7e561]: Click a tool row in the message flow to view its details

@@ -1,0 +1,197 @@
+- generic [ref=f1e2]:
+  - navigation [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - link [ref=f1e6] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f1e7]
+        - generic [ref=f1e8]:
+          - link "oMLX" [ref=f1e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.4" [ref=f1e10] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - generic [ref=f1e11]:
+        - button "Dashboard" [ref=f1e12] [cursor=pointer]
+        - button "Models" [ref=f1e16] [cursor=pointer]
+        - button "Settings" [ref=f1e21] [cursor=pointer]
+        - button "Logs" [ref=f1e25] [cursor=pointer]
+        - button "Bench" [ref=f1e30] [cursor=pointer]
+        - link "Chat" [ref=f1e34] [cursor=pointer]:
+          - /url: /admin/chat
+      - generic [ref=f1e37]:
+        - button "Auto" [ref=f1e39] [cursor=pointer]
+        - button "Logout" [ref=f1e46] [cursor=pointer]
+  - main [ref=f1e50]:
+    - generic [ref=f1e54]:
+      - generic [ref=f1e55]:
+        - generic [ref=f1e56]:
+          - heading "Dashboard" [level=2] [ref=f1e57]
+          - heading "Serving Stats" [level=3] [ref=f1e58]
+        - generic [ref=f1e59]:
+          - generic [ref=f1e60]:
+            - button "Session" [ref=f1e61] [cursor=pointer]
+            - button "All-Time" [ref=f1e62] [cursor=pointer]
+          - button "Clear" [ref=f1e64] [cursor=pointer]
+          - combobox [ref=f1e68]:
+            - option "All Models" [selected]
+            - option "GLM-5.3-Flash"
+            - option "GLM-5.3-Flash-DFlash2"
+            - option "GLM-5.3-Flash-MLX-2bit-MTP"
+            - option "Qwen3.8-Flash-Next-oQ3.5e-fp16-mtp"
+            - option "incoai--GLM-5.3-Flash-DFlash2"
+      - generic [ref=f1e69]:
+        - generic [ref=f1e70]:
+          - paragraph [ref=f1e71]: Total Prefill Tokens
+          - paragraph [ref=f1e72]: "0"
+        - generic [ref=f1e73]:
+          - paragraph [ref=f1e74]: Cached Tokens
+          - paragraph [ref=f1e75]: "0"
+        - generic [ref=f1e76]:
+          - paragraph [ref=f1e77]: Cache Efficiency
+          - paragraph [ref=f1e78]: 0.0%
+      - generic [ref=f1e79]:
+        - generic [ref=f1e80]: Average Speed
+        - generic [ref=f1e86]:
+          - generic [ref=f1e87]:
+            - paragraph [ref=f1e88]: Prompt Processing (excl. cached)
+            - paragraph [ref=f1e89]: 0.0 tok/s
+          - generic [ref=f1e90]:
+            - paragraph [ref=f1e91]: Token Generation
+            - paragraph [ref=f1e92]: 0.0 tok/s
+      - generic [ref=f1e93]:
+        - generic [ref=f1e94]:
+          - generic [ref=f1e95]: Active Models
+          - generic [ref=f1e99]: 143 MB / 111.6 GB soft / 117.8 GB hard
+        - generic [ref=f1e104]: No models loaded
+      - generic [ref=f1e106]:
+        - generic [ref=f1e107]:
+          - generic [ref=f1e108]: Runtime Cache Observability
+          - generic [ref=f1e114]:
+            - generic [ref=f1e115]:
+              - generic [ref=f1e116]: SSD
+              - generic [ref=f1e118]: 2.2 GB / 92.0 GB · 14 files
+            - button "Delete all SSD cache" [ref=f1e120] [cursor=pointer]
+        - generic [ref=f1e124]:
+          - generic [ref=f1e125]:
+            - generic [ref=f1e126]:
+              - generic [ref=f1e127]: Active base_path
+              - code [ref=f1e128]: /Users/pedroberaldo/.omlx
+            - generic [ref=f1e129]:
+              - generic [ref=f1e130]: Effective ssd_cache_dir
+              - code [ref=f1e131]: /Users/pedroberaldo/.omlx/cache
+          - generic [ref=f1e133]:
+            - generic [ref=f1e134]: response-state directory
+            - code [ref=f1e135]: /Users/pedroberaldo/.omlx/cache/response-state
+          - generic [ref=f1e136]: "Note: Sub-block Cache means requests below one full block (for example <1024 tokens on some models) are cached in memory/paged cache but are not counted as indexed SSD blocks."
+      - generic [ref=f1e137]:
+        - generic [ref=f1e138]:
+          - generic [ref=f1e139]: API Endpoints
+          - generic [ref=f1e144]:
+            - generic [ref=f1e145]: Host
+            - combobox "Host" [ref=f1e146]:
+              - option "localhost" [selected]
+              - option "127.0.0.1"
+              - option "Mac-Studio-VIU.local"
+              - option "192.168.4.9"
+              - option "192.168.0.113"
+              - option "100.70.158.36"
+        - generic [ref=f1e147]:
+          - generic [ref=f1e148]:
+            - generic [ref=f1e149]: OpenAI API
+            - generic [ref=f1e150]:
+              - code [ref=f1e151]: http://127.0.0.1:8000/v1
+              - button "Copy" [ref=f1e152] [cursor=pointer]
+          - generic [ref=f1e156]:
+            - generic [ref=f1e157]: Claude API
+            - generic [ref=f1e158]:
+              - code [ref=f1e159]: http://127.0.0.1:8000
+              - button "Copy" [ref=f1e160] [cursor=pointer]
+      - generic [ref=f1e164]:
+        - generic [ref=f1e165]: Claude Code with oMLX
+        - generic [ref=f1e171]:
+          - generic [ref=f1e172]:
+            - generic [ref=f1e173]: Mode
+            - generic [ref=f1e174]:
+              - button [ref=f1e175] [cursor=pointer]
+              - generic [ref=f1e177]: Cloud
+          - generic [ref=f1e178]:
+            - generic [ref=f1e179]: Command
+            - generic [ref=f1e180]:
+              - generic [ref=f1e181]: env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_DEFAULT_OPUS_MODEL -u ANTHROPIC_DEFAULT_SONNET_MODEL -u ANTHROPIC_DEFAULT_HAIKU_MODEL -u API_TIMEOUT_MS -u CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC claude
+              - button "Copy command" [ref=f1e182] [cursor=pointer]
+      - generic [ref=f1e186]:
+        - generic [ref=f1e187]: Applications
+        - generic [ref=f1e195]:
+          - generic [ref=f1e196]:
+            - img "Claude Code" [ref=f1e198]
+            - generic [ref=f1e199]:
+              - generic [ref=f1e200]: Claude Code
+              - code [ref=f1e201]: omlx launch claude
+            - button "Copy command" [ref=f1e202] [cursor=pointer]
+          - generic [ref=f1e206]:
+            - img "Codex" [ref=f1e208]
+            - generic [ref=f1e209]:
+              - generic [ref=f1e210]: Codex
+              - generic [ref=f1e211]:
+                - generic [ref=f1e212]:
+                  - generic [ref=f1e213]: CLI
+                  - code [ref=f1e214]: omlx launch codex
+                  - button "Copy command" [ref=f1e215] [cursor=pointer]
+                - generic [ref=f1e219]:
+                  - generic [ref=f1e220]: App
+                  - code [ref=f1e221]: omlx launch codex_app
+                  - button "Copy command" [ref=f1e222] [cursor=pointer]
+          - generic [ref=f1e226]:
+            - img "OpenCode" [ref=f1e228]
+            - generic [ref=f1e229]:
+              - generic [ref=f1e230]: OpenCode
+              - code [ref=f1e231]: omlx launch opencode
+            - button "Copy command" [ref=f1e232] [cursor=pointer]
+          - generic [ref=f1e236]:
+            - img "OpenClaw" [ref=f1e238]
+            - generic [ref=f1e239]:
+              - generic [ref=f1e240]: OpenClaw
+              - code [ref=f1e241]: omlx launch openclaw --tools-profile coding
+            - combobox [ref=f1e242]:
+              - option "Minimal"
+              - option "Coding" [selected]
+              - option "Messaging"
+              - option "Full"
+            - button "Copy command" [ref=f1e243] [cursor=pointer]
+          - generic [ref=f1e247]:
+            - img "Hermes Agent" [ref=f1e249]
+            - generic [ref=f1e250]:
+              - generic [ref=f1e251]: Hermes Agent
+              - code [ref=f1e252]: omlx launch hermes
+            - button "Copy command" [ref=f1e253] [cursor=pointer]
+          - generic [ref=f1e257]:
+            - img "Pi" [ref=f1e259]
+            - generic [ref=f1e260]:
+              - generic [ref=f1e261]: Pi
+              - code [ref=f1e262]: omlx launch pi
+            - button "Copy command" [ref=f1e263] [cursor=pointer]
+          - generic [ref=f1e267]:
+            - img "Copilot CLI" [ref=f1e269]
+            - generic [ref=f1e270]:
+              - generic [ref=f1e271]: Copilot CLI
+              - code [ref=f1e272]: omlx launch copilot
+            - button "Copy command" [ref=f1e273] [cursor=pointer]
+      - generic [ref=f1e277]:
+        - generic [ref=f1e278]: Engine Versions
+        - generic [ref=f1e284]:
+          - generic [ref=f1e285]:
+            - generic [ref=f1e286]: mlx-lm
+            - link "ab1806e" [ref=f1e288] [cursor=pointer]:
+              - /url: https://github.com/ml-explore/mlx-lm/commit/ab1806e8f5d6aa035973af194a1b9198ab4754dc
+          - generic [ref=f1e289]:
+            - generic [ref=f1e290]: mlx-vlm
+            - link "78b96eb" [ref=f1e292] [cursor=pointer]:
+              - /url: https://github.com/Blaizzy/mlx-vlm/commit/78b96eb5462141447b9a6b4943ef553891da56dd
+          - generic [ref=f1e293]:
+            - generic [ref=f1e294]: mlx-embeddings
+            - link "32981fa" [ref=f1e296] [cursor=pointer]:
+              - /url: https://github.com/Blaizzy/mlx-embeddings/commit/32981fa4e8064ed664b52071789dd18271fe4206
+          - generic [ref=f1e297]:
+            - generic [ref=f1e298]: mlx-audio
+            - link "5175326" [ref=f1e300] [cursor=pointer]:
+              - /url: https://github.com/Blaizzy/mlx-audio/commit/51753266e0a4f766fd5e6fbc46652224efc23981

@@ -203,8 +203,27 @@ def _patch_model_args(glm: Any) -> None:
 
 
 def _register_mtp_block(glm: Any) -> None:
+    """Pendura a classe do bloco no módulo do mlx-lm, se ainda não estiver lá."""
     if hasattr(glm, "Glm5NextMTPBlock"):
         return
+    glm.Glm5NextMTPBlock = fabrica_bloco_da_cabeca()
+
+
+_BLOCO_DA_CABECA = None
+
+
+def fabrica_bloco_da_cabeca():
+    """A classe do bloco da cabeça, construída uma vez e servida aos dois lados.
+
+    O GLM-5.3 carrega pelo caminho de VISÃO no servidor e pelo de TEXTO na
+    quantização e no rascunhador. O bloco é o MESMO nos dois — a camada
+    decoder vem do modelo vendorado em qualquer caso —, então ele nasce aqui e
+    os dois runtimes o consomem, em vez de existirem duas cópias que envelhecem
+    em separado.
+    """
+    global _BLOCO_DA_CABECA
+    if _BLOCO_DA_CABECA is not None:
+        return _BLOCO_DA_CABECA
 
     import mlx.core as mx
     import mlx.nn as nn
@@ -249,7 +268,8 @@ def _register_mtp_block(glm: Any) -> None:
             saida = self.block(x, mask, cache)
             return saida.mean(axis=2) if self.hc_mult > 1 else saida
 
-    glm.Glm5NextMTPBlock = Glm5NextMTPBlock
+    _BLOCO_DA_CABECA = Glm5NextMTPBlock
+    return Glm5NextMTPBlock
 
 
 # ---------------------------------------------------------------------------

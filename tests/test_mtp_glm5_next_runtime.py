@@ -470,7 +470,14 @@ def test_a_limpeza_do_modelo_completa_a_hiperconexao_da_cabeca():
         f"model.layers.{n}.enorm.weight": mx.ones((args.hidden_size,)),
         f"model.layers.{n}.hnorm.weight": mx.ones((args.hidden_size,)),
     }
+    entrada["mtp.0.block.input_layernorm.weight"] = mx.ones((args.hidden_size,))
     saida = modelo.sanitize(dict(entrada))
+
+    assert "mtp.0.block.input_layernorm.weight" in saida, (
+        "a chave da cabeça foi descartada: o renomeador do modelo vendorado "
+        "joga fora tudo que contém `mtp.`, e é por isso que ela tem que passar "
+        "por FORA dele"
+    )
 
     faltando = [
         k

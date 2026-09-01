@@ -1,0 +1,110 @@
+- generic [ref=f5e2]:
+  - generic [ref=f5e3]:
+    - generic [ref=f5e5]:
+      - generic [ref=f5e6]:
+        - link [ref=f5e7] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f5e8]
+        - generic [ref=f5e9]:
+          - link "oMLX Chat" [ref=f5e10] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.4" [ref=f5e11] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - button "Close sidebar" [ref=f5e12] [cursor=pointer]
+    - generic [ref=f5e16]:
+      - button "New Chat" [ref=f5e17] [cursor=pointer]
+      - textbox "Search chats…" [ref=f5e146]
+    - generic [ref=f5e19]:
+      - generic [ref=f5e214] [cursor=pointer]:
+        - generic "Untitled" [ref=f5e215]
+        - button "Pin chat" [ref=f5e216]
+        - button "Rename chat" [ref=f5e219]
+        - button "Delete chat" [ref=f5e223]
+      - generic [ref=f5e151] [cursor=pointer]:
+        - generic "Explique em três frases por que o céu é azul, e de" [ref=f5e227]
+        - button "Pin chat" [ref=f5e153]
+        - button "Rename chat" [ref=f5e156]
+        - button "Delete chat" [ref=f5e160]
+    - button "Settings" [ref=f5e21] [cursor=pointer]
+  - generic [ref=f5e25]:
+    - generic [ref=f5e26]:
+      - button "GLM-5.3-Flash-MLX-2bit-MTP" [ref=f5e144] [cursor=pointer]
+      - generic [ref=f5e29]:
+        - generic [ref=f5e30]:
+          - img "oMLX" [ref=f5e31]
+          - heading "Chat with oMLX" [level=1] [ref=f5e32]
+        - paragraph [ref=f5e33]: Start a conversation with your local MLX models. Select a model above to begin.
+        - generic [ref=f5e34]: All conversations run locally on your device.
+    - generic [ref=f5e39]:
+      - generic [ref=f5e41]:
+        - button "Upload image" [ref=f5e134] [cursor=pointer]
+        - button "Attach document" [ref=f5e139] [cursor=pointer]
+        - button "Turn on web search" [ref=f5e42] [cursor=pointer]
+        - textbox "Type a message... (Shift+Enter for new line)" [active] [ref=f5e46]
+        - button [disabled] [ref=f5e48]
+      - generic [ref=f5e143]: Context updates after the next reply
+  - generic [ref=f5e51]:
+    - generic [ref=f5e53]:
+      - generic [ref=f5e54]:
+        - button "Model" [ref=f5e55] [cursor=pointer]
+        - button "Profile" [ref=f5e60] [cursor=pointer]
+        - button "Chat" [ref=f5e65] [cursor=pointer]
+      - button "Close settings" [ref=f5e68] [cursor=pointer]
+    - generic [ref=f5e73]:
+      - generic [ref=f5e74]:
+        - generic [ref=f5e75]: Active Profile
+        - combobox [ref=f5e81] [cursor=pointer]:
+          - option "System Default" [selected]
+      - generic [ref=f5e82]:
+        - generic [ref=f5e83]: Active Model
+        - combobox [ref=f5e85] [cursor=pointer]:
+          - option "GLM-5.3-Flash-MLX-2bit-MTP" [selected]
+          - option "GLM-5.3-Flash"
+          - option "GLM-5.3-Flash-DFlash2"
+          - option "incoai--GLM-5.3-Flash-DFlash2"
+          - option "Qwen3.8-Flash-Next-oQ3.5e-fp16-mtp"
+      - generic [ref=f5e87]:
+        - generic [ref=f5e88]:
+          - text: Temperature
+          - spinbutton "Default" [ref=f5e89]
+        - generic [ref=f5e90]:
+          - text: Max Tokens
+          - spinbutton "Default" [ref=f5e91]
+      - generic [ref=f5e92]:
+        - generic [ref=f5e93]:
+          - text: Top P
+          - spinbutton "—" [ref=f5e94]
+        - generic [ref=f5e95]:
+          - text: Top K
+          - spinbutton "—" [ref=f5e96]
+        - generic [ref=f5e97]:
+          - text: Min P
+          - spinbutton "—" [ref=f5e98]
+      - generic [ref=f5e99]:
+        - generic [ref=f5e100]:
+          - text: Rep. Penalty
+          - spinbutton "Default" [ref=f5e101]
+        - generic [ref=f5e102]:
+          - text: Presence Penalty
+          - spinbutton "Default" [ref=f5e103]
+      - generic [ref=f5e104]:
+        - generic [ref=f5e105]: Thinking
+        - combobox [ref=f5e106]:
+          - option "Auto" [selected]
+          - option "On (Unlimited)"
+          - option "On (Limit)"
+          - option "Off"
+        - paragraph [ref=f5e107]: KV cache quantization and speculative decoding are configured in Admin > Model Settings (requires model reload).
+    - generic [ref=f5e109]:
+      - generic [ref=f5e110]:
+        - generic [ref=f5e111]: Prefill (t/s)
+        - generic [ref=f5e112]: "0.0"
+      - generic [ref=f5e114]:
+        - generic [ref=f5e115]: Token Gen (t/s)
+        - generic [ref=f5e116]: "0.0"
+      - generic [ref=f5e118]:
+        - generic [ref=f5e119]: Thinking (s)
+        - generic [ref=f5e120]: "-"
+      - generic [ref=f5e122]:
+        - generic [ref=f5e123]: Duration (s)
+        - generic [ref=f5e124]: "-"

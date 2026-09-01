@@ -165,8 +165,9 @@ def test_a_limpeza_de_texto_converte_os_nomes_crus_do_publicado():
     só. Sem a delegação, medido no Vontra: 112.180 parâmetros recusados por não
     existirem no modelo.
 
-    A cabeça de previsão múltipla passa POR FORA da delegação, porque o
-    renomeador vendorado descarta toda chave que contenha `mtp.`.
+    (Que a cabeça sobrevive à delegação — o renomeador vendorado descarta toda
+    chave com `mtp.` — é medido em ``test_mtp_glm5_next_runtime.py``, com um
+    modelo que TEM cabeça. Num objeto sem cabeça, descartar é o certo.)
     """
     import types
 
@@ -179,7 +180,6 @@ def test_a_limpeza_de_texto_converte_os_nomes_crus_do_publicado():
         "model.language_model.layers.0.hc_attn_base": mx.zeros((4,)),
         "model.language_model.layers.0.hc_ffn_base": mx.zeros((4,)),
         "model.language_model.layers.0.self_attn.f_a_proj.weight": mx.zeros((2, 2)),
-        "mtp.0.block.input_layernorm.weight": mx.ones((4,)),
     }
     saida = Model.sanitize(contexto, dict(entrada))
 
@@ -190,8 +190,4 @@ def test_a_limpeza_de_texto_converte_os_nomes_crus_do_publicado():
     assert "model.layers.0.ffn_hc.base" in saida
     assert "model.layers.0.self_attn.forget_gate.f_a_proj.weight" in saida, (
         "a projeção não entrou no portão de esquecimento"
-    )
-    assert "mtp.0.block.input_layernorm.weight" in saida, (
-        "a chave da cabeça foi descartada; o renomeador vendorado joga fora "
-        "tudo que tem `mtp.`, e é por isso que ela passa por fora dele"
     )

@@ -1,0 +1,14 @@
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - img "oMLX" [ref=e7]
+    - generic [ref=e8]: oMLX
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: API Key
+      - textbox "API Key" [ref=e13]:
+        - /placeholder: Enter your API key
+    - generic [ref=e14]:
+      - checkbox "Stay signed in for 30 days" [ref=e15] [cursor=pointer]
+      - generic [ref=e16] [cursor=pointer]: Stay signed in for 30 days
+    - button "Sign in" [ref=e17] [cursor=pointer]
+  - paragraph [ref=e18]: LLM inference, optimized for your Mac

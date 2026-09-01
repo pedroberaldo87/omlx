@@ -1,0 +1,87 @@
+- generic [ref=f6e2]:
+  - generic [ref=f6e3]:
+    - generic [ref=f6e5]:
+      - generic [ref=f6e6]:
+        - link [ref=f6e7] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f6e8]
+        - generic [ref=f6e9]:
+          - link "oMLX Chat" [ref=f6e10] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.4" [ref=f6e11] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - button "Close sidebar" [ref=f6e12] [cursor=pointer]
+    - button "New Chat" [ref=f6e17] [cursor=pointer]
+    - button "Settings" [ref=f6e21] [cursor=pointer]
+  - generic [ref=f6e25]:
+    - generic [ref=f6e29]:
+      - generic [ref=f6e30]:
+        - img "oMLX" [ref=f6e31]
+        - heading "Chat with oMLX" [level=1] [ref=f6e32]
+      - paragraph [ref=f6e33]: Start a conversation with your local MLX models. Select a model above to begin.
+      - generic [ref=f6e34]: All conversations run locally on your device.
+    - generic [ref=f6e41]:
+      - button "Turn on web search" [disabled] [ref=f6e42]
+      - textbox "Type a message... (Shift+Enter for new line)" [disabled] [ref=f6e46]
+      - button [disabled] [ref=f6e48]
+  - generic [ref=f6e51]:
+    - generic [ref=f6e53]:
+      - generic [ref=f6e54]:
+        - button "Model" [ref=f6e55] [cursor=pointer]
+        - button "Profile" [ref=f6e60] [cursor=pointer]
+        - button "Chat" [ref=f6e65] [cursor=pointer]
+      - button "Close settings" [ref=f6e68] [cursor=pointer]
+    - generic [ref=f6e73]:
+      - generic [ref=f6e74]:
+        - generic [ref=f6e75]: Active Profile
+        - combobox [ref=f6e81] [cursor=pointer]:
+          - option "System Default" [selected]
+      - generic [ref=f6e82]:
+        - generic [ref=f6e83]: Active Model
+        - combobox [ref=f6e85] [cursor=pointer]
+        - generic [ref=f6e86]: No models available
+      - generic [ref=f6e87]:
+        - generic [ref=f6e88]:
+          - text: Temperature
+          - spinbutton "Default" [ref=f6e89]
+        - generic [ref=f6e90]:
+          - text: Max Tokens
+          - spinbutton "Default" [ref=f6e91]
+      - generic [ref=f6e92]:
+        - generic [ref=f6e93]:
+          - text: Top P
+          - spinbutton "—" [ref=f6e94]
+        - generic [ref=f6e95]:
+          - text: Top K
+          - spinbutton "—" [ref=f6e96]
+        - generic [ref=f6e97]:
+          - text: Min P
+          - spinbutton "—" [ref=f6e98]
+      - generic [ref=f6e99]:
+        - generic [ref=f6e100]:
+          - text: Rep. Penalty
+          - spinbutton "Default" [ref=f6e101]
+        - generic [ref=f6e102]:
+          - text: Presence Penalty
+          - spinbutton "Default" [ref=f6e103]
+      - generic [ref=f6e104]:
+        - generic [ref=f6e105]: Thinking
+        - combobox [ref=f6e106]:
+          - option "Auto" [selected]
+          - option "On (Unlimited)"
+          - option "On (Limit)"
+          - option "Off"
+        - paragraph [ref=f6e107]: KV cache quantization and speculative decoding are configured in Admin > Model Settings (requires model reload).
+    - generic [ref=f6e109]:
+      - generic [ref=f6e110]:
+        - generic [ref=f6e111]: Prefill (t/s)
+        - generic [ref=f6e112]: "0.0"
+      - generic [ref=f6e114]:
+        - generic [ref=f6e115]: Token Gen (t/s)
+        - generic [ref=f6e116]: "0.0"
+      - generic [ref=f6e118]:
+        - generic [ref=f6e119]: Thinking (s)
+        - generic [ref=f6e120]: "-"
+      - generic [ref=f6e122]:
+        - generic [ref=f6e123]: Duration (s)
+        - generic [ref=f6e124]: "-"

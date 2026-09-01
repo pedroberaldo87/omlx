@@ -1,0 +1,113 @@
+- generic [ref=f5e2]:
+  - generic [ref=f5e3]:
+    - generic [ref=f5e5]:
+      - generic [ref=f5e6]:
+        - link [ref=f5e7] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f5e8]
+        - generic [ref=f5e9]:
+          - link "oMLX Chat" [ref=f5e10] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.4" [ref=f5e11] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - button "Close sidebar" [ref=f5e12] [cursor=pointer]
+    - generic [ref=f5e16]:
+      - button "New Chat" [ref=f5e17] [cursor=pointer]
+      - textbox "Search chats…" [ref=f5e146]
+    - generic [ref=f5e147] [cursor=pointer]:
+      - button "Stop generating" [ref=f5e150]
+      - generic [ref=f5e151]:
+        - generic "Untitled" [ref=f5e152]
+        - button "Pin chat" [ref=f5e153]
+        - button "Rename chat" [ref=f5e156]
+        - button "Delete chat" [ref=f5e160]
+    - button "Settings" [ref=f5e21] [cursor=pointer]
+  - generic [ref=f5e25]:
+    - generic [ref=f5e26]:
+      - button "GLM-5.3-Flash-MLX-2bit-MTP" [ref=f5e144] [cursor=pointer]
+      - generic [ref=f5e164]:
+        - generic [ref=f5e167]:
+          - generic [ref=f5e168]:
+            - button "Copy" [ref=f5e169] [cursor=pointer]
+            - button "Edit message" [ref=f5e173] [cursor=pointer]
+            - button "More actions" [ref=f5e178] [cursor=pointer]
+          - paragraph [ref=f5e185]: Explique em três frases por que o céu é azul, e depois dê um exemplo cotidiano do mesmo fenômeno.
+        - generic [ref=f5e186]:
+          - generic [ref=f5e187]:
+            - generic [ref=f5e188]: GLM-5.3-Flash-MLX-2bit-MTP
+            - generic [ref=f5e193]:
+              - button "Toggle info" [ref=f5e194] [cursor=pointer]
+              - button "Stop" [ref=f5e197] [cursor=pointer]
+          - generic [ref=f5e200]: Loading model
+      - generic [ref=f5e207] [cursor=pointer]
+    - generic [ref=f5e41]:
+      - button "Upload image" [disabled] [ref=f5e134]
+      - button "Attach document" [disabled] [ref=f5e139]
+      - button "Turn on web search" [ref=f5e42] [cursor=pointer]
+      - textbox "Type a message... (Shift+Enter for new line)" [disabled] [ref=f5e46]
+      - button [ref=f5e209] [cursor=pointer]
+  - generic [ref=f5e51]:
+    - generic [ref=f5e53]:
+      - generic [ref=f5e54]:
+        - button "Model" [ref=f5e55] [cursor=pointer]
+        - button "Profile" [ref=f5e60] [cursor=pointer]
+        - button "Chat" [ref=f5e65] [cursor=pointer]
+      - button "Close settings" [ref=f5e68] [cursor=pointer]
+    - generic [ref=f5e73]:
+      - generic [ref=f5e74]:
+        - generic [ref=f5e75]: Active Profile
+        - combobox [ref=f5e81] [cursor=pointer]:
+          - option "System Default" [selected]
+      - generic [ref=f5e82]:
+        - generic [ref=f5e83]: Active Model
+        - combobox [ref=f5e85] [cursor=pointer]:
+          - option "GLM-5.3-Flash-MLX-2bit-MTP" [selected]
+          - option "GLM-5.3-Flash"
+          - option "GLM-5.3-Flash-DFlash2"
+          - option "incoai--GLM-5.3-Flash-DFlash2"
+          - option "Qwen3.8-Flash-Next-oQ3.5e-fp16-mtp"
+      - generic [ref=f5e87]:
+        - generic [ref=f5e88]:
+          - text: Temperature
+          - spinbutton "Default" [ref=f5e89]
+        - generic [ref=f5e90]:
+          - text: Max Tokens
+          - spinbutton "Default" [ref=f5e91]
+      - generic [ref=f5e92]:
+        - generic [ref=f5e93]:
+          - text: Top P
+          - spinbutton "—" [ref=f5e94]
+        - generic [ref=f5e95]:
+          - text: Top K
+          - spinbutton "—" [ref=f5e96]
+        - generic [ref=f5e97]:
+          - text: Min P
+          - spinbutton "—" [ref=f5e98]
+      - generic [ref=f5e99]:
+        - generic [ref=f5e100]:
+          - text: Rep. Penalty
+          - spinbutton "Default" [ref=f5e101]
+        - generic [ref=f5e102]:
+          - text: Presence Penalty
+          - spinbutton "Default" [ref=f5e103]
+      - generic [ref=f5e104]:
+        - generic [ref=f5e105]: Thinking
+        - combobox [ref=f5e106]:
+          - option "Auto" [selected]
+          - option "On (Unlimited)"
+          - option "On (Limit)"
+          - option "Off"
+        - paragraph [ref=f5e107]: KV cache quantization and speculative decoding are configured in Admin > Model Settings (requires model reload).
+    - generic [ref=f5e109]:
+      - generic [ref=f5e110]:
+        - generic [ref=f5e111]: Prefill (t/s)
+        - generic [ref=f5e112]: "0.0"
+      - generic [ref=f5e114]:
+        - generic [ref=f5e115]: Token Gen (t/s)
+        - generic [ref=f5e116]: "0.0"
+      - generic [ref=f5e118]:
+        - generic [ref=f5e119]: Thinking (s)
+        - generic [ref=f5e120]: "-"
+      - generic [ref=f5e122]:
+        - generic [ref=f5e123]: Duration (s)
+        - generic [ref=f5e124]: "6.0"

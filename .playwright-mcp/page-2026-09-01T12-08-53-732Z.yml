@@ -1,0 +1,162 @@
+- generic [ref=f4e2]:
+  - navigation [ref=f4e3]:
+    - generic [ref=f4e4]:
+      - generic [ref=f4e5]:
+        - link [ref=f4e6] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f4e7]
+        - generic [ref=f4e8]:
+          - link "oMLX" [ref=f4e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.4" [ref=f4e10] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - generic [ref=f4e11]:
+        - button "Dashboard" [ref=f4e12] [cursor=pointer]
+        - button "Models" [ref=f4e16] [cursor=pointer]
+        - button "Settings" [ref=f4e21] [cursor=pointer]
+        - button "Logs" [ref=f4e25] [cursor=pointer]
+        - button "Bench" [ref=f4e30] [cursor=pointer]
+        - link "Chat" [ref=f4e34] [cursor=pointer]:
+          - /url: /admin/chat
+      - generic [ref=f4e37]:
+        - button "Auto" [ref=f4e39] [cursor=pointer]
+        - button "Logout" [ref=f4e46] [cursor=pointer]
+  - main [ref=f4e50]:
+    - generic [ref=f4e54]:
+      - generic [ref=f4e55]:
+        - generic [ref=f4e56]:
+          - heading "Dashboard" [level=2] [ref=f4e57]
+          - heading "Serving Stats" [level=3] [ref=f4e58]
+        - generic [ref=f4e59]:
+          - generic [ref=f4e60]:
+            - button "Session" [ref=f4e61] [cursor=pointer]
+            - button "All-Time" [ref=f4e62] [cursor=pointer]
+          - button "Clear" [ref=f4e64] [cursor=pointer]
+          - combobox [ref=f4e68]:
+            - option "All Models" [selected]
+      - generic [ref=f4e69]:
+        - generic [ref=f4e70]:
+          - paragraph [ref=f4e71]: Total Prefill Tokens
+          - paragraph [ref=f4e72]: "0"
+        - generic [ref=f4e73]:
+          - paragraph [ref=f4e74]: Cached Tokens
+          - paragraph [ref=f4e75]: "0"
+        - generic [ref=f4e76]:
+          - paragraph [ref=f4e77]: Cache Efficiency
+          - paragraph [ref=f4e78]: 0.0%
+      - generic [ref=f4e79]:
+        - generic [ref=f4e80]: Average Speed
+        - generic [ref=f4e86]:
+          - generic [ref=f4e87]:
+            - paragraph [ref=f4e88]: Prompt Processing (excl. cached)
+            - paragraph [ref=f4e89]: 0.0 tok/s
+          - generic [ref=f4e90]:
+            - paragraph [ref=f4e91]: Token Generation
+            - paragraph [ref=f4e92]: 0.0 tok/s
+      - generic [ref=f4e93]:
+        - generic [ref=f4e94]:
+          - generic [ref=f4e95]: Active Models
+          - generic [ref=f4e99]: Enforcer disabled
+        - generic [ref=f4e103]: No models loaded
+      - generic [ref=f4e105]:
+        - generic [ref=f4e106]:
+          - generic [ref=f4e107]: Runtime Cache Observability
+          - generic [ref=f4e114]:
+            - generic [ref=f4e115]: SSD
+            - generic [ref=f4e117]: 0 / 0 · 0 files
+        - generic [ref=f4e118]:
+          - generic [ref=f4e119]:
+            - generic [ref=f4e120]:
+              - generic [ref=f4e121]: Active base_path
+              - code [ref=f4e122]: "-"
+            - generic [ref=f4e123]:
+              - generic [ref=f4e124]: Effective ssd_cache_dir
+              - code [ref=f4e125]: "-"
+          - generic [ref=f4e127]:
+            - generic [ref=f4e128]: response-state directory
+            - code [ref=f4e129]: "-"
+          - generic [ref=f4e130]: "Note: Sub-block Cache means requests below one full block (for example <1024 tokens on some models) are cached in memory/paged cache but are not counted as indexed SSD blocks."
+      - generic [ref=f4e131]:
+        - generic [ref=f4e132]: API Endpoints
+        - generic [ref=f4e138]:
+          - generic [ref=f4e139]:
+            - generic [ref=f4e140]: OpenAI API
+            - generic [ref=f4e141]:
+              - code [ref=f4e142]: http://127.0.0.1:8000/v1
+              - button "Copy" [ref=f4e143] [cursor=pointer]
+          - generic [ref=f4e147]:
+            - generic [ref=f4e148]: Claude API
+            - generic [ref=f4e149]:
+              - code [ref=f4e150]: http://127.0.0.1:8000
+              - button "Copy" [ref=f4e151] [cursor=pointer]
+      - generic [ref=f4e155]:
+        - generic [ref=f4e156]: Claude Code with oMLX
+        - generic [ref=f4e162]:
+          - generic [ref=f4e163]:
+            - generic [ref=f4e164]: Mode
+            - generic [ref=f4e165]:
+              - button [ref=f4e166] [cursor=pointer]
+              - generic [ref=f4e168]: Cloud
+          - generic [ref=f4e169]:
+            - generic [ref=f4e170]: Command
+            - generic [ref=f4e171]:
+              - generic [ref=f4e172]: env -u ANTHROPIC_BASE_URL -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_DEFAULT_OPUS_MODEL -u ANTHROPIC_DEFAULT_SONNET_MODEL -u ANTHROPIC_DEFAULT_HAIKU_MODEL -u API_TIMEOUT_MS -u CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC claude
+              - button "Copy command" [ref=f4e173] [cursor=pointer]
+      - generic [ref=f4e177]:
+        - generic [ref=f4e178]: Applications
+        - generic [ref=f4e186]:
+          - generic [ref=f4e187]:
+            - img "Claude Code" [ref=f4e189]
+            - generic [ref=f4e190]:
+              - generic [ref=f4e191]: Claude Code
+              - code [ref=f4e192]: omlx launch claude
+            - button "Copy command" [ref=f4e193] [cursor=pointer]
+          - generic [ref=f4e197]:
+            - img "Codex" [ref=f4e199]
+            - generic [ref=f4e200]:
+              - generic [ref=f4e201]: Codex
+              - generic [ref=f4e202]:
+                - generic [ref=f4e203]:
+                  - generic [ref=f4e204]: CLI
+                  - code [ref=f4e205]: omlx launch codex
+                  - button "Copy command" [ref=f4e206] [cursor=pointer]
+                - generic [ref=f4e210]:
+                  - generic [ref=f4e211]: App
+                  - code [ref=f4e212]: omlx launch codex_app
+                  - button "Copy command" [ref=f4e213] [cursor=pointer]
+          - generic [ref=f4e217]:
+            - img "OpenCode" [ref=f4e219]
+            - generic [ref=f4e220]:
+              - generic [ref=f4e221]: OpenCode
+              - code [ref=f4e222]: omlx launch opencode
+            - button "Copy command" [ref=f4e223] [cursor=pointer]
+          - generic [ref=f4e227]:
+            - img "OpenClaw" [ref=f4e229]
+            - generic [ref=f4e230]:
+              - generic [ref=f4e231]: OpenClaw
+              - code [ref=f4e232]: omlx launch openclaw --tools-profile coding
+            - combobox [ref=f4e233]:
+              - option "Minimal"
+              - option "Coding" [selected]
+              - option "Messaging"
+              - option "Full"
+            - button "Copy command" [ref=f4e234] [cursor=pointer]
+          - generic [ref=f4e238]:
+            - img "Hermes Agent" [ref=f4e240]
+            - generic [ref=f4e241]:
+              - generic [ref=f4e242]: Hermes Agent
+              - code [ref=f4e243]: omlx launch hermes
+            - button "Copy command" [ref=f4e244] [cursor=pointer]
+          - generic [ref=f4e248]:
+            - img "Pi" [ref=f4e250]
+            - generic [ref=f4e251]:
+              - generic [ref=f4e252]: Pi
+              - code [ref=f4e253]: omlx launch pi
+            - button "Copy command" [ref=f4e254] [cursor=pointer]
+          - generic [ref=f4e258]:
+            - img "Copilot CLI" [ref=f4e260]
+            - generic [ref=f4e261]:
+              - generic [ref=f4e262]: Copilot CLI
+              - code [ref=f4e263]: omlx launch copilot
+            - button "Copy command" [ref=f4e264] [cursor=pointer]
+      - generic [ref=f4e268]: Engine Versions

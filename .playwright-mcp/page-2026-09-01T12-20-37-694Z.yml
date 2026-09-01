@@ -1,0 +1,88 @@
+- generic [ref=f7e4]:
+  - generic [ref=f7e7]:
+    - generic [ref=f7e8]:
+      - button "New session" [ref=f7e9] [cursor=pointer]:
+        - generic [ref=f7e16]:
+          - generic [ref=f7e17]: DSH Local Build
+          - generic [ref=f7e18]: b150a55
+      - button "Collapse sidebar" [ref=f7e19] [cursor=pointer]
+    - button "New session" [ref=f7e22] [cursor=pointer]:
+      - generic [ref=f7e25]: New Session
+    - generic [ref=f7e28]:
+      - generic [ref=f7e29]:
+        - generic [ref=f7e30]: Workspaces
+        - generic [ref=f7e32]:
+          - button "Search sessions" [ref=f7e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f7e37]:
+          - button "View options" [ref=f7e39] [cursor=pointer]
+          - button "Add workspace" [ref=f7e42] [cursor=pointer]
+      - tree "Sessions" [ref=f7e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f7e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f7e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f7e112] [cursor=pointer]
+        - generic [ref=f7e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f7e120] [cursor=pointer]
+          - treeitem "Explique em três frases por now" [selected] [ref=f7e277] [cursor=pointer]:
+            - generic [ref=f7e130]: Explique em três frases por
+            - generic [ref=f7e278]: now
+          - treeitem "Preciso de um diagnóstico técnico 9h" [ref=f7e132] [cursor=pointer]:
+            - generic [ref=f7e134]: Preciso de um diagnóstico técnico
+            - generic [ref=f7e135]: 9h
+          - treeitem "Olá 12h" [ref=f7e137] [cursor=pointer]:
+            - generic [ref=f7e139]: Olá
+            - generic [ref=f7e140]: 12h
+          - treeitem "Oi 13h" [ref=f7e142] [cursor=pointer]:
+            - generic [ref=f7e144]: Oi
+            - generic [ref=f7e145]: 13h
+          - treeitem "Testando 13h" [ref=f7e147] [cursor=pointer]:
+            - generic [ref=f7e149]: Testando
+            - generic [ref=f7e150]: 13h
+          - button "Show 36 more sessions" [ref=f7e151] [cursor=pointer]
+    - button "Settings" [ref=f7e53] [cursor=pointer]
+  - generic [ref=f7e62]:
+    - banner [ref=f7e280]:
+      - generic [ref=f7e281]:
+        - generic [ref=f7e282]:
+          - navigation "Session hierarchy" [ref=f7e283]:
+            - button "Explique em três frases por" [disabled] [ref=f7e285]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f7e288]': Standard Bl
+        - button "Session log" [ref=f7e296] [cursor=pointer]
+      - tablist [ref=f7e300]:
+        - tab "Chat" [selected] [ref=f7e301] [cursor=pointer]
+        - tab "Trajectory" [ref=f7e302] [cursor=pointer]
+    - generic [ref=f7e63]:
+      - generic [ref=f7e308]:
+        - generic [ref=f7e311]:
+          - generic [ref=f7e312]: Explique em três frases por que o céu é azul, e depois dê um exemplo cotidiano do mesmo fenômeno.
+          - generic [ref=f7e315]:
+            - generic [ref=f7e316]: 09:20
+            - button "Copy" [ref=f7e317] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f7e323] [cursor=pointer]:
+          - generic [ref=f7e332]: Context injection
+          - generic [ref=f7e334]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f7e338] [cursor=pointer]:
+          - generic [ref=f7e347]: Context injection
+          - generic [ref=f7e349]: skill-catalog
+        - status [ref=f7e352]:
+          - generic [ref=f7e354]: "This turn failed404: {\"message\":\"Model 'GLM-5.3-Flash-oQ2e-fp16-mtp' not found. Available models: Qwen3.8-Flash-Next-oQ3.5e-fp16-mtp, GLM-5.3-Flash-MLX-2bit-MTP, GLM-5.3-Flash-DFlash2, GLM-5.3-Flash, incoai--GLM-5.3-Flash-DFlash2\",\"type\":\"not_found_error\",\"param\":null,\"code\":null}"
+          - code [ref=f7e355]: PI_AI_ERROR
+      - generic [ref=f7e85]:
+        - generic [ref=f7e86]:
+          - textbox "Message the agent" [active] [ref=f7e356]
+          - generic [ref=f7e90]:
+            - generic [ref=f7e91]:
+              - button "Commands" [ref=f7e156] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f7e161] [cursor=pointer]':
+                - generic [ref=f7e169]: Workspace Write
+            - generic [ref=f7e92]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f7e276] [cursor=pointer]:
+                - generic [ref=f7e176]: GLM 5.3 Flash (Ultra)
+              - button "0% of context used" [ref=f7e358] [cursor=pointer]
+              - button "Send message" [disabled] [ref=f7e179]
+        - generic [ref=f7e363]: 1 turns · 1 steps
+  - generic [ref=f7e183]:
+    - generic [ref=f7e184]:
+      - generic: Details
+      - button "Close details" [ref=f7e185] [cursor=pointer]
+    - generic [ref=f7e188]: Click a tool row in the message flow to view its details
