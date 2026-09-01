@@ -342,3 +342,83 @@ def test_armar_o_desfazer_nao_toca_no_cache_da_camada_esparsa():
         "a camada esparsa não deveria receber rollback_state: ela é apáravel "
         "e o desfazer já sabe lidar com ela"
     )
+
+
+def test_a_limpeza_de_visao_renomeia_a_camada_crua_para_o_prefixo_da_cabeca():
+    """O checkpoint guarda a cabeça como camada 45; o bloco mora em ``mtp.0``.
+
+    Sem o renomeio os pesos chegam com o nome de uma camada que o modelo não
+    tem, e a carga estrita os recusa. O renomeador é o MESMO do caminho de
+    texto, de propósito: duas cópias divergiram antes — uma casava prefixo
+    exato, a outra usava expressão regular mais permissiva — e nada apontava
+    isso, porque nenhum teste cobria o renomeio deste lado.
+    """
+    import mlx.core as mx
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, args = _modelo_com_cabeca(glm_lang)
+    n = args.num_hidden_layers
+
+    entrada = {
+        f"model.language_model.layers.{n}.eh_proj.weight": mx.zeros((4, 8)),
+        f"model.language_model.layers.{n}.enorm.weight": mx.ones((4,)),
+        f"model.language_model.layers.{n}.hnorm.weight": mx.ones((4,)),
+        f"model.language_model.layers.{n}.shared_head.norm.weight": mx.ones((4,)),
+        f"model.language_model.layers.{n}.input_layernorm.weight": mx.ones((4,)),
+    }
+    saida = modelo.sanitize(dict(entrada))
+
+    # o trio da cabeça fica na raiz do bloco
+    for nome in ("eh_proj.weight", "enorm.weight", "hnorm.weight"):
+        assert f"mtp.0.{nome}" in saida, f"faltou mtp.0.{nome} em {sorted(saida)[:8]}"
+    # a norma final tem nome próprio no checkpoint e vira a `norm` do bloco
+    assert "mtp.0.norm.weight" in saida, (
+        "shared_head.norm deveria virar a norm do bloco"
+    )
+    # o resto é a camada decoder, que vive sob `block.`
+    assert "mtp.0.block.input_layernorm.weight" in saida
+    # e nada sobrou com o nome da camada crua
+    assert not [k for k in saida if f"layers.{n}." in k], (
+        f"sobrou chave com o nome da camada crua: "
+        f"{[k for k in saida if f'layers.{n}.' in k]}"
+    )
+
+
+def test_a_limpeza_levanta_a_contagem_para_a_camada_da_cabeca_nao_ser_descartada():
+    """A limpeza de baixo joga fora toda camada de índice >= num_hidden_layers.
+
+    Está em ``glm_moe_dsa/deepseek_v32.py`` (``parts[1] == "layers" and
+    int(parts[2]) >= mpt_layer``), e a camada da cabeça é exatamente a primeira
+    além do fim. Levantar a contagem durante a chamada faz cada transformação da
+    camada comum valer igual para a dela; sem isso ela é descartada antes de
+    qualquer renomeio.
+
+    O filtro só casa o formato ``<raiz>.layers.N.*`` — com o prefixo de
+    linguagem no meio ele não pega, e foi por isso que o primeiro teste do
+    renomeio não cobria esta linha.
+    """
+    import mlx.core as mx
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, args = _modelo_com_cabeca(glm_lang)
+    n = args.num_hidden_layers
+
+    entrada = {
+        f"model.layers.{n}.eh_proj.weight": mx.zeros((4, 8)),
+        f"model.layers.{n}.enorm.weight": mx.ones((4,)),
+        f"model.layers.{n}.hnorm.weight": mx.ones((4,)),
+    }
+    saida = modelo.sanitize(dict(entrada))
+
+    for nome in ("eh_proj.weight", "enorm.weight", "hnorm.weight"):
+        assert f"mtp.0.{nome}" in saida, (
+            f"mtp.0.{nome} não sobreviveu: a camada da cabeça foi descartada "
+            f"pelo filtro de índice antes de chegar ao renomeio. "
+            f"Saíram: {sorted(saida)[:6]}"
+        )
+    # e a contagem tem que voltar ao que era, ou o modelo passa a mentir o
+    # próprio tamanho para todo o resto do processo
+    assert modelo.args.num_hidden_layers == n, (
+        f"a contagem ficou em {modelo.args.num_hidden_layers} em vez de voltar "
+        f"para {n}"
+    )

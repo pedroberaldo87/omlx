@@ -329,7 +329,10 @@ def _patch_vlm_sanitize(glm_lang: Any) -> None:
     if "_omlx_mtp_sanitize_patched" in cls.__dict__:
         return
 
-    from ..mlx_lm_mtp.glm5_next_model import _completa_hiperconexao_da_cabeca
+    from ..mlx_lm_mtp.glm5_next_model import (
+        _completa_hiperconexao_da_cabeca,
+        _renomeia_para_mtp,
+    )
 
     original_sanitize = cls.sanitize
 
@@ -366,36 +369,3 @@ def _patch_vlm_sanitize(glm_lang: Any) -> None:
 
     cls.sanitize = sanitize
     cls._omlx_mtp_sanitize_patched = True
-
-
-def _renomeia_para_mtp(weights, n_main: int, n_mtp: int):
-    """``...layers.<n_main+i>.X`` vira ``mtp.<i>.X``, que é onde o bloco mora.
-
-    O trio da cabeça (``eh_proj``, ``enorm``, ``hnorm``) fica na raiz do bloco;
-    o resto é a camada decoder, que vive sob ``block.``. A norma final tem nome
-    próprio no checkpoint e vira a ``norm`` do bloco.
-    """
-    import re
-
-    saida = {}
-    padrao = re.compile(r"^(.*?)layers\.(\d+)\.(.*)$")
-    raiz = ("eh_proj", "enorm", "hnorm")
-    for chave, valor in weights.items():
-        m = padrao.match(chave)
-        if not m:
-            saida[chave] = valor
-            continue
-        idx = int(m.group(2))
-        if not (n_main <= idx < n_main + n_mtp):
-            saida[chave] = valor
-            continue
-        resto = m.group(3)
-        i = idx - n_main
-        if resto.startswith("shared_head.norm."):
-            novo = f"mtp.{i}.norm." + resto[len("shared_head.norm."):]
-        elif resto.split(".")[0] in raiz:
-            novo = f"mtp.{i}.{resto}"
-        else:
-            novo = f"mtp.{i}.block.{resto}"
-        saida[novo] = valor
-    return saida
