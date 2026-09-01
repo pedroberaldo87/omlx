@@ -112,3 +112,43 @@ def test_a_irma_continua_correta():
             f"a irmã {no.name} regrediu: retornos {sorted(antes)} antes da "
             f"barreira na linha {barreira}"
         )
+
+
+def test_a_barreira_nao_esta_escondida_dentro_de_um_desvio():
+    """Nao basta vir antes dos retornos: ela tem que rodar SEMPRE.
+
+    Mover a barreira para dentro de ``if topk_indices is not None:`` a deixaria
+    antes dos tres retornos e o teste de ordem passaria — mas ela so rodaria no
+    caminho esparso, e o caminho denso voltaria a sair sem a amarra. O que este
+    teste cobra e que o desvio que a contem seja a propria guarda de nulos dela,
+    e nao um desvio de regime do modelo.
+    """
+    fn, chamada = _funcao_da_barreira()
+
+    # sobe do no da barreira ate o corpo da funcao, colecionando os testes dos
+    # ``if`` que a envolvem
+    pais = {}
+    for no in ast.walk(fn):
+        for filho in ast.iter_child_nodes(no):
+            pais[filho] = no
+
+    envolventes = []
+    atual = pais.get(chamada)
+    while atual is not None and atual is not fn:
+        if isinstance(atual, ast.If):
+            envolventes.append(ast.unparse(atual.test))
+        if isinstance(atual, (ast.For, ast.While)):
+            envolventes.append("<laco: %s>" % type(atual).__name__)
+        atual = pais.get(atual)
+
+    # A guarda legitima fala do CACHE (``cache[0]``, ``cache[1].pooled``, ``deps``).
+    # "is not None" sozinho NAO entra na lista: ``if topk_indices is not None:`` — o
+    # desvio de regime esparso — casa com ele, e foi assim que a primeira versao
+    # deste teste passou com a barreira escondida la dentro (provado por mutacao).
+    permitido = ("cache", "deps")
+    intrusos = [t for t in envolventes if not any(p in t for p in permitido)]
+    assert not intrusos, (
+        "a barreira esta dentro de desvio(s) que nao sao a guarda de nulos dela: "
+        f"{intrusos}. Nesses caminhos o KV sai sem a amarra com o acumulado de "
+        "compressao. Ela precisa rodar no corpo da funcao, logo depois do indexer."
+    )

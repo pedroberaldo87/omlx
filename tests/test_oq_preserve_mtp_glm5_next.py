@@ -39,7 +39,12 @@ ORIGEM = os.path.expanduser("~/.omlx/models/zai-org/GLM-5.3-Flash")
 
 # A pasta pode existir vazia depois de o checkpoint ser apagado — o que decide
 # e o indice de pesos, nao o diretorio.
-pytestmark = pytest.mark.skipif(
+#
+# O pulo vale SO para os testes que leem o checkpoint real. Os que exercitam a
+# protecao da quantizacao rodam sempre: eram eles que precisavam existir quando o
+# defeito aconteceu, e um pytestmark de modulo os apagava justo na maquina onde o
+# checkpoint nao esta.
+precisa_do_checkpoint = pytest.mark.skipif(
     not HAS_MLX or not os.path.isfile(
         os.path.join(ORIGEM, "model.safetensors.index.json")
     ),
@@ -51,6 +56,7 @@ def _config():
     return json.load(open(os.path.join(ORIGEM, "config.json")))
 
 
+@precisa_do_checkpoint
 def test_a_origem_declara_e_carrega_a_cabeca():
     """Antes de acusar a quantização: a origem realmente tem a cabeça?"""
     cfg = _config()
@@ -77,6 +83,7 @@ def test_a_origem_declara_e_carrega_a_cabeca():
     "Quando alguem escrever essa limpeza, este teste passa e o aviso "
     "de XPASS cobra a remocao desta marca.",
 )
+@precisa_do_checkpoint
 def test_a_limpeza_de_nomes_nao_pode_descartar_a_cabeca():
     """O elo que quebra: com a opção LIGADA, a camada extra é descartada."""
     from omlx.oq import _build_model_sanitizer
@@ -117,6 +124,7 @@ def test_a_limpeza_de_nomes_nao_pode_descartar_a_cabeca():
     "(o GLM-5.2) e nao glm5_next (o 5.3), entao a previsao multipla nao liga "
     "nem no modelo ORIGINAL — observado pelo dono na tela de configuracoes.",
 )
+@precisa_do_checkpoint
 def test_o_portao_reconhece_o_tipo_do_glm_5_3():
     """Segundo bloqueio, independente da quantizacao.
 
@@ -133,4 +141,82 @@ def test_o_portao_reconhece_o_tipo_do_glm_5_3():
     assert _is_mtp_compatible(cfg, tipo) is True, (
         f"o portao ve a cabeca no config mas recusa o tipo {tipo!r}; a lista "
         "aceita glm_moe_dsa, que e a geracao anterior"
+    )
+
+
+# ---------------------------------------------------------------------------
+# A protecao: quantizar sem a cabeca, com a opcao ligada, tem que FALHAR ALTO.
+# Estes rodam sem o checkpoint em disco — nao dependem do pytestmark acima.
+# ---------------------------------------------------------------------------
+
+
+def _checkpoint_falso(pasta, com_cabeca: bool):
+    """Escreve o minimo que _checkpoint_has_mtp_weights le: config + indice."""
+    import json
+
+    pasta.mkdir(parents=True, exist_ok=True)
+    (pasta / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "glm5_next",
+                "text_config": {
+                    "num_hidden_layers": 2,
+                    "num_nextn_predict_layers": 1,
+                },
+            }
+        )
+    )
+    pesos = {"model.language_model.layers.0.self_attn.q_proj.weight": "s0.safetensors"}
+    if com_cabeca:
+        pesos["model.language_model.layers.2.eh_proj.weight"] = "s0.safetensors"
+    (pasta / "model.safetensors.index.json").write_text(
+        json.dumps({"metadata": {}, "weight_map": pesos})
+    )
+    return pasta
+
+
+@pytest.mark.skipif(not HAS_MLX, reason="precisa de MLX")
+def test_o_detector_separa_com_cabeca_de_sem_cabeca(tmp_path):
+    """Rede do proprio arreio: se o detector nao separa, o teste abaixo nao vale."""
+    from omlx.utils.model_loading import _checkpoint_has_mtp_weights
+
+    assert _checkpoint_has_mtp_weights(_checkpoint_falso(tmp_path / "com", True))
+    assert not _checkpoint_has_mtp_weights(_checkpoint_falso(tmp_path / "sem", False))
+
+
+def test_resultado_sem_cabeca_com_a_opcao_ligada_nao_passa_calado(tmp_path):
+    """O modelo de 31/08 saiu com '-mtp' no nome e sem a cabeca dentro.
+
+    A conferencia de saida existe para que isso pare de ser possivel: com a opcao
+    ligada e o resultado sem a cabeca, a quantizacao levanta erro em vez de gravar.
+    """
+    import inspect
+
+    from omlx import oq
+
+    fonte = inspect.getsource(oq)
+    assert "resultado saiu SEM a cabeca" in fonte, (
+        "a conferencia de saida sumiu de omlx/oq.py — sem ela a quantizacao volta a "
+        "gravar um modelo com o sufixo '-mtp' e nada dentro"
+    )
+    # a conferencia tem que rodar DEPOIS de escrever o resultado (ela le o output),
+    # e antes de anunciar sucesso
+    pos_conf = fonte.index("resultado saiu SEM a cabeca")
+    pos_ok = fonte.index("Quantized model saved")
+    assert pos_conf < pos_ok, (
+        "a conferencia precisa vir antes de anunciar 'Quantized model saved'"
+    )
+
+
+def test_a_estimativa_avisa_quando_desliga_a_preservacao():
+    """O caminho que so estima desligava a opcao calado."""
+    import inspect
+
+    from omlx import oq
+
+    fonte = inspect.getsource(oq)
+    assert "prices the model WITHOUT" in fonte, (
+        "o aviso do caminho de estimativa sumiu — ele desligava preserve_mtp em "
+        "silencio, e a estimativa que o dono le antes de mandar quantizar ja "
+        "contava sem a cabeca"
     )

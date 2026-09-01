@@ -122,6 +122,35 @@ daqui usa Python 3.12 e o aplicativo roda 3.11, então
 `_ext.cpython-312-darwin.so` não carrega dentro dele. O `setup.py` aceita
 `Python_EXECUTABLE` via `CMAKE_ARGS` (setup.py:46-47).
 
+## O pin do MLX está segurado — e o que destrava a subida
+
+O tronco subiu para `mlx 0.32.2` / `nanobind 2.15.0` em 31/08. **Este fork ficou em
+`0.32.0` / `2.13.0` de propósito**, e o `pyproject.toml` diz por quê no comentário do
+bloco de build: os núcleos são acoplados por ABI à versão exata, e subir o pin faz cada
+um deles recusar todo `mx.array` com `incompatible function arguments`.
+
+O que impede a subida hoje não é o código — é a **fonte dos núcleos**. A seção acima
+manda tirá-los do instalador da release, e o upgrade do tronco **não entrou em release
+nenhuma**: a `v0.6.4` é anterior a ele. Sem `.dmg` da versão nova, não há de onde tirar
+núcleo compatível.
+
+**Um arquivo ficou divergente do tronco por causa disso:**
+
+```
+omlx/patches/sdpa256_attention.py
+```
+
+A versão do tronco passa `force_fused=` para `scaled_dot_product_attention`, e esse
+parâmetro só existe no MLX 0.32.2 — com o pin segurado ele quebra doze testes de uma vez.
+O arquivo foi mantido na nossa versão no merge de 31/08 (`040ab321`).
+
+**Quando sair release com 0.32.2**, a subida é: pegar o `.dmg` da versão nova, subir os
+dois pinos no `pyproject.toml`, restaurar o `sdpa256_attention.py` do tronco
+(`git checkout jundot/main -- omlx/patches/sdpa256_attention.py`) e repor os núcleos pela
+seção acima. O teste `tests/test_mlx0322_compat.py::test_runtime_usa_exatamente_a_versao_do_pin`
+trava a coerência: ele compara o pin do `pyproject.toml` com o MLX instalado, então acusa
+se um subir sem o outro.
+
 ## Conferir que deu certo
 
 ```bash

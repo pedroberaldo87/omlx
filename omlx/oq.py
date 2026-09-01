@@ -3268,6 +3268,17 @@ def estimate_bpw_and_size(
         from omlx.utils.model_loading import _checkpoint_has_mtp_weights
 
         if not _checkpoint_has_mtp_weights(source):
+            # O caminho de quantizacao ja avisa quando desliga a preservacao; este,
+            # que so estima, desligava calado. Silencio aqui e o que faz o dono
+            # descobrir depois, no arquivo pronto, que a opcao que ele ligou nao
+            # valeu — e a estimativa que ele leu antes de mandar quantizar ja
+            # estava contando sem a cabeca.
+            logger.warning(
+                "Preserve MTP requested for %s, but no MTP weights were found "
+                "in the checkpoint; the estimate below prices the model WITHOUT "
+                "the prediction head",
+                getattr(source, "name", source),
+            )
             preserve_mtp = False
 
     # Header-only scan: shapes/dtypes come from the safetensors headers, so
@@ -6721,6 +6732,25 @@ def quantize_oq_streaming(
             json.dump(imatrix_report, f, indent=2, ensure_ascii=False)
 
     _copy_model_sidecars(source, output, text_only=text_only)
+
+    # Pedir para preservar a cabeca de previsao multipla tem que preserva-la. Sem
+    # esta conferencia o resultado sai com o sufixo "-mtp" no nome (o sufixo so e
+    # aposto quando a opcao esta ligada) e sem a cabeca dentro, e nada avisa —
+    # medido em 31/08/2026 no GLM-5.3-Flash: a origem trazia 1760 pesos na camada
+    # extra, o resultado saiu com zero, e o defeito so apareceu semanas depois,
+    # quando o dono foi ligar a previsao multipla e ela nao existia.
+    if preserve_mtp:
+        from omlx.utils.model_loading import _checkpoint_has_mtp_weights
+
+        if not _checkpoint_has_mtp_weights(output):
+            raise RuntimeError(
+                f"preserve_mtp estava ligado e o resultado saiu SEM a cabeca de "
+                f"previsao multipla: {output_path}. A origem a tinha, entao ela se "
+                f"perdeu na limpeza de nomes — a preservacao depende de uma limpeza "
+                f"propria por familia de modelo, e pode nao existir uma para este "
+                f"tipo. Nao gravo um modelo com o sufixo '-mtp' no nome e nada "
+                f"dentro."
+            )
 
     cb("saving", 100.0, "Quantized model saved")
     logger.info(

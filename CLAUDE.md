@@ -90,10 +90,24 @@ modelos que não estão mais em disco.
 O ambiente é gerido por `uv` e não tem `pip`: instalar exige `VIRTUAL_ENV`
 setado e `uv pip install`.
 
-Duas falhas da suíte são anteriores a este trabalho e não são regressão:
-`test_qwen4_small_hyper_connection_fusion_fails_closed` (falha no tronco puro) e
-`test_plan_helper_classification` (um commit de terceiro mudou a regra e não
-atualizou o teste).
+**Nove falhas da suíte são anteriores e não são regressão** (conferidas em 31/08
+rodando no commit anterior ao merge do tronco). Qualquer falha ALÉM destas é
+regressão e trava a entrega:
+
+```
+3  test_cluster_performance.py          (sampling rank · vocab projection · staggered prompt)
+3  test_cluster_progressive_loading.py  (native tensor strategy)
+2  test_mlx_vlm_qwen4_exp_compat.py     hyper_connection_fails_closed[False]/[True]
+1  test_glm_moe_dsa_patch.py            glm_native_fused_kernels_match_reference
+```
+
+A última **não é defeito**: ela exige `== 0.0` entre o núcleo Metal fundido e a
+referência, e a diferença medida é 1,2e-4 em fp16 — ruído de arredondamento de uma
+soma feita em ordem diferente. Fica listada porque o teste é frágil, não o núcleo.
+
+O `test_plan_helper_classification` **saiu desta lista**: era doc e teste
+desatualizados depois que `PoolingCache` entrou de propósito no caminho por membro
+para o GLM-5.x, e os três (código, descrição e teste) foram alinhados em 31/08.
 
 ## Commits
 
