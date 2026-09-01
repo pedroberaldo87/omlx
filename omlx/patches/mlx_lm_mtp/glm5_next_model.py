@@ -346,7 +346,17 @@ def _patch_model(glm: Any) -> None:
         if cache is None:
             cache = [None] * len(self.mtp)
 
-        mask = create_attention_mask(h, cache[0], return_array=True)
+        # O cache de uma camada esparsa é um PAR: o KV e o acumulado de
+        # compressão do seletor. Quem conta posições é o KV de dentro, e é dele
+        # que o tronco tira a máscara dele também. Passar o par inteiro faz a
+        # máscara nascer sem o histórico — larga só o bastante para as posições
+        # novas, e a atenção estoura contra um KV mais comprido. Some nos dois
+        # regimes fáceis (cache vazio; uma posição só, que dispensa máscara) e
+        # aparece justamente ao rascunhar várias posições encadeadas.
+        conta_posicoes = cache[0]
+        if conta_posicoes is not None and not hasattr(conta_posicoes, "offset"):
+            conta_posicoes = conta_posicoes[0]
+        mask = create_attention_mask(h, conta_posicoes, return_array=True)
 
         ultimo = None
         for i, bloco in enumerate(self.mtp):

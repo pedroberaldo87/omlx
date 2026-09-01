@@ -311,3 +311,76 @@ def test_o_bloco_da_cabeca_roda_de_ponta_a_ponta():
     mx.eval(saida2)
     assert saida2.shape == h2.shape
     assert bool(mx.all(mx.isfinite(saida2)).item()), "o passo encadeado saiu não-finito"
+
+
+def _modelo_com_cabeca(glm):
+    """Um Model de verdade, tronco curto, com a cabeça anexada e ligada."""
+    import mlx.core as mx  # noqa: F401
+
+    from omlx.patches import mlx_lm_mtp
+
+    cfg = _config()
+    texto = cfg.get("text_config", cfg)
+    p = dict(texto)
+    p["num_nextn_predict_layers"] = 1
+    # tronco curto: o padrão três-lineares-uma-esparsa cabe inteiro em 8
+    p["num_hidden_layers"] = 8
+    p["layer_types"] = list(texto["layer_types"])[:8]
+    p["mlp_layer_types"] = list(texto["mlp_layer_types"])[:8]
+
+    args = _args_enxutos(glm, p)
+    args.num_experts_per_tok = 2
+    args.hc_mult = int(texto.get("hc_mult", 4) or 4)
+
+    antes = mlx_lm_mtp.is_mtp_active()
+    mlx_lm_mtp.set_mtp_active(True)
+    try:
+        modelo = glm.Model(args)
+    finally:
+        mlx_lm_mtp.set_mtp_active(antes)
+    return modelo, args
+
+
+def test_a_cabeca_enxerga_o_historico_ao_rascunhar_varias_posicoes():
+    """O regime que a previsão múltipla de fato usa, e o único que pega o erro.
+
+    A máscara da cabeça sai do cache da camada dela. Numa camada esparsa esse
+    cache é um PAR — o KV e o acumulado de compressão do seletor — e quem
+    conta posições é o KV de dentro. É de lá que o tronco tira a máscara dele
+    também. Passar o par inteiro faz a máscara nascer sem o histórico: larga
+    só o bastante para as posições novas.
+
+    Os outros dois regimes escondem isso por acidente: no preenchimento o
+    cache está vazio, e num passo de uma posição só não há máscara nenhuma.
+    Rascunhar várias posições com histórico é o que expõe.
+    """
+    import mlx.core as mx
+
+    glm, _ = _glm_com_remendo()
+    modelo, args = _modelo_com_cabeca(glm)
+    assert hasattr(modelo, "mtp") and modelo.mtp, "a cabeça não foi anexada"
+
+    ids = mx.array([[3, 9, 17, 42, 8, 1, 55, 2]])
+    _logits, h = modelo(ids, cache=modelo.make_cache(), return_hidden=True)
+    cache = modelo.make_mtp_cache()
+
+    # preenchimento: enche o cache da cabeça com as 8 posições
+    saida = modelo.mtp_forward(h, ids, cache=cache)
+    mx.eval(saida)
+    assert saida.shape[:2] == ids.shape
+    assert cache[0][0].offset == ids.shape[1]
+
+    # o caso que importa: rascunhar 4 posições com as 8 anteriores no cache
+    ids2 = mx.array([[11, 12, 13, 14]])
+    h2 = mx.random.normal((1, 4, args.hidden_size)).astype(h.dtype)
+    saida2 = modelo.mtp_forward(h2, ids2, cache=cache)
+    mx.eval(saida2)
+    assert saida2.shape[:2] == ids2.shape, (
+        "rascunhar várias posições com histórico no cache tem que funcionar — "
+        "é o regime encadeado da previsão múltipla"
+    )
+    assert bool(mx.all(mx.isfinite(saida2)).item())
+    assert cache[0][0].offset == 12, (
+        f"o cache da cabeça ficou em {cache[0][0].offset}; 8 do preenchimento "
+        f"mais 4 do rascunho são 12"
+    )
