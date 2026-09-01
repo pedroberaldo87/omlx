@@ -427,33 +427,17 @@ def _patch_model(glm: Any) -> None:
         temperatura zero: a saída trazia número repetido ("26, 26") onde a
         geração sem a cabeça produzia a sequência correta.
 
-        Voltar a linear ao ponto certo exigiria REPROCESSAR as posições
-        confirmadas por ela. Enquanto isso não existir, o desfazer aceita
-        apenas o que sabe fazer sem errar: quando não há nada a tirar
-        (`accepted == num_drafts`), ou quando nenhuma camada é recorrente.
-        Nos demais casos recusa, e o chamador cai no passo comum — mais lento,
-        e correto.
+        Voltar a linear ao ponto certo exige REPROCESSAR as posições
+        confirmadas por ela: a camada guarda, durante a verificação armada, o
+        que o reprocessamento precisa (`rollback_replay`, montado em
+        `Glm5NextLinearAttention`), e aqui ele roda com as `accepted + 1`
+        primeiras posições a partir do estado anterior ao bloco. Sem essa
+        função guardada (forward não armado, ou lote com preenchimento à
+        direita) o desfazer recusa, e o chamador cai no passo comum — mais
+        lento, e correto. Recusar sem reprocessar era o que derrubava o ciclo
+        para 2,1 tok/s (registro de 01/09, 15:43: `cycles=0`).
         """
-        n = num_drafts - accepted
-        if n <= 0:
-            return True
-
-        alvos = [c for c in _achata(cache) if c is not None]
-
-        # Camada recorrente no meio do caminho: desfazer parcial não é
-        # representável, e aceitar aqui corrompe a saída em silêncio.
-        for c in alvos:
-            if not getattr(c, "is_trimmable", lambda: False)():
-                return False
-
-        for c in alvos:
-            if c.trim(n) != n:
-                logger.warning(
-                    "GLM-5.3: desfazer parcial não aparou tudo em %s",
-                    type(c).__name__,
-                )
-                return False
-        return True
+        return desfaz_parcial(cache, accepted, num_drafts)
 
     def sanitize(self, weights: Dict[str, Any]) -> Dict[str, Any]:
         """Mantém e renomeia a camada extra do checkpoint.
@@ -551,6 +535,46 @@ def _completa_hiperconexao_da_cabeca(modelo: Any, weights: Dict[str, Any]) -> Di
     return weights
 
 
+def desfaz_parcial(cache, accepted: int, num_drafts: int) -> bool:
+    """O desfazer parcial da janela de verificação, compartilhado pelos dois
+    runtimes (texto e visão). Ver `Model.mtp_partial_rollback` para o porquê.
+    """
+    import mlx.core as mx
+
+    n = num_drafts - accepted
+    if n <= 0:
+        return True
+
+    alvos = [c for c in _achata(cache) if c is not None]
+    lineares = [c for c in alvos if not getattr(c, "is_trimmable", lambda: False)()]
+    for c in lineares:
+        if getattr(c, "rollback_replay", None) is None:
+            return False
+
+    # Primeiro as recorrentes, que só produzem valores novos; se algo
+    # falhar aqui, nenhum KV foi tocado ainda.
+    n_keep = accepted + 1
+    novos = []
+    for c in lineares:
+        conv, estado = c.rollback_replay(n_keep)
+        novos.append((c, conv, estado))
+    for c, conv, estado in novos:
+        c[1] = estado
+        c[0] = mx.depends(conv, (estado,))
+        c.rollback_replay = None
+
+    for c in alvos:
+        if c in lineares:
+            continue
+        if c.trim(n) != n:
+            logger.warning(
+                "GLM-5.3: desfazer parcial não aparou tudo em %s",
+                type(c).__name__,
+            )
+            return False
+    return True
+
+
 def _arma_desfazer(cache) -> None:
     """Guarda o estado recorrente antes da verificação, para poder voltar.
 
@@ -580,6 +604,10 @@ def _arma_desfazer(cache) -> None:
             c.rollback_state = (anterior, recorrente)
         except AttributeError:
             continue
+        # A camada guarda, neste forward, o que o desfazer PARCIAL precisa
+        # para reprocessar as posições aceitas (ver `mtp_partial_rollback`).
+        c.rollback_replay = None
+        c._omlx_captura_desfazer = True
 
 
 def _cache_para(camada: Any) -> Any:

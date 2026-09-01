@@ -276,6 +276,11 @@ def test_o_desfazer_de_rascunho_recusado_nao_recusa():
 
     Quem arma é o próprio ``__call__`` da verificação, e é assim que este teste
     exercita — chamar o armador à mão não cobriria a linha que o invoca.
+
+    Este teste cobre só o ARMAR. O ciclo encadeado não usa mais este desfazer:
+    ele chama ``mtp_partial_rollback`` (replay das posições aceitas), e a
+    prova de alinhamento está em
+    ``test_o_desfazer_parcial_de_visao_reprocessa_as_posicoes_aceitas``.
     """
     import mlx.core as mx
     from mlx_lm.models.cache import ArraysCache
@@ -558,3 +563,43 @@ def test_a_cabeca_recebe_o_hidden_ANTES_da_norma_final():
         "o hidden entregue é igual ao pós-norma; ou a norma é identidade "
         "(e este teste não prova nada), ou ainda estamos entregando o errado"
     )
+
+
+def test_o_desfazer_parcial_de_visao_reprocessa_as_posicoes_aceitas():
+    """No caminho de VISÃO o ciclo caía em ``_restore_or_trim_caches``: as
+    recorrentes voltavam para ANTES do bloco e as esparsas ficavam com a
+    confirmada — o mesmo desalinhamento que no texto produzia token repetido.
+    Agora o modelo de visão expõe ``mtp_partial_rollback`` com o replay do
+    irmão, e a prova é a mesma: os logits do passo seguinte têm que coincidir
+    com os de um tronco que só viu as posições aceitas.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+
+    def _logits(cache, proximo):
+        saida = modelo(mx.array([[proximo]]), cache=cache)
+        saida = getattr(saida, "logits", saida)
+        mx.eval(saida)
+        return saida
+
+    prefixo = mx.array([[3, 9, 17, 42, 8]])
+    bloco = mx.array([[1, 55, 2, 7]])
+
+    ref = modelo.make_cache()
+    modelo(prefixo, cache=ref)
+    modelo(bloco[:, :2], cache=ref)
+    esperado = _logits(ref, 99)
+
+    cache = modelo.make_cache()
+    modelo(prefixo, cache=cache)
+    modelo(bloco, cache=cache, return_hidden=True)
+    assert all(
+        c.rollback_replay is not None for c in cache if isinstance(c, ArraysCache)
+    ), "a verificação armada tem que deixar o replay guardado"
+    assert modelo.mtp_partial_rollback(cache, 1, 3) is True
+    obtido = _logits(cache, 99)
+    dif = float(mx.max(mx.abs(obtido - esperado)).item())
+    assert dif < 1e-3, f"tronco de visão desfeito diverge da referência em {dif:.2e}"

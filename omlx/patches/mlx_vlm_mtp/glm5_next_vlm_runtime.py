@@ -277,10 +277,24 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
             return []
         return [_cache_para(bloco.block) for bloco in self.mtp]
 
+    def mtp_partial_rollback(self, cache, accepted: int, num_drafts: int) -> bool:
+        """Desfaz a janela de verificação até ``accepted`` rascunhos.
+
+        Sem este método o ciclo caía em ``_restore_or_trim_caches``, que
+        RESTAURA as recorrentes ao ponto anterior ao bloco e APARA as esparsas
+        deixando a confirmada — as duas famílias ficavam em posições
+        diferentes, o mesmo desalinhamento que no caminho de texto produzia
+        token repetido. A regra e o replay são os do irmão.
+        """
+        from ..mlx_lm_mtp.glm5_next_model import desfaz_parcial
+
+        return desfaz_parcial(cache, accepted, num_drafts)
+
     cls.__init__ = __init__
     cls.__call__ = __call__
     cls.mtp_forward = mtp_forward
     cls.make_mtp_cache = make_mtp_cache
+    cls.mtp_partial_rollback = mtp_partial_rollback
     cls._omlx_mtp_runtime_patched = True
 
 
@@ -356,6 +370,10 @@ def _arma_desfazer(cache) -> None:
         except AttributeError:
             # cache que não aceita o atributo: o desfazer o trata pelo aparo
             continue
+        # A camada guarda, neste forward, o que o desfazer PARCIAL precisa
+        # para reprocessar as posições aceitas (`desfaz_parcial`, no irmão).
+        c.rollback_replay = None
+        c._omlx_captura_desfazer = True
 
 
 # ---------------------------------------------------------------------------

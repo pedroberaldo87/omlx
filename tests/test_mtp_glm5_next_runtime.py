@@ -501,7 +501,8 @@ def test_o_desfazer_parcial_recusa_quando_ha_camada_recorrente():
 
     Misturar as duas desalinha o tronco. Medido em 01/09 com temperatura zero:
     a saída trazia "26, 26" onde a geração sem a cabeça produzia a sequência
-    correta. Recusar é mais lento e é o que preserva a resposta.
+    correta. Sem o replay guardado por um forward ARMADO (aqui o cache está
+    recém-criado), recusar é o que preserva a resposta.
     """
     from mlx_lm.models.cache import ArraysCache
 
@@ -617,4 +618,108 @@ def test_o_desfazer_nunca_mistura_restaurar_com_aparar():
     )
     assert rec.restaurada == 0, (
         f"a recorrente foi restaurada {rec.restaurada} vez(es) numa recusa"
+    )
+
+
+def _logits_seguintes(modelo, cache, proximo):
+    """Os logits do token seguinte, dado o cache como está."""
+    import mlx.core as mx
+
+    saida = modelo(mx.array([[proximo]]), cache=cache)
+    mx.eval(saida)
+    return saida
+
+
+def test_o_desfazer_parcial_reprocessa_as_posicoes_aceitas():
+    """Aceitar 1 de 3 rascunhos tem que deixar o tronco IGUAL a quem só viu as
+    2 primeiras posições do bloco — nas 34 recorrentes e nas esparsas.
+
+    A prova é o passo seguinte: com o mesmo próximo token, os logits saídos do
+    tronco desfeito e os do tronco de referência têm que coincidir. Antes
+    deste conserto o desfazer recusava sempre que havia camada recorrente, o
+    ciclo nunca completava (`cycles=0`) e a geração caía para 2,1 tok/s.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm, _ = _glm_com_remendo()
+    modelo, _args = _modelo_com_cabeca(glm)
+
+    prefixo = mx.array([[3, 9, 17, 42, 8]])
+    bloco = mx.array([[1, 55, 2, 7]])  # confirmado + 3 rascunhos
+    aceitos = 1  # fica o confirmado e o 1º rascunho
+
+    # referência: o prefixo e só as posições aceitas
+    ref = modelo.make_cache()
+    modelo(prefixo, cache=ref)
+    modelo(bloco[:, : aceitos + 1], cache=ref)
+    esperado = _logits_seguintes(modelo, ref, 99)
+
+    # o caminho real: verificação armada do bloco inteiro, depois o desfazer
+    cache = modelo.make_cache()
+    modelo(prefixo, cache=cache)
+    assert any(isinstance(c, ArraysCache) for c in cache)
+    modelo(bloco, cache=cache, return_hidden=True)  # arma e captura
+    for c in cache:
+        if isinstance(c, ArraysCache):
+            assert c.rollback_replay is not None, (
+                "a camada recorrente não guardou o que o replay precisa"
+            )
+    assert modelo.mtp_partial_rollback(cache, aceitos, 3) is True, (
+        "com o replay guardado, o desfazer parcial tem que ACEITAR"
+    )
+    for c in cache:
+        if isinstance(c, ArraysCache):
+            assert c.rollback_replay is None, "o replay é de uso único"
+    obtido = _logits_seguintes(modelo, cache, 99)
+
+    assert obtido.shape == esperado.shape
+    dif = float(mx.max(mx.abs(obtido - esperado)).item())
+    assert dif < 1e-3, (
+        f"o tronco desfeito diverge da referência em {dif:.2e}; o desfazer não "
+        f"deixou as duas famílias de camada no mesmo ponto"
+    )
+
+
+def test_o_desfazer_parcial_sem_replay_e_recusado_e_com_replay_errado_diverge():
+    """A mutação que prova que o teste anterior morde.
+
+    (1) Forward NÃO armado: nada guardado → o desfazer recusa, e o chamador cai
+    no passo comum (correto, lento). (2) Um replay que só restaura o estado
+    anterior — o desfazer antigo — deixa a recorrente em zero posições do
+    bloco enquanto a esparsa fica com duas: os logits seguintes DIVERGEM.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm, _ = _glm_com_remendo()
+    modelo, _args = _modelo_com_cabeca(glm)
+    prefixo = mx.array([[3, 9, 17, 42, 8]])
+    bloco = mx.array([[1, 55, 2, 7]])
+
+    # (1) sem armar
+    cache = modelo.make_cache()
+    modelo(prefixo, cache=cache)
+    modelo(bloco, cache=cache)
+    assert modelo.mtp_partial_rollback(cache, 1, 3) is False
+
+    # (2) replay mutado: devolve o estado anterior sem reprocessar nada
+    ref = modelo.make_cache()
+    modelo(prefixo, cache=ref)
+    modelo(bloco[:, :2], cache=ref)
+    esperado = _logits_seguintes(modelo, ref, 99)
+
+    cache = modelo.make_cache()
+    modelo(prefixo, cache=cache)
+    modelo(bloco, cache=cache, return_hidden=True)
+    for c in cache:
+        if isinstance(c, ArraysCache):
+            anterior, recorrente = c.rollback_state
+            c.rollback_replay = lambda n_keep, a=anterior, r=recorrente: (a, r)
+    assert modelo.mtp_partial_rollback(cache, 1, 3) is True
+    obtido = _logits_seguintes(modelo, cache, 99)
+    dif = float(mx.max(mx.abs(obtido - esperado)).item())
+    assert dif > 1e-3, (
+        f"restaurar sem reprocessar deu diferença {dif:.2e}: o teste de "
+        f"identidade não estaria medindo nada"
     )

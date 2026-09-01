@@ -280,6 +280,19 @@ class Glm5NextLinearAttention(nn.Module):
         k = _l2norm(k.astype(mx.float32)).astype(in_dtype)
 
         state = cache[1] if cache is not None else None
+        if cache is not None and getattr(cache, "_omlx_captura_desfazer", False):
+            # A verificacao da previsao multipla pode aceitar so PARTE das
+            # posicoes deste bloco. O estado recorrente nao tem posicoes para
+            # aparar; o que da para fazer e voltar ao estado anterior e
+            # reprocessar as aceitas. Guardamos aqui o que esse reprocessamento
+            # precisa — referencias, sem copia — e quem chama e
+            # `mtp_partial_rollback` em mlx_lm_mtp/glm5_next_model.py.
+            cache._omlx_captura_desfazer = False
+            cache.rollback_replay = None
+            if mask is None:
+                cache.rollback_replay = self._replay_desfazer(
+                    q, k, v, a, b_o, conv_input, state
+                )
         out, state = gated_delta_update(
             q,
             k,
@@ -312,6 +325,35 @@ class Glm5NextLinearAttention(nn.Module):
         )
         out = self.o_norm(out, gate).reshape(B, S, -1)
         return linear_forward(self.o_proj, out)
+
+    def _replay_desfazer(self, q, k, v, a, b, conv_input, state_anterior):
+        """Devolve a funcao que refaz o estado com as primeiras ``n_keep``
+        posicoes do bloco verificado, a partir do estado ANTERIOR a ele.
+
+        Sai ``(conv_state, state)`` prontos para ``cache[0]`` e ``cache[1]``.
+        ``conv_input`` e a convolucao de entrada inteira (estado velho + bloco),
+        entao o novo estado da convolucao sao as ``kernel-1`` linhas que
+        antecedem a posicao ``n_keep``.
+        """
+        fg = self.forget_gate
+        state_size = self.conv_kernel_size - 1
+
+        def replay(n_keep: int):
+            _, novo = gated_delta_update(
+                q[:, :n_keep],
+                k[:, :n_keep],
+                v[:, :n_keep],
+                a[:, :n_keep],
+                b[:, :n_keep],
+                fg.A_log.reshape(self.num_heads, 1),
+                fg.dt_bias.reshape(self.num_heads, self.head_dim),
+                state=state_anterior,
+                lower_bound=fg.safe_gate_lower_bound,
+            )
+            conv = mx.contiguous(conv_input[:, n_keep : n_keep + state_size, :])
+            return conv, novo
+
+        return replay
 
 
 class Glm5NextIndexer(nn.Module):
