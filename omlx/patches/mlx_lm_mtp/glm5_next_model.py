@@ -309,10 +309,17 @@ def _patch_model(glm: Any) -> None:
             self._omlx_mtp_chain = True
             self._omlx_mtp_depth = get_mtp_depth()
             self._omlx_mtp_head_clone = False
-            # Mesma ordem de grandeza do irmão: com roteamento esparso cada
-            # linha extra de verificação puxa um conjunto de especialistas quase
-            # disjunto. Medir e ajustar quando houver número desta família.
-            self._omlx_mtp_marginal_ms = 35.0
+            # Custo de UM rascunho a mais, em milissegundos. É a estimativa que
+            # o controlador usa ANTES de ter medida própria; se ela vier alta
+            # demais, ele conclui que rascunhar não paga e devolve a sequência
+            # ao decodificador comum (`_park_mtp_to_standard`).
+            #
+            # MEDIDO em 01/09, 20 corridas nos dois modelos de 2 bits: 0,7 a
+            # 2,5 ms por ciclo, contra 57 a 96 ms do tronco. O valor anterior
+            # (35 ms, copiado do irmão) fazia o controlador ver a cabeça como
+            # 20 a 50 vezes mais cara do que ela é, e estacionar cedo — o
+            # registro mostrava `d0=18`, dezoito ciclos sem nem tentar.
+            self._omlx_mtp_marginal_ms = 2.5
 
     __init__._omlx_mtp_init_marker = True
 
