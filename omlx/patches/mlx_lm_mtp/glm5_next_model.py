@@ -413,18 +413,26 @@ def _patch_model(glm: Any) -> None:
     def mtp_partial_rollback(self, cache, accepted: int, num_drafts: int) -> bool:
         """Desfaz a janela de verificação até ``accepted`` rascunhos.
 
-        Duas famílias de camada convivem no tronco do GLM-5.3, e cada uma se
-        desfaz de um jeito:
+        Duas famílias de camada convivem no tronco, e só UMA sabe desfazer
+        parcialmente:
 
-        - as ESPARSAS guardam KV, que se apara: `trim(n)` tira as n posições;
-        - as LINEARES guardam estado recorrente, que NÃO se apara — o estado
-          de agora não contém os anteriores. Elas voltam pelo par guardado
-          antes da verificação (`rollback_state`).
+        - a ESPARSA guarda KV, e `trim(n)` tira exatamente n posições,
+          deixando as `accepted + 1` confirmadas;
+        - a LINEAR guarda estado recorrente, que não tem posições para tirar.
+          O par guardado antes da verificação a leva de volta ao ponto ANTERIOR
+          A TODAS elas — inclusive às confirmadas.
 
-        Exigir que TODAS fossem aparáveis fazia isto devolver False sempre, e o
-        ciclo encadeado morria antes de rascunhar: o registro do servidor
-        mostrava `cache layer rejects chain rollback` a cada passo, com
-        `cycles=0` e nenhum token vindo de rascunho.
+        Misturar as duas coisas DESALINHA o tronco: a esparsa fica com
+        `accepted + 1` posições e a linear com zero. Medido em 01/09 com
+        temperatura zero: a saída trazia número repetido ("26, 26") onde a
+        geração sem a cabeça produzia a sequência correta.
+
+        Voltar a linear ao ponto certo exigiria REPROCESSAR as posições
+        confirmadas por ela. Enquanto isso não existir, o desfazer aceita
+        apenas o que sabe fazer sem errar: quando não há nada a tirar
+        (`accepted == num_drafts`), ou quando nenhuma camada é recorrente.
+        Nos demais casos recusa, e o chamador cai no passo comum — mais lento,
+        e correto.
         """
         n = num_drafts - accepted
         if n <= 0:
@@ -432,24 +440,14 @@ def _patch_model(glm: Any) -> None:
 
         alvos = [c for c in _achata(cache) if c is not None]
 
-        # Confere TODAS antes de mexer em qualquer uma: desfazer metade deixa
-        # as camadas com comprimentos diferentes, e aí o forward seguinte
-        # quebra na máscara, que é montada a partir da primeira.
-        plano = []
+        # Camada recorrente no meio do caminho: desfazer parcial não é
+        # representável, e aceitar aqui corrompe a saída em silêncio.
         for c in alvos:
-            if getattr(c, "rollback_state", None) is not None:
-                plano.append((c, "restaura"))
-            elif getattr(c, "is_trimmable", lambda: False)():
-                plano.append((c, "apara"))
-            else:
+            if not getattr(c, "is_trimmable", lambda: False)():
                 return False
 
-        for c, como in plano:
-            if como == "restaura":
-                anterior, recorrente = c.rollback_state
-                c[0], c[1] = anterior, recorrente
-                c.rollback_state = None
-            elif c.trim(n) != n:
+        for c in alvos:
+            if c.trim(n) != n:
                 logger.warning(
                     "GLM-5.3: desfazer parcial não aparou tudo em %s",
                     type(c).__name__,

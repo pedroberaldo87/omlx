@@ -492,60 +492,34 @@ def test_a_limpeza_do_modelo_completa_a_hiperconexao_da_cabeca():
     )
 
 
-def test_o_desfazer_encadeado_aceita_o_tronco_misto():
-    """O ciclo encadeado morria aqui, e com ele a previsão múltipla inteira.
+def test_o_desfazer_parcial_recusa_quando_ha_camada_recorrente():
+    """Desfazer parcial com camada recorrente no tronco CORROMPE a saída.
 
-    Duas famílias de camada convivem no tronco: as ESPARSAS guardam KV, que se
-    apara; as LINEARES guardam estado recorrente, que NÃO se apara — o estado de
-    agora não contém os anteriores, então elas voltam pelo par guardado antes da
-    verificação.
+    A esparsa guarda KV e `trim(n)` tira n posições, deixando as confirmadas.
+    A linear guarda estado recorrente, que não tem posições para tirar: o par
+    guardado a leva de volta ao ponto anterior a TODAS elas.
 
-    Exigir que TODAS fossem apáraveis devolvia False sempre. O efeito era o
-    ciclo desistir ANTES de rascunhar: o registro do servidor mostrava
-    `cache layer rejects chain rollback` a cada passo, com `cycles=0`,
-    `accept=0/0` e a geração a 2,1 tokens por segundo contra 18,7 sem a cabeça.
-
-    Depois do conserto, no mesmo modelo: 33 ciclos, 51,4% de aceitação e
-    19,9 tokens por segundo.
+    Misturar as duas desalinha o tronco. Medido em 01/09 com temperatura zero:
+    a saída trazia "26, 26" onde a geração sem a cabeça produzia a sequência
+    correta. Recusar é mais lento e é o que preserva a resposta.
     """
-    import mlx.core as mx
-    from mlx_lm.models.cache import ArraysCache, CacheList, KVCache
+    from mlx_lm.models.cache import ArraysCache
 
     glm, _ = _glm_com_remendo()
     modelo, _args = _modelo_com_cabeca(glm)
 
-    # o tronco de verdade: três lineares para uma esparsa
     tronco = modelo.make_cache()
-    lineares = [i for i, c in enumerate(tronco) if isinstance(c, ArraysCache)]
-    esparsas = [i for i, c in enumerate(tronco) if isinstance(c, CacheList)]
-    assert lineares and esparsas, "o tronco tem que ter as duas famílias"
-
-    # sem o par guardado, a linear não tem como voltar e o desfazer recusa
-    assert modelo.mtp_partial_rollback(tronco, 0, 2) is False, (
-        "sem o par guardado a recusa é o certo — é ela que impede desfazer "
-        "metade do tronco e deixar as camadas com comprimentos diferentes"
+    assert any(isinstance(c, ArraysCache) for c in tronco), (
+        "o tronco do GLM-5.3 tem camadas recorrentes; sem elas este teste não "
+        "mede nada"
     )
 
-    # com o par guardado, ele aceita e cada família volta do seu jeito
-    ids = mx.array([[3, 9, 17, 42]])
-    modelo(ids, cache=tronco, return_hidden=True)
-    marco = [(tronco[i][0], tronco[i][1]) for i in lineares]
-    modelo(mx.array([[8, 1]]), cache=tronco, return_hidden=True)
+    # com algo a tirar e camada recorrente presente: recusa
+    assert modelo.mtp_partial_rollback(tronco, 0, 2) is False
 
-    assert modelo.mtp_partial_rollback(tronco, 0, 1) is True, (
-        "com o par guardado o desfazer tem que aceitar; recusar aqui mata o "
-        "ciclo encadeado antes de ele rascunhar"
-    )
-
-    for k, i in enumerate(lineares):
-        for eixo, nome in ((0, "convolução"), (1, "recorrente")):
-            a, d = marco[k][eixo], tronco[i][eixo]
-            if a is None:
-                assert d is None
-                continue
-            assert bool(mx.array_equal(a, d).item()), (
-                f"camada {i}: o {nome} não voltou ao estado de antes"
-            )
+    # nada a tirar (tudo aceito): aceita, porque não há desfazer a fazer
+    assert modelo.mtp_partial_rollback(tronco, 2, 2) is True
+    assert modelo.mtp_partial_rollback(tronco, 3, 2) is True
 
 
 def test_o_desfazer_encadeado_confere_tudo_antes_de_mexer():
@@ -587,4 +561,60 @@ def test_o_desfazer_encadeado_confere_tudo_antes_de_mexer():
         f"a camada apárável foi aparada {boa.aparada} vez(es) mesmo com outra "
         f"recusando; o desfazer tem que conferir TODAS antes de tocar em "
         f"qualquer uma, senão o tronco fica com comprimentos diferentes"
+    )
+
+
+def test_o_desfazer_nunca_mistura_restaurar_com_aparar():
+    """A regra que impede a corrupção de saída, travada por construção.
+
+    Um desfazer que RESTAURA umas camadas e APARA outras deixa o tronco com
+    comprimentos diferentes: a esparsa fica com `accepted + 1` posições e a
+    recorrente com zero. O forward seguinte monta a máscara a partir da
+    primeira camada, e a geração sai com token repetido.
+
+    Este teste falha se alguém reintroduzir a mistura — foi exatamente o que
+    eu fiz em 01/09, e o sintoma ("26, 26" numa sequência de pares) só apareceu
+    comparando a saída com e sem a cabeça em temperatura zero.
+    """
+    import mlx.core as mx
+
+    glm, _ = _glm_com_remendo()
+    modelo, _args = _modelo_com_cabeca(glm)
+
+    class _Recorrente:
+        """Guarda estado que não tem posições para tirar."""
+
+        rollback_state = (None, None)
+        restaurada = 0
+
+        def is_trimmable(self):
+            return False
+
+        def __setitem__(self, i, v):
+            self.restaurada += 1
+
+        def __getitem__(self, i):
+            return None
+
+    class _Esparsa:
+        rollback_state = None
+        aparada = 0
+
+        def is_trimmable(self):
+            return True
+
+        def trim(self, n):
+            self.aparada += n
+            return n
+
+    rec, esp = _Recorrente(), _Esparsa()
+    assert modelo.mtp_partial_rollback([esp, rec], 0, 2) is False, (
+        "com camada recorrente e algo a tirar, o desfazer tem que RECUSAR"
+    )
+    assert esp.aparada == 0, (
+        f"a esparsa foi aparada {esp.aparada} vez(es) numa recusa; isso deixa "
+        f"o tronco desalinhado"
+    )
+    assert rec.restaurada == 0, (
+        f"a recorrente foi restaurada {rec.restaurada} vez(es) numa recusa"
     )
