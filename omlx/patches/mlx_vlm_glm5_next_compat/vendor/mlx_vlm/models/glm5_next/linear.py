@@ -5,6 +5,8 @@ from __future__ import annotations
 import mlx.core as mx
 import mlx.nn as nn
 
+from .verify_qmv import elegivel as _poucas_linhas, verify_qmv8
+
 
 def _native_qmm(linear: nn.QuantizedLinear, x: mx.array):
     bits = int(getattr(linear, "bits", 0) or 0)
@@ -59,6 +61,16 @@ def linear_forward(linear: nn.Module, x: mx.array) -> mx.array:
         out = _native_qmm(linear, x)
         if out is not None:
             return out
+        # 2 a 8 linhas (a janela da verificação da previsão múltipla): o qmv de
+        # fábrica relê o peso por linha; este lê uma vez. Ver verify_qmv.py.
+        if "bias" not in linear and _poucas_linhas(
+            x, linear.weight, linear.scales, linear.biases,
+            bits=int(linear.bits), group_size=int(linear.group_size),
+        ):
+            return verify_qmv8(
+                x, linear.weight, linear.scales, linear.biases,
+                group_size=int(linear.group_size),
+            )
     return linear(x)
 
 
@@ -102,6 +114,8 @@ def fused_quantized_matmul(
                 )
         except (AttributeError, RuntimeError, TypeError, ValueError):
             pass
+    if _poucas_linhas(x, weight, scales, biases, bits=bits, group_size=group_size):
+        return verify_qmv8(x, weight, scales, biases, group_size=group_size)
     return mx.quantized_matmul(
         x,
         weight,
