@@ -227,13 +227,27 @@ def _register_mtp_block(glm: Any) -> None:
             self.eh_proj = nn.Linear(2 * dim, dim, bias=False)
             self.norm = nn.RMSNorm(dim, eps=config.rms_norm_eps)
             self.block = Glm5NextDecoderLayer(config, layer_idx)
+            self.hc_mult = int(getattr(config, "hc_mult", 1) or 1)
 
         def __call__(self, h, embed_tokens, input_ids, mask, cache):
             e = self.enorm(embed_tokens(input_ids))
             x = self.eh_proj(mx.concatenate([e, self.hnorm(h)], axis=-1))
+            # Diferença 4: o tronco não entrega o hidden cru às camadas. Ele o
+            # repete em `hc_mult` cópias antes do laço, porque a hiperconexão
+            # lê (lote, posição, cópia, dimensão), e recolhe pela média ao
+            # sair. A cabeça é uma camada do mesmo tipo, então repete o par:
+            # entregar 3D estoura na primeira linha da hiperconexão.
+            if self.hc_mult > 1:
+                x = mx.contiguous(
+                    mx.broadcast_to(
+                        x[:, :, None, :],
+                        (x.shape[0], x.shape[1], self.hc_mult, x.shape[2]),
+                    )
+                )
             # Diferença 2: a camada do GLM-5.3 recebe três argumentos e devolve
             # o valor, não uma tupla.
-            return self.block(x, mask, cache)
+            saida = self.block(x, mask, cache)
+            return saida.mean(axis=2) if self.hc_mult > 1 else saida
 
     glm.Glm5NextMTPBlock = Glm5NextMTPBlock
 

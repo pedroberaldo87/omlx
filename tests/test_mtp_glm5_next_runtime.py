@@ -261,3 +261,53 @@ def test_o_renomeador_leva_a_camada_extra_para_o_prefixo_da_cabeca():
     assert f"model.language_model.layers.{n - 1}.self_attn.q_proj.weight" in saida, (
         "a camada comum não pode ser renomeada"
     )
+
+
+def test_o_bloco_da_cabeca_roda_de_ponta_a_ponta():
+    """O teste que só um forward de verdade pega.
+
+    O tronco não entrega o hidden cru às camadas: repete-o em ``hc_mult``
+    cópias antes do laço, porque a hiperconexão lê quatro eixos, e recolhe
+    pela média ao sair. A cabeça é uma camada do mesmo tipo e precisa do mesmo
+    par — sem ele o forward estoura na primeira linha da hiperconexão, e
+    nenhuma checagem de nome de peso ou de tipo de camada percebe.
+
+    Roda os dois regimes: o preenchimento (várias posições de uma vez) e o
+    passo encadeado de uma posição, que é como a cabeça é usada no rascunho.
+    """
+    import mlx.core as mx
+    import mlx.nn as nn
+    from mlx_lm.models.base import create_attention_mask
+
+    from omlx.patches.mlx_lm_mtp.glm5_next_model import _cache_para
+
+    glm, _ = _glm_com_remendo()
+    cfg = _config()
+    cfg["text_config"]["hc_mult"] = 4
+    args = _args_enxutos(glm, cfg)
+    args.num_experts_per_tok = 2
+    n = args.num_hidden_layers
+
+    bloco = glm.Glm5NextMTPBlock(args, n)
+    cache = _cache_para(bloco.block)
+    embed = nn.Embedding(args.vocab_size, args.hidden_size)
+
+    ids = mx.array([[3, 9, 17, 42, 8, 1]])
+    h = mx.random.normal((1, ids.shape[1], args.hidden_size)).astype(mx.float32)
+    mask = create_attention_mask(h, None)
+
+    saida = bloco(h, embed, ids, mask, cache)
+    mx.eval(saida)
+    assert saida.shape == h.shape, (
+        f"a cabeça devolveu {saida.shape} para uma entrada {h.shape}; ela tem "
+        f"que recolher as cópias da hiperconexão antes de sair"
+    )
+    assert bool(mx.all(mx.isfinite(saida)).item()), "a cabeça devolveu não-finito"
+
+    # o passo encadeado: uma posição, aproveitando o cache do preenchimento
+    ids2 = mx.array([[77]])
+    h2 = mx.random.normal((1, 1, args.hidden_size)).astype(mx.float32)
+    saida2 = bloco(h2, embed, ids2, None, cache)
+    mx.eval(saida2)
+    assert saida2.shape == h2.shape
+    assert bool(mx.all(mx.isfinite(saida2)).item()), "o passo encadeado saiu não-finito"
