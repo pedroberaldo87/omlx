@@ -186,6 +186,18 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
         if not return_hidden:
             return original_call(self, inputs, inputs_embeds, cache, mask, **kwargs)
 
+        # Antes de rodar a verificação, guardar de onde o estado recorrente
+        # veio. Sem isto o desfazer de um rascunho RECUSADO não tem como
+        # voltar: as 34 camadas lineares do tronco não são apáraveis
+        # (``is_trimmable`` é False) e não trazem ``rollback_state``, então o
+        # desfazer recusa e o ciclo inteiro cai no passo padrão — medido: o
+        # tronco de 45 camadas devolvia False.
+        #
+        # Custa quase nada: os arrays do MLX são imutáveis e a camada os
+        # SUBSTITUI em vez de mutar, então guardar a referência anterior não
+        # copia dado nenhum.
+        _arma_desfazer(cache)
+
         from mlx_vlm.models.base import LanguageModelOutput
         from mlx_vlm.models.glm5_next.language import linear_forward
 
@@ -256,6 +268,44 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
     cls.mtp_forward = mtp_forward
     cls.make_mtp_cache = make_mtp_cache
     cls._omlx_mtp_runtime_patched = True
+
+
+def _arma_desfazer(cache) -> None:
+    """Guarda o estado recorrente de cada camada linear antes da verificação.
+
+    ``_restore_or_trim_caches`` (em ``mlx_lm_mtp/batch_generator.py``) desfaz
+    uma rejeição restaurando ``cache.rollback_state`` nas camadas que o têm e
+    aparando as demais. As camadas lineares do GLM-5.3 não oferecem nem um nem
+    outro, e sem este par o desfazer recusa e o ciclo perde a rodada inteira.
+
+    O par é ``(convolução, recorrente)`` — os dois arrays que a camada linear
+    guarda e que só fazem sentido juntos.
+    """
+    if not cache:
+        return
+    for c in cache:
+        if c is None:
+            continue
+        # SEMPRE sobrescreve. O par tem que ser o estado imediatamente antes
+        # DESTA verificação: quando o rascunho é aceito ninguém consome o par
+        # anterior, e mantê-lo faria a verificação seguinte voltar para o
+        # estado de duas rodadas atrás. Neste caminho nenhum outro mecanismo
+        # escreve o campo — no de texto quem escreve é a camada, e lá este
+        # código não roda.
+        # O critério é o que o desfazer SABE FAZER, não o tipo da camada: se
+        # ela já é apárável, ele a trata sozinho e escrever aqui seria mexer no
+        # que funciona. Sobram exatamente as lineares.
+        if hasattr(c, "is_trimmable") and c.is_trimmable():
+            continue
+        try:
+            anterior, recorrente = c[0], c[1]
+        except (TypeError, IndexError, KeyError):
+            continue
+        try:
+            c.rollback_state = (anterior, recorrente)
+        except AttributeError:
+            # cache que não aceita o atributo: o desfazer o trata pelo aparo
+            continue
 
 
 # ---------------------------------------------------------------------------

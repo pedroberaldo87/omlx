@@ -262,3 +262,83 @@ def test_a_limpeza_de_visao_preserva_a_cabeca():
         f"a limpeza não completou {len(faltando)} coeficientes de hiperconexão: "
         f"{faltando}; a carga estrita morre neles"
     )
+
+
+def test_o_desfazer_de_rascunho_recusado_nao_recusa():
+    """Um rascunho RECUSADO tem que ter como voltar, ou o ciclo não rende.
+
+    ``_restore_or_trim_caches`` desfaz restaurando ``rollback_state`` nas
+    camadas que o têm e aparando as demais. As 34 camadas lineares do GLM-5.3
+    não oferecem nem um nem outro — ``is_trimmable`` é False e nada escreve
+    ``rollback_state`` neste caminho —, então sem armar o desfazer ele RECUSA e
+    o ciclo inteiro cai no passo padrão: o trabalho da rodada vai fora toda vez
+    que o rascunho erra, que é justamente quando o custo importa.
+
+    Quem arma é o próprio ``__call__`` da verificação, e é assim que este teste
+    exercita — chamar o armador à mão não cobriria a linha que o invoca.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    from omlx.patches.mlx_lm_mtp.batch_generator import _restore_or_trim_caches
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+
+    tronco = modelo.make_cache()
+    lineares = [i for i, c in enumerate(tronco) if isinstance(c, ArraysCache)]
+    assert lineares, "o tronco deveria ter camadas lineares"
+
+    # cache virgem: o desfazer recusa, e é esse o defeito que o armar fecha
+    assert _restore_or_trim_caches(list(modelo.make_cache())) is False, (
+        "num tronco virgem o desfazer deveria recusar; se ele já aceita, o "
+        "mecanismo mudou e este teste precisa ser revisto"
+    )
+
+    # primeira passada: deixa estado recorrente de verdade no cache
+    modelo(mx.array([[3, 9, 17, 42]]), cache=tronco, return_hidden=True)
+    marco = [(tronco[i][0], tronco[i][1]) for i in lineares]
+
+    # segunda passada: o __call__ arma o desfazer com o estado do marco acima,
+    # e depois a camada o substitui
+    modelo(mx.array([[8, 1]]), cache=tronco, return_hidden=True)
+    mudou = any(
+        not bool(mx.array_equal(marco[k][1], tronco[i][1]).item())
+        for k, i in enumerate(lineares)
+        if marco[k][1] is not None and tronco[i][1] is not None
+    )
+    assert mudou, "a segunda passada deveria ter mexido no estado recorrente"
+
+    # rascunho recusado
+    assert _restore_or_trim_caches(list(tronco)) is True, (
+        "com o desfazer armado pela verificação, a rejeição tem que ser "
+        "desfeita em vez de derrubar o ciclo para o passo padrão"
+    )
+
+    for k, i in enumerate(lineares):
+        for eixo, nome in ((0, "convolução"), (1, "recorrente")):
+            a, d = marco[k][eixo], tronco[i][eixo]
+            if a is None:
+                assert d is None, f"camada {i}: {nome} nasceu do nada"
+                continue
+            assert d is not None, f"camada {i}: {nome} sumiu no desfazer"
+            assert bool(mx.array_equal(a, d).item()), (
+                f"camada {i}: o {nome} não voltou ao estado de antes da "
+                f"verificação"
+            )
+
+
+def test_armar_o_desfazer_nao_toca_no_cache_da_camada_esparsa():
+    """A esparsa já é apáravel; escrever nela seria mexer no que funciona."""
+    from mlx_lm.models.cache import ArraysCache, CacheList, KVCache
+
+    from omlx.patches.mlx_vlm_mtp.glm5_next_vlm_runtime import _arma_desfazer
+
+    esparsa = CacheList(KVCache(), KVCache())
+    linear = ArraysCache(size=2)
+    _arma_desfazer([linear, esparsa])
+
+    assert getattr(esparsa, "rollback_state", None) is None, (
+        "a camada esparsa não deveria receber rollback_state: ela é apáravel "
+        "e o desfazer já sabe lidar com ela"
+    )
