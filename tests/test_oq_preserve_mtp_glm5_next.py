@@ -25,6 +25,7 @@ import pytest
 
 from omlx.utils.model_loading import (
     _checkpoint_has_mtp_weights,
+    _has_mtp_heads,
     _nextn_weight_prefixes_from_config,
 )
 
@@ -118,19 +119,16 @@ def test_a_limpeza_de_nomes_nao_pode_descartar_a_cabeca():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="defeito aberto: o portao de compatibilidade aceita glm_moe_dsa "
-    "(o GLM-5.2) e nao glm5_next (o 5.3), entao a previsao multipla nao liga "
-    "nem no modelo ORIGINAL — observado pelo dono na tela de configuracoes.",
-)
 @precisa_do_checkpoint
 def test_o_portao_reconhece_o_tipo_do_glm_5_3():
-    """Segundo bloqueio, independente da quantizacao.
+    """Segundo bloqueio, agora fechado.
 
     O dono relatou que, abrindo o modelo ORIGINAL nas configuracoes, a previsao
-    multipla tambem nao fica ativada. Confere: o portao enxerga a cabeca no
-    config e mesmo assim recusa, porque decide pelo nome da familia.
+    multipla tambem nao ficava ativada — o portao enxergava a cabeca no config e
+    recusava pelo nome da familia. Aberto para glm5_next junto com o runtime que
+    a cabeca precisa; abrir sem ele armaria o ciclo de rascunho sem cabeca.
+
+    Este teste nasceu como falha esperada estrita e ficou verde com o conserto.
     """
     from omlx.utils.model_loading import _is_mtp_compatible
 
