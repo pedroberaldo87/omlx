@@ -3917,6 +3917,38 @@ def _cast_passthrough_tensor(tensor_name: str, w_mx, target_dtype):
     return w_mx
 
 
+# Familias so-texto implementadas em mlx-vlm que tambem tem uma implementacao
+# de texto registravel no mlx-lm. So o GLM-5.x tem uma hoje; as outras entradas
+# de VLM_NATIVE_TEXT_MODEL_TYPES caem no aviso e seguem pelo caminho de visao.
+_REGISTRO_SO_TEXTO_NO_MLX_LM = {
+    "glm5_next": "omlx.patches.mlx_lm_glm5_next",
+}
+
+
+def _registra_familia_so_texto_no_mlx_lm(model_type: str) -> bool:
+    """A implementacao de texto da familia esta disponivel no mlx-lm?
+
+    Devolve True quando ELA ESTA LA — tenha sido este processo a registra-la ou
+    nao. ``register_into_mlx_lm`` devolve ``False`` tanto quando falha quanto
+    quando o modulo JA estava registrado (por outro caminho do servidor, como o
+    do rascunhador em ``engine/dflash.py``), e ler esse ``False`` como fracasso
+    fazia a quantizacao desistir do roteamento certo e perder a cabeca de novo —
+    exatamente o defeito que este conserto existe para fechar. Quem responde e a
+    disponibilidade do modulo, nao a autoria do registro.
+    """
+    modulo = _REGISTRO_SO_TEXTO_NO_MLX_LM.get(model_type)
+    if modulo is None:
+        return False
+    try:
+        import importlib
+
+        importlib.import_module(modulo).register_into_mlx_lm()
+        return importlib.util.find_spec(f"mlx_lm.models.{model_type}") is not None
+    except Exception as e:
+        logger.debug("registro de %s no mlx-lm falhou: %s", model_type, e)
+        return False
+
+
 def _build_model_sanitizer(
     config: dict,
     text_only: bool = False,
@@ -3946,6 +3978,30 @@ def _build_model_sanitizer(
     # can't resolve their model_type) and shipped unsanitized vision weights.
     model_type = str(config.get("model_type", "")).lower().replace("-", "_")
     mlx_lm_text_only = model_type in MLX_LM_TEXT_ONLY_MODEL_TYPES
+
+    # Preservar a cabeca de previsao multipla e INCOMPATIVEL com o caminho VLM:
+    # a limpeza dele descarta a cabeca (ver a docstring desta funcao). Para as
+    # familias SO TEXTO implementadas em mlx-vlm (VLM_NATIVE_TEXT_MODEL_TYPES)
+    # isso nao custa nada, porque elas nao tem peso de visao a proteger — e o
+    # caminho de texto preserva. Medido no GLM-5.3-Flash em 31/08/2026: pelo
+    # caminho VLM entram 4 pesos e sai 1, com a cabeca inteira descartada; pelo
+    # caminho de texto entram 4 e saem 4, com os tres da cabeca de pe.
+    # Sem isto, a quantizacao grava um modelo com o sufixo "-mtp" no nome e sem
+    # a cabeca dentro — foi assim que 1760 pesos se perderam calados.
+    if preserve_mtp and model_type in VLM_NATIVE_TEXT_MODEL_TYPES and not text_only:
+        if _registra_familia_so_texto_no_mlx_lm(model_type):
+            logger.info(
+                "preserve_mtp: %s roteado para a limpeza de texto — a de visao "
+                "descarta a cabeca de previsao multipla",
+                model_type,
+            )
+            text_only = True
+        else:
+            logger.warning(
+                "preserve_mtp pedido para %s, mas nao ha implementacao de texto "
+                "registravel: a limpeza de visao vai descartar a cabeca",
+                model_type,
+            )
     is_vlm = (
         any("ForConditionalGeneration" in a for a in architectures)
         or _has_vision_subconfig(config)

@@ -220,3 +220,77 @@ def test_a_estimativa_avisa_quando_desliga_a_preservacao():
         "silencio, e a estimativa que o dono le antes de mandar quantizar ja "
         "contava sem a cabeca"
     )
+
+
+# ---------------------------------------------------------------------------
+# O conserto: com a opcao ligada, a limpeza de nomes preserva a cabeca.
+# Precisa so do config.json do original (nao do checkpoint inteiro), entao roda
+# enquanto os pesos ainda estao baixando.
+# ---------------------------------------------------------------------------
+
+precisa_do_config = pytest.mark.skipif(
+    not HAS_MLX or not os.path.isfile(os.path.join(ORIGEM, "config.json")),
+    reason="precisa do config.json do GLM-5.3-Flash de origem",
+)
+
+
+def _amostra_com_a_cabeca(n_camadas):
+    """Um peso da ultima camada comum + os tres que formam a cabeca."""
+    import mlx.core as _mx
+
+    pesos = {
+        f"model.language_model.layers.{n_camadas - 1}.input_layernorm.weight":
+            _mx.zeros((2, 2), dtype=_mx.float16)
+    }
+    for nome in ("eh_proj", "enorm", "hnorm"):
+        pesos[f"model.language_model.layers.{n_camadas}.{nome}.weight"] = _mx.zeros(
+            (2, 2), dtype=_mx.float16
+        )
+    return pesos
+
+
+@precisa_do_config
+def test_com_a_opcao_ligada_a_cabeca_atravessa_a_limpeza():
+    """O conserto de 31/08: rotear para a limpeza que preserva.
+
+    A limpeza de visao descarta a cabeca — esta escrito na propria descricao de
+    ``_build_model_sanitizer``. O GLM-5.x e uma familia SO TEXTO implementada em
+    mlx-vlm, entao cai nela sem ter peso de visao a proteger. Com a opcao ligada,
+    passa a usar a limpeza de texto, que preserva.
+    """
+    import json
+
+    from omlx.oq import _build_model_sanitizer
+
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    n = (cfg.get("text_config") or {}).get("num_hidden_layers")
+    assert n, "o config de origem precisa declarar num_hidden_layers"
+
+    limpeza = _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=True)
+    assert limpeza is not None, "sem limpeza de nomes nao ha o que testar"
+
+    saida = limpeza(_amostra_com_a_cabeca(n))
+    sobrou = [k for k in saida if f"layers.{n}." in k]
+    assert len(sobrou) == 3, (
+        f"com preserve_mtp ligado a cabeca tem que atravessar inteira; sobraram "
+        f"{len(sobrou)} de 3: {sorted(sobrou)}. Sem isso a quantizacao grava um "
+        f"modelo com o sufixo '-mtp' no nome e sem a cabeca dentro."
+    )
+
+
+@precisa_do_config
+def test_sem_a_opcao_o_caminho_de_antes_nao_muda():
+    """Conserto cirurgico: quem nao pediu preservacao nao ve diferenca."""
+    import json
+
+    from omlx.oq import _build_model_sanitizer
+
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    n = (cfg.get("text_config") or {}).get("num_hidden_layers")
+    limpeza = _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=False)
+    assert limpeza is not None
+    saida = limpeza(_amostra_com_a_cabeca(n))
+    assert not [k for k in saida if f"layers.{n}." in k], (
+        "sem a opcao, o roteamento tem que continuar o de antes (a limpeza de "
+        "visao, que descarta a cabeca) — senao o conserto deixou de ser cirurgico"
+    )
