@@ -1,0 +1,275 @@
+- generic [ref=f2e2]:
+  - navigation [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - generic [ref=f2e5]:
+        - link [ref=f2e6] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f2e7]
+        - generic [ref=f2e8]:
+          - link "oMLX" [ref=f2e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.3" [ref=f2e10] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - generic [ref=f2e11]:
+        - button "Dashboard" [ref=f2e12] [cursor=pointer]
+        - generic [ref=f2e15]:
+          - button "Models" [ref=f2e16] [cursor=pointer]
+          - generic: "1"
+        - button "Settings" [ref=f2e21] [cursor=pointer]
+        - button "Logs" [ref=f2e25] [cursor=pointer]
+        - button "Bench" [ref=f2e30] [cursor=pointer]
+        - link "Chat" [ref=f2e34] [cursor=pointer]:
+          - /url: /admin/chat
+      - generic [ref=f2e37]:
+        - button "Auto" [ref=f2e39] [cursor=pointer]
+        - button "Logout" [ref=f2e46] [cursor=pointer]
+  - main [ref=f2e50]:
+    - generic [ref=f2e363]:
+      - generic [ref=f2e364]:
+        - button "Manager" [ref=f2e365] [cursor=pointer]
+        - button "Downloader" [ref=f2e366] [cursor=pointer]
+        - button "oQ Quantization" [ref=f2e367] [cursor=pointer]
+        - button "oQ Uploader" [ref=f2e368] [cursor=pointer]
+      - generic [ref=f2e369]:
+        - generic [ref=f2e370]:
+          - heading "Models" [level=2] [ref=f2e371]
+          - generic [ref=f2e372]:
+            - heading "Model Manager" [level=3] [ref=f2e373]
+            - button "Reload" [ref=f2e374] [cursor=pointer]
+          - paragraph [ref=f2e380]: Manage your local models.
+        - generic [ref=f2e381]:
+          - generic [ref=f2e382]:
+            - generic [ref=f2e383]:
+              - generic [ref=f2e386]: Local Models
+              - generic [ref=f2e387]: 2 models
+            - button "Refresh" [ref=f2e388] [cursor=pointer]
+          - generic [ref=f2e394]:
+            - textbox "Search models..." [ref=f2e396]
+            - button "Reset sort" [disabled] [ref=f2e397]
+          - generic [ref=f2e402]:
+            - generic [ref=f2e403]:
+              - generic [ref=f2e404] [cursor=pointer]:
+                - text: Model
+                - generic [ref=f2e405]: ▲
+              - generic [ref=f2e406] [cursor=pointer]: Type
+              - generic [ref=f2e407] [cursor=pointer]: Size
+            - generic [ref=f2e408]:
+              - generic [ref=f2e409]:
+                - generic [ref=f2e410]:
+                  - button [ref=f2e411] [cursor=pointer]
+                  - generic "Jundot/Qwen3.8-Flash-Next-oQ4e-mtp" [ref=f2e414]
+                  - button "Copy model name" [ref=f2e415] [cursor=pointer]
+                - generic [ref=f2e419]: vlm
+                - generic [ref=f2e421]: 104.89 GB
+                - generic [ref=f2e422]:
+                  - button "Model settings" [active] [ref=f2e423] [cursor=pointer]
+                  - button "Delete model" [ref=f2e427] [cursor=pointer]
+              - generic [ref=f2e431]:
+                - generic [ref=f2e432]:
+                  - generic "Qwen/Qwen3.8-Flash-Next" [ref=f2e433]
+                  - button "Copy model name" [ref=f2e434] [cursor=pointer]
+                - generic [ref=f2e438]: llm
+                - generic [ref=f2e440]: 127.80 GB
+                - button "Delete model" [ref=f2e442] [cursor=pointer]
+  - generic [ref=f2e449]:
+    - generic [ref=f2e450]:
+      - generic [ref=f2e451]:
+        - heading "Model Settings" [level=3] [ref=f2e452]
+        - heading "Jundot/Qwen3.8-Flash-Next-oQ4e-mtp" [level=4] [ref=f2e453]
+      - button [ref=f2e454] [cursor=pointer]
+    - generic [ref=f2e458]:
+      - generic [ref=f2e459]:
+        - heading "Profiles" [level=3] [ref=f2e460]
+        - generic [ref=f2e462]:
+          - button "Preset" [ref=f2e463] [cursor=pointer]
+          - button "Global" [ref=f2e464] [cursor=pointer]
+          - button "Model" [ref=f2e465] [cursor=pointer]
+      - button "+ New profile" [ref=f2e468] [cursor=pointer]
+    - generic [ref=f2e469]:
+      - generic [ref=f2e470]:
+        - heading "Basic Settings" [level=3] [ref=f2e471]
+        - generic [ref=f2e472]:
+          - generic [ref=f2e473]:
+            - generic [ref=f2e474]:
+              - generic [ref=f2e475]: Model Alias
+              - textbox "Qwen3.8-Flash-Next-oQ4e-mtp" [ref=f2e476]
+            - generic [ref=f2e477]:
+              - generic [ref=f2e478]: Model Type
+              - combobox [ref=f2e479]:
+                - option "Auto-detect" [selected]
+                - option "LLM"
+                - option "VLM"
+                - option "Embedding"
+                - option "Reranker"
+                - option "Audio STT"
+                - option "Audio TTS"
+                - option "Audio STS"
+          - generic [ref=f2e480]:
+            - generic [ref=f2e481]:
+              - generic [ref=f2e482]:
+                - generic [ref=f2e483]: Ctx Window
+                - spinbutton "Default" [ref=f2e484]: "262144"
+              - generic [ref=f2e485]:
+                - generic [ref=f2e486]: Max Tokens
+                - spinbutton "Default" [ref=f2e487]
+              - generic [ref=f2e488]:
+                - generic [ref=f2e489]: Temperature
+                - spinbutton "Default" [ref=f2e490]: "1"
+            - generic [ref=f2e491]:
+              - generic [ref=f2e492]:
+                - generic [ref=f2e493]: Top P
+                - spinbutton "Default" [ref=f2e494]: "0.95"
+              - generic [ref=f2e495]:
+                - generic [ref=f2e496]: Top K
+                - spinbutton "Default" [ref=f2e497]: "20"
+              - generic [ref=f2e498]:
+                - generic [ref=f2e499]: Min P
+                - spinbutton "Default" [ref=f2e500]
+            - generic [ref=f2e501]:
+              - generic [ref=f2e502]:
+                - generic [ref=f2e503]: Repetition Penalty
+                - spinbutton "Default" [ref=f2e504]: "1"
+              - generic [ref=f2e505]:
+                - generic [ref=f2e506]: Presence Penalty
+                - spinbutton "Default" [ref=f2e507]: "0"
+          - generic [ref=f2e508]:
+            - generic [ref=f2e509]:
+              - generic [ref=f2e510]: TTL (Seconds)
+              - spinbutton "Pinned" [disabled] [ref=f2e511]
+            - button "Load Defaults" [ref=f2e513] [cursor=pointer]
+          - paragraph [ref=f2e514]: Leave empty to use global defaults
+      - generic [ref=f2e515]:
+        - heading "Advanced Settings" [level=3] [ref=f2e516]
+        - generic [ref=f2e517]:
+          - generic [ref=f2e518]:
+            - generic [ref=f2e519]:
+              - generic [ref=f2e520]:
+                - text: Enable Thinking
+                - paragraph [ref=f2e521]: Enable reasoning/thinking mode for this model.
+              - button [ref=f2e522] [cursor=pointer]
+            - paragraph [ref=f2e524]: Using model default
+          - generic [ref=f2e526]:
+            - generic [ref=f2e527]:
+              - text: SSD N-gram Offload (Qwen4 only)
+              - paragraph [ref=f2e528]: Keep the large PLE N-gram table on SSD and read only the required rows. This saves memory but can slow prefill after context changes.
+            - button [ref=f2e529] [cursor=pointer]
+          - generic [ref=f2e532]:
+            - generic [ref=f2e533]:
+              - text: Thinking Budget
+              - paragraph [ref=f2e534]: Limit thinking tokens for reasoning models. Forces end of thinking when exceeded.
+            - button [ref=f2e535] [cursor=pointer]
+          - generic [ref=f2e538]:
+            - generic [ref=f2e539]:
+              - text: Guided Grammar
+              - paragraph [ref=f2e540]: Apply an EBNF grammar by default for this model.
+            - button [ref=f2e541] [cursor=pointer]
+          - generic [ref=f2e544]:
+            - generic [ref=f2e545]:
+              - text: Limit Tool Result Tokens
+              - paragraph [ref=f2e546]: Truncate large tool results (e.g. file reads) to a token limit
+            - button [ref=f2e547] [cursor=pointer]
+          - generic [ref=f2e550]:
+            - generic [ref=f2e551]:
+              - text: Force Sampling
+              - paragraph [ref=f2e552]: Override request sampling parameters with configured values
+            - button [ref=f2e553] [cursor=pointer]
+          - generic [ref=f2e556]:
+            - generic [ref=f2e557]:
+              - text: Trust Remote Code
+              - paragraph [ref=f2e558]: Lets the model repo run arbitrary Python at load. Only enable for trusted publishers.
+            - button [ref=f2e559] [cursor=pointer]
+          - generic [ref=f2e561]:
+            - generic [ref=f2e562]:
+              - generic [ref=f2e563]:
+                - text: Chat Template Kwargs
+                - paragraph [ref=f2e564]: Parameters passed to chat template
+              - button "+ Add" [ref=f2e566] [cursor=pointer]
+            - generic [ref=f2e567]:
+              - generic [ref=f2e568]:
+                - generic [ref=f2e569]: Custom
+                - button [ref=f2e570] [cursor=pointer]
+              - generic [ref=f2e574]:
+                - textbox "key" [ref=f2e575]: peserve_thinking
+                - generic [ref=f2e576]:
+                  - textbox "value" [ref=f2e577]: "true"
+                  - 'generic "Force: API requests cannot override this value" [ref=f2e578]':
+                    - checkbox "Force" [checked] [ref=f2e579]
+                    - generic [ref=f2e580]: Force
+          - generic [ref=f2e581]:
+            - heading "Acceleration" [level=4] [ref=f2e582]
+            - generic [ref=f2e584]:
+              - generic [ref=f2e585]:
+                - text: Lightning MTP
+                - paragraph [ref=f2e586]: Drafts several tokens per step with the model's built-in MTP head. Up to ~1.5x faster decoding. (Qwen 3.5/3.6, DeepSeek-V4, GLM-5.2)
+              - button [ref=f2e587] [cursor=pointer]
+            - generic [ref=f2e589]:
+              - generic [ref=f2e590]:
+                - generic [ref=f2e591]:
+                  - text: N-gram Lookup Drafting
+                  - paragraph [ref=f2e592]: Copy draft tokens from this request's own prompt and output when recent tokens repeat, verified losslessly. Speeds up code rewriting and agent loops; falls back to Lightning MTP when nothing matches.
+                - button [ref=f2e593] [cursor=pointer]
+              - generic [ref=f2e595]:
+                - generic [ref=f2e596]:
+                  - generic [ref=f2e597]: Match window (tokens)
+                  - spinbutton "16" [ref=f2e598]: "24"
+                - generic [ref=f2e599]:
+                  - generic [ref=f2e600]: Max draft length
+                  - spinbutton "16" [ref=f2e601]: "48"
+                  - paragraph [ref=f2e602]: Verify width is memory-bound; 16 is the safe default on 128 GB. Larger values can exhaust Metal memory on long generations.
+                - generic [ref=f2e603]:
+                  - generic [ref=f2e604]: Min draft length
+                  - spinbutton "4" [ref=f2e605]
+                - generic [ref=f2e606]:
+                  - generic [ref=f2e607]:
+                    - text: Frequency-scaled copy length
+                    - paragraph [ref=f2e608]: "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule."
+                  - button [ref=f2e609] [cursor=pointer]
+                - generic [ref=f2e610]:
+                  - generic [ref=f2e611]:
+                    - text: Chained draft walk
+                    - paragraph [ref=f2e612]: Instead of one block copy per cycle, the draft grows token by token, re-consulting the index and stitching occurrences into longer drafts (llama.cpp's ngram-mod walk). Chains shorter than the gate draft nothing.
+                  - button [ref=f2e613] [cursor=pointer]
+            - heading "Experimental Features" [level=4] [ref=f2e614]
+            - generic [ref=f2e616]:
+              - generic [ref=f2e617]:
+                - text: modal.model_settings.activation_fp16
+                - paragraph [ref=f2e618]: modal.model_settings.activation_fp16_hint
+              - button [ref=f2e619] [cursor=pointer]
+            - generic [ref=f2e622]:
+              - generic [ref=f2e623]:
+                - text: TurboQuant KV Cache
+                - paragraph [ref=f2e624]: Compress KV cache using vector quantization. Lower bits = more compression, higher bits = better quality. Supports 2 to 8 bits.
+              - button [ref=f2e625] [cursor=pointer]
+            - generic [ref=f2e628]:
+              - generic [ref=f2e629]:
+                - text: SpecPrefill
+                - paragraph [ref=f2e630]:
+                  - text: Attention-based sparse prefill for MoE/hybrid models. (
+                  - link "Paper" [ref=f2e631] [cursor=pointer]:
+                    - /url: https://arxiv.org/abs/2502.02789
+                  - text: ) (
+                  - link "HuggingFace" [ref=f2e632] [cursor=pointer]:
+                    - /url: https://huggingface.co/Thump604/specprefill-paper
+                  - text: )
+              - button [ref=f2e633] [cursor=pointer]
+            - generic [ref=f2e636]:
+              - generic [ref=f2e637]:
+                - text: DFlash
+                - paragraph [ref=f2e638]:
+                  - text: Block diffusion speculative decoding with compatible DFlash and DFlash2 checkpoints.
+                  - strong [ref=f2e639]: "Single-stream only: requests run one at a time."
+                  - text: "* MLX impl by bstnxbt("
+                  - link "GitHub" [ref=f2e640] [cursor=pointer]:
+                    - /url: https://github.com/bstnxbt/dflash-mlx
+                  - text: )
+                - paragraph [ref=f2e641]: DFlash supports only Qwen, Gemma4, Laguna, and Muse Glimmer models (model_type='qwen4_exp')
+              - button "DFlash supports only Qwen, Gemma4, Laguna, and Muse Glimmer models (model_type='qwen4_exp')" [disabled] [ref=f2e642]
+            - generic [ref=f2e645]:
+              - generic [ref=f2e646]:
+                - text: VLM MTP
+                - paragraph [ref=f2e647]: Speculative decoding via an external MTP drafter model (Gemma 4 assistant or Qwen MTP). ~1.3–1.6× single-request speedup; concurrent eligible requests fall back to standard batching.
+                - paragraph [ref=f2e648]: Disable DFlash / SpecPrefill / MTP / TurboQuant KV first — VLM MTP owns the speculative decode path.
+              - button [disabled] [ref=f2e649]
+    - generic [ref=f2e651]:
+      - button "Cancel" [ref=f2e652] [cursor=pointer]
+      - button "Save" [ref=f2e653] [cursor=pointer]

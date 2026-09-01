@@ -1,0 +1,84 @@
+- generic [ref=f6e4]:
+  - generic [ref=f6e7]:
+    - generic [ref=f6e8]:
+      - button "New session" [ref=f6e9] [cursor=pointer]:
+        - generic [ref=f6e16]:
+          - generic [ref=f6e17]: DSH Local Build
+          - generic [ref=f6e18]: b150a55
+      - button "Collapse sidebar" [ref=f6e19] [cursor=pointer]
+    - button "New session" [ref=f6e22] [cursor=pointer]:
+      - generic [ref=f6e25]: New Session
+    - generic [ref=f6e28]:
+      - generic [ref=f6e29]:
+        - generic [ref=f6e30]: Workspaces
+        - generic [ref=f6e32]:
+          - button "Search sessions" [ref=f6e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f6e37]:
+          - button "View options" [ref=f6e39] [cursor=pointer]
+          - button "Add workspace" [ref=f6e42] [cursor=pointer]
+      - tree "Sessions" [ref=f6e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f6e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f6e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f6e112] [cursor=pointer]
+        - generic [ref=f6e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f6e120] [cursor=pointer]
+          - treeitem "Running Sem usar ferramenta, responda em now" [selected] [ref=f6e237] [cursor=pointer]:
+            - generic [ref=f6e129]: Running
+            - generic [ref=f6e130]: Sem usar ferramenta, responda em
+            - generic [ref=f6e248]: now
+          - treeitem "Responda em uma frase, sem 27min" [ref=f6e249] [cursor=pointer]:
+            - generic [ref=f6e134]: Responda em uma frase, sem
+            - generic [ref=f6e135]: 27min
+          - treeitem "Responda em uma frase, sem 33min" [ref=f6e250] [cursor=pointer]:
+            - generic [ref=f6e139]: Responda em uma frase, sem
+            - generic [ref=f6e140]: 33min
+          - treeitem "Em duas frases, explique a 46min" [ref=f6e142] [cursor=pointer]:
+            - generic [ref=f6e144]: Em duas frases, explique a
+            - generic [ref=f6e145]: 46min
+          - treeitem "Olá 2h" [ref=f6e147] [cursor=pointer]:
+            - generic [ref=f6e149]: Olá
+            - generic [ref=f6e150]: 2h
+          - button "Show 20 more sessions" [ref=f6e151] [cursor=pointer]
+    - button "Settings" [ref=f6e53] [cursor=pointer]
+  - generic [ref=f6e152]:
+    - banner [ref=f6e252]:
+      - generic [ref=f6e253]:
+        - generic [ref=f6e254]:
+          - navigation "Session hierarchy" [ref=f6e255]:
+            - button "Sem usar ferramenta, responda em" [disabled] [ref=f6e257]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f6e260]': Standard Bl
+        - button "Session log" [ref=f6e268] [cursor=pointer]
+      - tablist [ref=f6e272]:
+        - tab "Chat" [selected] [ref=f6e273] [cursor=pointer]
+        - tab "Trajectory" [ref=f6e274] [cursor=pointer]
+    - generic [ref=f6e153]:
+      - generic [ref=f6e280]:
+        - generic [ref=f6e283]:
+          - generic [ref=f6e284]: "Sem usar ferramenta, responda em uma frase: para que serve o cabecalho HTTP ETag?"
+          - generic [ref=f6e287]:
+            - generic [ref=f6e288]: 14:43
+            - button "Copy" [ref=f6e289] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f6e295] [cursor=pointer]:
+          - generic [ref=f6e304]: Context injection
+          - generic [ref=f6e306]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f6e310] [cursor=pointer]:
+          - generic [ref=f6e319]: Context injection
+          - generic [ref=f6e321]: skill-catalog
+        - status [ref=f6e322]: Deep diving...
+      - generic [ref=f6e187]:
+        - textbox "Message the agent" [active] [ref=f6e323]
+        - generic [ref=f6e191]:
+          - generic [ref=f6e192]:
+            - button "Commands" [ref=f6e193] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f6e198] [cursor=pointer]':
+              - generic [ref=f6e206]: Workspace Write
+          - generic [ref=f6e210]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f6e213] [cursor=pointer]:
+              - generic [ref=f6e214]: GLM 5.3 Flash (Ultra)
+            - button "Stop generating" [ref=f6e324] [cursor=pointer]
+  - generic [ref=f6e221]:
+    - generic [ref=f6e222]:
+      - generic: Details
+      - button "Close details" [ref=f6e223] [cursor=pointer]
+    - generic [ref=f6e226]: Click a tool row in the message flow to view its details

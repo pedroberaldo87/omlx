@@ -1,0 +1,84 @@
+- generic [ref=f10e4]:
+  - generic [ref=f10e7]:
+    - generic [ref=f10e8]:
+      - button "New session" [ref=f10e9] [cursor=pointer]:
+        - generic [ref=f10e16]:
+          - generic [ref=f10e17]: DSH Local Build
+          - generic [ref=f10e18]: b150a55
+      - button "Collapse sidebar" [ref=f10e19] [cursor=pointer]
+    - button "New session" [ref=f10e22] [cursor=pointer]:
+      - generic [ref=f10e25]: New Session
+    - generic [ref=f10e28]:
+      - generic [ref=f10e29]:
+        - generic [ref=f10e30]: Workspaces
+        - generic [ref=f10e32]:
+          - button "Search sessions" [ref=f10e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f10e37]:
+          - button "View options" [ref=f10e39] [cursor=pointer]
+          - button "Add workspace" [ref=f10e42] [cursor=pointer]
+      - tree "Sessions" [ref=f10e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f10e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f10e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f10e112] [cursor=pointer]
+        - generic [ref=f10e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f10e120] [cursor=pointer]
+          - treeitem "Running Para que serve o cabeçalho now" [selected] [ref=f10e237] [cursor=pointer]:
+            - generic [ref=f10e129]: Running
+            - generic [ref=f10e130]: Para que serve o cabeçalho
+            - generic [ref=f10e248]: now
+          - treeitem "Para que serve o cabeçalho 4min" [ref=f10e132] [cursor=pointer]:
+            - generic [ref=f10e134]: Para que serve o cabeçalho
+            - generic [ref=f10e135]: 4min
+          - treeitem "Para que serve o cabeçalho 7min" [ref=f10e137] [cursor=pointer]:
+            - generic [ref=f10e139]: Para que serve o cabeçalho
+            - generic [ref=f10e140]: 7min
+          - treeitem "Oi 21min" [ref=f10e142] [cursor=pointer]:
+            - generic [ref=f10e144]: Oi
+            - generic [ref=f10e145]: 21min
+          - treeitem "Olá 25min" [ref=f10e147] [cursor=pointer]:
+            - generic [ref=f10e149]: Olá
+            - generic [ref=f10e150]: 25min
+          - button "Show 25 more sessions" [ref=f10e151] [cursor=pointer]
+    - button "Settings" [ref=f10e53] [cursor=pointer]
+  - generic [ref=f10e152]:
+    - banner [ref=f10e250]:
+      - generic [ref=f10e251]:
+        - generic [ref=f10e252]:
+          - navigation "Session hierarchy" [ref=f10e253]:
+            - button "Para que serve o cabeçalho" [disabled] [ref=f10e255]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f10e258]': Standard Bl
+        - button "Session log" [ref=f10e266] [cursor=pointer]
+      - tablist [ref=f10e270]:
+        - tab "Chat" [selected] [ref=f10e271] [cursor=pointer]
+        - tab "Trajectory" [ref=f10e272] [cursor=pointer]
+    - generic [ref=f10e153]:
+      - generic [ref=f10e278]:
+        - generic [ref=f10e281]:
+          - generic [ref=f10e282]: Para que serve o cabeçalho HTTP Vary? Responda em duas frases, em português.
+          - generic [ref=f10e285]:
+            - generic [ref=f10e286]: 15:11
+            - button "Copy" [ref=f10e287] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f10e293] [cursor=pointer]:
+          - generic [ref=f10e302]: Context injection
+          - generic [ref=f10e304]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f10e308] [cursor=pointer]:
+          - generic [ref=f10e317]: Context injection
+          - generic [ref=f10e319]: skill-catalog
+        - status [ref=f10e320]: Deep diving...
+      - generic [ref=f10e187]:
+        - textbox "Message the agent" [active] [ref=f10e321]
+        - generic [ref=f10e191]:
+          - generic [ref=f10e192]:
+            - button "Commands" [ref=f10e193] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f10e198] [cursor=pointer]':
+              - generic [ref=f10e206]: Workspace Write
+          - generic [ref=f10e210]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f10e213] [cursor=pointer]:
+              - generic [ref=f10e214]: GLM 5.3 Flash (Ultra)
+            - button "Stop generating" [ref=f10e322] [cursor=pointer]
+  - generic [ref=f10e221]:
+    - generic [ref=f10e222]:
+      - generic: Details
+      - button "Close details" [ref=f10e223] [cursor=pointer]
+    - generic [ref=f10e226]: Click a tool row in the message flow to view its details

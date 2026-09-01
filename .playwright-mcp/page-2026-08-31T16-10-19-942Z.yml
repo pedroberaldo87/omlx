@@ -1,0 +1,282 @@
+- generic [ref=f2e4]:
+  - generic [ref=f2e7]:
+    - generic [ref=f2e8]:
+      - button "New session" [ref=f2e9] [cursor=pointer]:
+        - generic [ref=f2e16]:
+          - generic [ref=f2e17]: DSH Local Build
+          - generic [ref=f2e18]: b150a55
+      - button "Collapse sidebar" [ref=f2e19] [cursor=pointer]
+    - button "New session" [ref=f2e22] [cursor=pointer]:
+      - generic [ref=f2e25]: New Session
+    - generic [ref=f2e28]:
+      - generic [ref=f2e29]:
+        - generic [ref=f2e30]: Workspaces
+        - generic [ref=f2e32]:
+          - button "Search sessions" [ref=f2e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f2e37]:
+          - button "View options" [ref=f2e39] [cursor=pointer]
+          - button "Add workspace" [ref=f2e42] [cursor=pointer]
+      - tree "Sessions" [ref=f2e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f2e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f2e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f2e112] [cursor=pointer]
+        - generic [ref=f2e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f2e120] [cursor=pointer]
+          - treeitem "Running Em duas frases, explique a now" [selected] [ref=f2e128] [cursor=pointer]:
+            - generic [ref=f2e129]: Running
+            - generic [ref=f2e140]: Em duas frases, explique a
+            - generic [ref=f2e141]: now
+          - treeitem "Olá 47min" [ref=f2e484] [cursor=pointer]:
+            - generic [ref=f2e145]: Olá
+            - generic [ref=f2e146]: 47min
+          - treeitem "Oi 54min" [ref=f2e485] [cursor=pointer]:
+            - generic [ref=f2e150]: Oi
+            - generic [ref=f2e151]: 54min
+          - treeitem "Oi 1h" [ref=f2e486] [cursor=pointer]:
+            - generic [ref=f2e155]: Oi
+            - generic [ref=f2e156]: 1h
+          - treeitem "/visual me arepsenta como a 1h" [ref=f2e487] [cursor=pointer]:
+            - generic [ref=f2e160]: /visual me arepsenta como a
+            - generic [ref=f2e161]: 1h
+          - button "Show 17 more sessions" [ref=f2e162] [cursor=pointer]
+    - button "Settings" [ref=f2e53] [cursor=pointer]
+  - generic [ref=f2e62]:
+    - banner [ref=f2e164]:
+      - generic [ref=f2e165]:
+        - generic [ref=f2e166]:
+          - navigation "Session hierarchy" [ref=f2e167]:
+            - button "Em duas frases, explique a" [disabled] [ref=f2e169]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f2e172]': Standard Bl
+        - button "Session log" [ref=f2e180] [cursor=pointer]
+      - tablist [ref=f2e184]:
+        - tab "Chat" [selected] [ref=f2e185] [cursor=pointer]
+        - tab "Trajectory" [ref=f2e186] [cursor=pointer]
+    - generic [ref=f2e63]:
+      - generic [ref=f2e192]:
+        - generic [ref=f2e195]:
+          - generic [ref=f2e196]: "Em duas frases, explique a diferenca entre os cabecalhos HTTP Cache-Control: no-store e Cache-Control: no-cache."
+          - generic [ref=f2e199]:
+            - generic [ref=f2e200]: 12:30
+            - button "Copy" [ref=f2e201] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f2e207] [cursor=pointer]:
+          - generic [ref=f2e216]: Context injection
+          - generic [ref=f2e218]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f2e222] [cursor=pointer]:
+          - generic [ref=f2e231]: Context injection
+          - generic [ref=f2e233]: skill-catalog
+        - status [ref=f2e236]:
+          - generic [ref=f2e238]: "This turn failed400: {\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~116.45 GB peak (current 103.44 GB + KV+SDPA 13.01 GB) but dynamic ceiling is 114.00 GB. Raise custom_ceiling_bytes in admin Memory settings (currently pinned at 120.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"prefill_memory_exceeded\",\"omlx_code\":\"prefill_memory_exceeded\",\"estimated_bytes\":125041448652,\"limit_bytes\":122406567936}"
+          - code [ref=f2e239]: INVALID_REQUEST
+        - generic [ref=f2e242]:
+          - generic [ref=f2e243]: "Em duas frases, explique a diferenca entre Cache-Control: no-store e no-cache."
+          - generic [ref=f2e246]:
+            - generic [ref=f2e247]: 12:35
+            - button "Copy" [ref=f2e248] [cursor=pointer]
+        - status [ref=f2e253]:
+          - generic [ref=f2e255]: "This turn failedoMLX prefill memory guard rejected this prompt: Prefill would require ~116.63 GB peak (current 103.62 GB + KV+SDPA 13.00 GB) but dynamic ceiling is 114.00 GB. Raise custom_ceiling_bytes in admin Memory settings (currently pinned at 120.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context."
+          - code [ref=f2e256]: PI_AI_ERROR
+        - generic [ref=f2e259]:
+          - generic [ref=f2e260]: "Em uma frase, o que faz o cabecalho Cache-Control: no-store?"
+          - generic [ref=f2e263]:
+            - generic [ref=f2e264]: 12:44
+            - button "Copy" [ref=f2e265] [cursor=pointer]
+        - status [ref=f2e326]:
+          - generic [ref=f2e328]: "This turn failedoMLX prefill memory guard rejected this prompt: Prefill would require ~116.66 GB peak (current 103.65 GB + KV+SDPA 13.01 GB) but dynamic ceiling is 114.00 GB. Raise custom_ceiling_bytes in admin Memory settings (currently pinned at 120.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context."
+          - code [ref=f2e329]: PI_AI_ERROR
+        - generic [ref=f2e332]:
+          - generic [ref=f2e333]: "Em uma frase: o que faz Cache-Control: no-store?"
+          - generic [ref=f2e336]:
+            - generic [ref=f2e337]: 12:46
+            - button "Copy" [ref=f2e338] [cursor=pointer]
+        - status [ref=f2e359]:
+          - generic [ref=f2e361]: "This turn failedoMLX prefill memory guard rejected this prompt: Prefill would require ~116.67 GB peak (current 103.66 GB + KV+SDPA 13.01 GB) but dynamic ceiling is 114.00 GB. Raise custom_ceiling_bytes in admin Memory settings (currently pinned at 120.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context."
+          - code [ref=f2e362]: PI_AI_ERROR
+        - generic [ref=f2e365]:
+          - generic [ref=f2e366]: "Responda apenas: ok"
+          - generic [ref=f2e369]:
+            - generic [ref=f2e370]: 12:49
+            - button "Copy" [ref=f2e371] [cursor=pointer]
+        - status [ref=f2e392]:
+          - generic [ref=f2e394]: "This turn failedoMLX prefill memory guard rejected this prompt: Prefill would require ~116.66 GB peak (current 103.65 GB + KV+SDPA 13.01 GB) but dynamic ceiling is 114.00 GB. Raise custom_ceiling_bytes in admin Memory settings (currently pinned at 120.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context."
+          - code [ref=f2e395]: PI_AI_ERROR
+        - generic [ref=f2e398]:
+          - generic [ref=f2e399]: "Responda so isto, sem usar ferramenta: o que faz Cache-Control: no-store?"
+          - generic [ref=f2e402]:
+            - generic [ref=f2e403]: 12:52
+            - button "Copy" [ref=f2e404] [cursor=pointer]
+        - generic [ref=f2e426]:
+          - button "Think" [ref=f2e429] [cursor=pointer]
+          - paragraph [ref=f2e440]:
+            - code [ref=f2e441]: "Cache-Control: no-store"
+            - text: proíbe que a resposta seja armazenada em qualquer cache (privado ou compartilhado), de modo que nada seja reaproveitado e qualquer requisição subsequente precisa buscar o conteúdo novamente na origem.
+        - generic [ref=f2e445]:
+          - button "Copy" [ref=f2e446] [cursor=pointer]
+          - generic [ref=f2e449]:
+            - button "Good response" [ref=f2e450] [cursor=pointer]
+            - button "Bad response" [ref=f2e453] [cursor=pointer]
+          - button "Branch into a new conversation" [ref=f2e456] [cursor=pointer]
+          - generic [ref=f2e459]: 12:55 · Ran for 2m 25s · TTFT 118s · 18 tok/s
+        - generic [ref=f2e462]:
+          - generic [ref=f2e463]: "Sem usar ferramenta, responda em uma frase: para que serve o cabecalho ETag?"
+          - generic [ref=f2e466]:
+            - generic [ref=f2e467]: 12:55
+            - button "Copy" [ref=f2e468] [cursor=pointer]
+        - generic [ref=f2e491]:
+          - button "Think" [ref=f2e494] [cursor=pointer]
+          - generic [ref=f2e504]:
+            - paragraph [ref=f2e505]:
+              - text: "The user's message is empty — I should stop. The DeepSeek Harness instruction says: no implicit turn ordering, no passing turns only to it. Use it to give it work. My turns are non-blocking unless they finish. Read are non-blocking and leaves the agent alive for follow-ups.<system_warning>No delivery promise — reads may fail. Children that could not be read are reported as diagnostics only. Scope"
+              - code [ref=f2e506]: descendants
+              - text: walks the complete tree below you. You may use it only for depth-another turn sends the parent a notice containing the subagent's result. Send a message that could not be read. Children that could not be read are reported as an error, not the subagent was started. Scope
+              - code [ref=f2e507]: descendants
+              - text: walks the complete tree below you.
+            - heading "Files prefixed with @ are files explicitly referenced by the user. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it." [level=2] [ref=f2e508]
+            - paragraph [ref=f2e509]:
+              - text: Scope — my
+              - code [ref=f2e510]: send_message
+              - text: starts the same child conversation. Children that could not be read are reported as goals instead of ask_user? Given a stable scoped result. Use read tool when their contents are needed; do not claim to have inspected a file before reading it. Results include line numbers. Use offset and limit to continue reading large files. Use the ask_user before reading it. Nothing (the default fs-observation-policy requires it).
+            - paragraph [ref=f2e511]: This harness is intentionally referenced by the user. Use the write tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e512]:
+              - text: Every function in the second
+              - code [ref=f2e513]: <parameter>
+              - text: is displayed. Give it the full instructions. Call this with the exact skill name from the available skills list.
+            - paragraph [ref=f2e514]: Use it to get more work. A failure means the subagent's next turn. A failure means the subagent is not. Children that could not be read are reported.
+            - paragraph [ref=f2e515]: Results include line numbers. Use offset and limit to continue reading large files. Use the todo_write tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e516]: "This tool call's skill parameters: todo_write. Results include line numbers. Use offset and limit to return line 1."
+            - paragraph [ref=f2e517]: Use the read tool — the GLM-5.3-Flash-oQ model to accept image files. Results include line numbers. Use offset and limit to return line numbers. Use this checkout only to inspect or inspect an image file. Requires the current model to validate and this tool result.
+            - paragraph [ref=f2e518]: Use the todo_write tool — use it when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e519]: Use the read tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e520]: Use the read tool to inspect or verify the checkout only to inspect or resume a task that names or clearly matches that skill.
+            - paragraph [ref=f2e521]: "[status: ...] TODO write tool when their contents are needed; do not claim to have inspected it before reading it."
+            - paragraph [ref=f2e522]: Check the [exit skill name from the session skill catalog.] marker on every bash result; investigate failures before moving on.
+            - paragraph [ref=f2e523]: "Use ask_user: record and update task list with a read tool when their contents are needed; do not claim to have inspected a file before reading it."
+            - paragraph [ref=f2e524]: Track every background agent id you start. Use the todo_write tool to record and update a structured goal, including line numbers. Use offset and limit to return line numbers. Use this checkout — the apps/web Vite dev server — requires goal intent from a direct human question — call the skill catalog and update its goal. Use the ask_user tool to inspect files. Use the ralph tool when the direct human asks for Ralph or fresh-agent iterative execution.
+            - paragraph [ref=f2e525]: Each Ralph loop opens a new child with no parent message — it becomes the next turn's next turn. Each round opens a new turn into its own turn (so use it to give it more work). A failure means the subagent's turn by turn — so use it to give it more work. A failure means the same as above.
+            - paragraph [ref=f2e526]: Do not create a goal for routine same-session work belongs to goal tools. Use same-session goal tools for ordinary long-running objectives, and plain subagents or workflows for depth-1 fan-out.
+            - paragraph [ref=f2e527]: "Use send_message for one delegation. Start independent delegations together in one assistant message and continue useful work while they run. Set run_in_background: false only when my next step is an independent result in parallel while they run."
+            - paragraph [ref=f2e528]: Use the todo_write tool to give it more work. Mark every todo being worked on now — do not busy-poll or busy-wait or wait for it.
+            - paragraph [ref=f2e529]: Use job_kill before busy-polling or sleep on one; investigate before moving on and do not busy-poll or sleep on one; keep every todo being worked on and continue useful work while they run. Mark blocked only when a background job's work actually stops.
+            - paragraph [ref=f2e530]: Track every background job id you started — do not busy-poll or sleep on one; investigate one. Results include line numbers. Use the read tool when their contents are needed.
+            - paragraph [ref=f2e531]: Use the todo_write tool to record and update a goal.
+            - paragraph [ref=f2e532]: Use update_goal. Call it with the exact skill name from the available skills list. Call this before update_goal action resume to rearm it. Mark complete only when the objective is actually achieving it. Mark complete only when the objective is actually achieved. Mark blocked only after the same blocking condition persists for 3 consecutive rounds, say so, and reports that concrete condition in blocked_reason; difficulty, progress, completed continuation rounds, completed continuation rounds, blocked-blocked reason. Mark complete when the objective is actually achieved. Mark blocked only after the same blocking condition persists for the same reason, or if the same session says it. Mark blocked only after the same condition persists for at least 3 consecutive rounds; mark complete only when the objective is actually achieved. Mark blocked only after the objective is actually achieved.
+            - paragraph [ref=f2e533]: Paths prefixed with @ are files explicitly referenced by the user. Use the read tool when their contents are needed; do not claim to have read it before reading it.
+            - paragraph [ref=f2e534]: Use the read tool — use line numbers. Use this checkout only to its steps — otherwise inspect or read it. Check the [exit marker only to inspect or task that names or clearly matches that skill, use read tool. Results include line numbers. Use this checkout only to inspect only to inspect an image.
+            - paragraph [ref=f2e535]: Track every background job id you start together in one assistant message and continue useful work while they run. Before moving on, investigate failures before moving on. Use the read tool — not shell commands like cat — to inspect text files. Results include line numbers. Use this checkout to check the checkout only to inspect current information. Use goal tools for ordinary long-running objectives, and plain subagents or workflows for ordinary long-running objectives, and plain subagents for depth-depth research, a continuation round starts a fresh agent with no conversation seed and uses the shared workspace as durable memory. Only the goal is long-running same-session work belongs to goal completion, and plain subagents or workflows for ordinary long-running objectives, and plain subagents or workflows for ordinary long-running objectives.
+            - paragraph [ref=f2e536]: "When you successfully create or modify files, mention the primary files in your final response. Paths prefixed with @ are files explicitly referenced by the user. Check the exit marker on every bash result; investigate failures before moving on. Use goal tools for one long-running completion objective in the current session. create_goal: create the affected file. create_goal for routine single-turn work. Call get_goal first, then update_goal to rearm it. Mark complete only when the objective is actually completed. Mark blocked only when the objective is actually achieved. Mark blocked only after the same session goal is completed continuation rounds. Mark complete only when the objective is actually achieved. Mark blocked only after the same session goal is armed. Mark complete only when the objective is actually achieved. Mark blocked only when the objective is not achieved. Mark complete only after the objective is actually achieved. Mark blocked only when the objective is actually achieved. Mark blocked only after the same objective is not yet achieved. Mark complete when the objective is not blocked. Mark complete when the objective is actually achieved. Mark blocked only after difficulty, uncertainty, or blocker reason when present, and use update_goal rearm it. Mark complete only when the objective is actually achieved."
+            - paragraph [ref=f2e537]: Mark blocked only after the objective is actually achieved. Mark complete when the objective is actually achieved. Mark blocked only after the objective is complete. Mark blocked only when the objective is achieved. Mark blocked only after the same objective is reached. Mark blocked only when the objective is actually achieved. Mark complete when the objective is actually achieved. Mark complete only when the objective is actually achieved. Mark blocked only when the objective is actually achieved. Mark complete only when the objective is actually achieved. Mark blocked only when the objective is actually achieved.
+            - paragraph [ref=f2e538]: Mark blocked only after the objective is actually achieved. Mark complete only when the objective is complete.
+            - paragraph [ref=f2e539]: Mark blocked only after the same-session goal tools for ordinary long-running objectives, and plain subagents for ordinary long-running objectives, and plain subagents for bounded multi-angle research, a monorepo (a goal is marked blocked only after the same session goal tools for ordinary long-running objectives, and the apps/web Vite server and plain subagents for ordinary long-running objectives, and plain subagents for ordinary long-running objectives, and plain subagent workflows for ordinary long-running objectives.
+            - paragraph [ref=f2e540]: Use same-session goal tools for ordinary long-running objectives, and use update_goal update_goal blocked after the goal is complete.
+            - paragraph [ref=f2e541]: Mark blocked only after the current goal is complete. Mark complete only when the objective is actually blocked after the same session. Mark blocked only when the objective is actually achieved. Mark blocked only when the objective is actually achieved. Mark blocked only when the objective is achieved. Mark blocked after the same session goal tools for ordinary long-running objectives, and plain subagents for ordinary long-running objectives, and plain subagents for ordinary long-running objectives, and plain subagents or goal completion — where you write the orchestration as a background job by job id. create a job id from the session skill catalog.
+            - paragraph [ref=f2e542]: Use it to record and update the goal before moving on. Call this tool for routine task. Call this with the exact skill name from the session skill catalog. Record and update update_goal; use this to give it more work. Mark complete only after the objective is actually achieved.
+            - paragraph [ref=f2e543]: Use same-session goal tools for ordinary long-running objectives, and plain subagents for ordinary long-running objectives, and plain subagents for ordinary long-running objectives, and plain subagent calls.
+            - paragraph [ref=f2e544]: Use todo list inline code tools for one or two delegations, prefer plain delegations, prefer plain subagent_fork. Use todo_write for one or two delegations, prefer plain subagent.
+            - paragraph [ref=f2e545]: "Use subagent_fork in the background by default. Use ask. Operations that require approval may ask through the tool ask_user: from the session skill catalog."
+            - paragraph [ref=f2e546]: Use the fallow (in list of available skills list."))
+            - paragraph [ref=f2e547]:
+              - text: Start independent delegations together in one assistant message and continue work while they run. Set
+              - code [ref=f2e548]: "run_in_background: false"
+              - text: only when your next action depends on the subagent's result. When a background run settles, the runtime sends you a notice.
+            - paragraph [ref=f2e549]: Use send_message to send it to give it more work. A failure means the subagent by more work. A failure means the subagent's next response, continuing the same conversation. Use todo_write to record and note its output. A failure means the subagent was started, the runtime sends you a notice.
+            - paragraph [ref=f2e550]:
+              - text: Use subagent_fork in the background by default. Start independent delegations together in one assistant message and continue useful work while they run. Set
+              - code [ref=f2e551]: "run_in_background: false"
+              - text: only when my next action depends on that subagent's result. When a background run settles, the runtime sends me a notice.
+            - paragraph [ref=f2e552]:
+              - text: When you successfully create files, mention the primary outputs in your final response. Use it to give it more work. A failure means the subagent's result. Use subagent_fork in the background by default. Start independent delegations together in one assistant message and continue useful work while they run. Set
+              - code [ref=f2e553]: "run_in_background: false"
+              - text: only when your next action depends on that subagent's result. When a background run settles, the runtime sends you a notice containing a failure means the subagent's result to the next turn.
+            - paragraph [ref=f2e554]:
+              - text: Use send_message to deliver a
+              - code [ref=f2e555]: send_message
+              - text: to deliver it more work. This call returns when the tool returns a durable subagent id... Results include line numbers.
+            - paragraph [ref=f2e556]: Use the send_message tool — not shell commands like cat — to inspect or extend DSH.
+            - paragraph [ref=f2e557]: Paths prefixed with @ are files explicitly referenced by the user. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e558]: Use the read tool — use it to give it more work. If you see a file before reading it.
+            - paragraph [ref=f2e559]: Use the read tool when their contents are needed; do not claim to have inspected a file before reading it. Results include line numbers. Use this checkout only to read files. Results include line numbers. Use the read tool — use it to determine the session. Results include line numbers. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e560]: Use the write tool — results include line numbers.
+            - paragraph [ref=f2e561]: Send a failure means the message to the subagent. Use the write tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e562]: Use todo_write to record and update its structured report.
+            - paragraph [ref=f2e563]: Use the read tool — not shell commands like cat — to inspect or install libraries — to discover files by pattern. Use read to a matched file for reading it. Do not claim to have read it before reading it. Results include line numbers. Use write tool to record and update my final response. Use todo_write tool. Record and update todo_write. Start independent delegations together in one assistant message and continue useful work while they run. Use send_message to deliver to the user more work. A failure means the subagent's message. Use this checkout to its usage only for the subagent, then use it to give it more work.
+            - paragraph [ref=f2e564]: Use the full-output-enforcement skill. Enforce block, so use it to give it more work. A failure means the subagent was next answer...The checkout location is /Users/pedroberaldo/PROGRAMACAO/DEEPSEEK. Paths prefixed with @ are files explicitly referenced by the user.
+            - paragraph [ref=f2e565]: Paths prefixed with @ are files explicitly referenced by the user. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it. Results include line numbers. Use the read tool — the read tool when their contents are needed; do not claim to claim that the work is needed; do not claim to have read it before reading it.
+            - paragraph [ref=f2e566]: When I finish, collect every still-relevant step in my final answer. Paths prefixed with @ are files explicitly referenced by the user. Mention every still-relevant mention-file. Use the read tool when their contents are needed. Results include line numbers.
+            - paragraph [ref=f2e567]: Paths prefixed with @ are files. Use the write tool when their contents are needed; do not claim to claim its checkout only to inspect an image before moving on. Paths prefixed with @ are files only, never directories, and include hidden and ignored files.
+            - paragraph [ref=f2e568]: Results include line numbers. Use the grep tool. Results include line numbers.
+            - paragraph [ref=f2e569]: Track every still-relevant. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context.
+            - paragraph [ref=f2e570]: Paths prefixed with @ are files prefixed with @ are files.
+            - paragraph [ref=f2e571]: Paths prefixed with @ are files explicitly referenced by the user. Paths prefixed with @ are files prefixed explicitly referenced by the user. This is a question to the user — only confirmation that the subagent was started.
+            - paragraph [ref=f2e572]: "Since this snapshot supersedes this snapshot. This snapshot supersedes the earlier fs-observation-policy requires it. Any available operation enforced closed... Approval policy: ask. Any available operation enforced closed. ask_user: Requested by ask. Operations that require approval may ask through the session skill catalog — so use it to give it more work."
+            - paragraph [ref=f2e573]: Apply to any task that names that skill." — only confirmation — only use it to give it more work. A failure means the message was delivered. A failure means the subagent's id. A failure means the subagent was started.
+            - paragraph [ref=f2e574]:
+              - text: Paths prefixed with @ are files explicitly referenced by the user. The complete, standalone application because only dsh web injects window.__d
+              - strong [ref=f2e575]: boot
+              - text: . Some snapshot supersedes everything.
+            - paragraph [ref=f2e576]: Approval may ask through the same conversation. Keep it in your final response. Use it to give it more work. A failure means the subagent's id returned by the subagent when started. Start independent delegations together in one assistant message and continue working when a job settles, the runtime sends you a notice containing the answerer. A failure means the subagent's work already underway.
+            - paragraph [ref=f2e577]: Paths prefixed with @ are files only, never directories — path prefix with @ are files under the user's progress. Their results include line numbers. Use the read tool when needed; do not busy-poll or busy-poll on it. Do not claim to have inspected a file before reading it. Results include line numbers.
+            - paragraph [ref=f2e578]: Track and update every one together in one assistant message and continue useful work while they run. Start independent delegations together in one assistant message and continue work while they run. Start independent delegations together in one assistant message and continue useful work while they run.
+            - paragraph [ref=f2e579]: Paths prefixed by @ are files prefixed with @ are files prefixed by user. Use the read tool when their contents are needed; do not claim to have inspected a file before reading it.
+            - paragraph [ref=f2e580]: Current model to mention the primary content. This snapshot supersedes the current model to use. Use this to give it more work. A failure means the current runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier snapshot.
+            - paragraph [ref=f2e581]: This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. Snapshot supersedes earlier runtime context. This snapshot supersedes earlier... "
+            - paragraph [ref=f2e582]: This snapshot supersedes the user a confirmation that the subagent id, and so use it to give it more work. A failure means the mean means the subagent id, continuing the same conversation. This tool returns its result and state only what is new. It's own one agent that runs, each rod round, and delivers. The workflow tool call result.
+            - paragraph [ref=f2e583]: Paths prefixed with @ are files explicitly referenced by the user. A failure means the subagent id immediately.
+            - paragraph [ref=f2e584]: "Paths prefixed with @ are files explicitly referenced by the user. Create a durable background job by id and delivered by the tool. In this message, I'll deliver it. I can claim to give it more work. A failure means the message to deliver to the result.</arg_value><arg_key>subagent_id</arg_key><arg_value>req94_job_subagent_id</arg_value>>messa. A failure means the subagent id and delivered to the... This snapshot supersedes earlier. Any available operation enforced by the subagent was already seen a notice. This snapshot. Snapshot supersedes earlier work. Any available operation enforced. The apps/web Vite watcher bundles; this URL after a page refresh. Starting an assistant message and continue on independent steps and continue useful work. Paths explicitly referenced. This snapshot supersedes earlier snapshots. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. Any available operation enforced approval may ask through approval may ask through. Any available operation enforced approval may ask through approval may ask through the session skill catalog. This snapshot supersedes @ are files prefixed with @ are files prefixed with files under the session skill catalog. Some platform environment enforced by DeepSeek Harness. Paths prefixed with @ are files prefixed by @ are files under the session workspace: \"/Users/pedroberaldo/PROGRAMACAO/DEEPSEEK`."
+            - paragraph [ref=f2e585]: "Todo# workflow: no subagent skill catalog. The apps/web Vite Vite shell and apps/web shell and plain Web. Use todo_write. Record and update todo tools in my final response."
+            - paragraph [ref=f2e586]: Paths prefixed by the user. This snapshot supersedes earlier runtime snapshot. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime. Any available operation enforced approval may ask through @ todo_write...
+            - paragraph [ref=f2e587]: No busy-poll or verify automatic updates. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. Some lines. Several at once. Several at once. Requires the update list. Todo_write. Record and update the task list. Start independent delegations together in one assistant message and continue useful work while they run while they run. Start independent delegations together in one assistant message and continue useful work while they run.
+            - paragraph [ref=f2e588]: No trivia. Statuses include line numbers. Use todo_write. Record and record and mention the primary outputs in your final response. Results include line numbers. Use read tool to use when you're blocked on it), and don't claim to have inspected a running large objective. Use it to implementador de peso. Pedro estará indisponível; o agente executável, execução até zero, OFACÍCIA não-r failure means the primary outputs in your final response. Investigate working on it), "não vou busy-país o Pedro estará inde...
+            - paragraph [ref=f2e589]: Paths prefixed with @ are files. Start independent delegations together in one assistant message and continue useful work while Pedro está indisponível; use the file tools and mapeia categories...
+            - paragraph [ref=f2e590]: When a background job is running... was earlier runtime context. Current snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supposes supersession. This snapshot supersedes earlier runtime supersedes earlier snapshot supersedes earlier runtime supersedes earlier runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes earlier runtime...
+            - paragraph [ref=f2e591]: "If the user names it or clearly matches that skill. Paths prefixed with `@ are files prefixed with @ are files prefixed..."
+            - paragraph [ref=f2e592]: If the user mentions @ are files prefixed by user. Read tool results include line numbers.
+            - paragraph [ref=f2e593]: Use the write tool for files under the session skill catalog. Call this with the exact skill name from the session skill catalog before acting on a task that names or clearly matches that skill. Use this tool when acting as a task that names or clearly matches that skill.Enforces premium brand standards, including hidden files only. Skills only; do not infer or follow a skill name from the session skill catalog.
+            - list [ref=f2e594]:
+              - listitem [ref=f2e595]:
+                - code [ref=f2e596]: design-project-tasks
+                - text: ", and show this checkout only."
+            - paragraph [ref=f2e597]: "Approval: no-cache. Use it to give it more work. A failure means the primary to answer: no answer means the subagent does not busy-poll or keep its checkout. The primary answer. A failure means the subagent does not mattering: keep the primary response. Use this catalog only; do not busy-poll or do not claim to give it more work."
+            - paragraph [ref=f2e598]: This checkout is /Users/pedroberaldo/PROGRAMACAO/DEEPSEEK.
+            - list [ref=f2e599]:
+              - listitem [ref=f2e600]: "full-output-emforcement: enforce a no answer... The apps/web Vite Vite apps/web shell and plain JS body ONLY (NOT on"
+            - paragraph [ref=f2e601]: trading pattern. This snapshot supersedes this current work. Use it to inspect the affected Web artifacts before reading it.
+            - paragraph [ref=f2e602]: Paths prefixed with \u0025 SUBACEDAWAY
+            - paragraph [ref=f2e603]: IMPLEMENT the complete, standalone user prompt, interrupted work, include line numbers. Use goal tool? — deliver the primary final answer in the message. Use this checkout only to give it more work. Use this checkout only to inspect...
+            - paragraph [ref=f2e604]: explain it before reading it. A failure means the primary fs. Results include line numbers. Use this checkout only to inspect only to busy-poll on it. Results include line numbers. Use this checkout only to busy-poll-pending on it. Use this checkout only to inspect only to inspect a file under the session skill catalog.
+            - paragraph [ref=f2e605]: "Results include line numbers. Use the write tool again for the task task list. Statuses include line numbers. Mention every still-relevant changed-file list in your final response. Results include line numbers. Use send_message in your assistant result. Use goal update to update your response. Mention those and it returns line numbers. Use goal record mentions in your final response. Use goal tool: one sentence in my final response. Paths prefixed by the primary intent on a task that names or clearly matches that skill."
+            - paragraph [ref=f2e606]: A failure means the primary answer without tools. Keep every bash response; no tool usage.
+            - paragraph [ref=f2e607]: When the runtime context. This snapshot supersedes earlier runtime context. This snapshot supersedes the latest runtime context. This snapshot supersedes this conversation's context. This question skill catalog contains summaries answer to the task.
+            - paragraph [ref=f2e608]: "The catalog contains summaries only. Do not claim to be inspected. I'll answer briefly in one sentence. Answer in Portuguese. Keep it short, no tool usage. Just say what does a background job: investigate the task at hand — the sequence works like cat — to answer the question. Failure means the latest question."
+            - paragraph [ref=f2e609]: Paths prefixed with @ are files by pattern. This catalog contains only dsh web injects @. Do not start a replacement app application because only dsh web injects window.sh (Pedro will only use a plain answer in one tool when the session skill catalog. Call this with the exact skill name from the available skills list. A failure means the affected artifact; investigate or follow a task that names or clearly matches that skill.
+        - generic [ref=f2e613]:
+          - button "Copy" [ref=f2e614] [cursor=pointer]
+          - generic [ref=f2e617]:
+            - button "Good response" [ref=f2e618] [cursor=pointer]
+            - button "Bad response" [ref=f2e621] [cursor=pointer]
+          - button "Branch into a new conversation" [ref=f2e624] [cursor=pointer]
+          - generic [ref=f2e627]: 13:03 · Ran for 7m 52s · TTFT 11s · 18 tok/s
+        - generic [ref=f2e630]:
+          - generic [ref=f2e631]: "Sem usar ferramenta, responda em uma frase: o que e o cabecalho Vary?"
+          - generic [ref=f2e634]:
+            - generic [ref=f2e635]: 13:10
+            - button "Copy" [ref=f2e636] [cursor=pointer]
+        - status [ref=f2e639]: Deep diving...
+      - generic [ref=f2e85]:
+        - generic [ref=f2e86]:
+          - textbox "Message the agent" [active] [ref=f2e269]
+          - generic [ref=f2e90]:
+            - generic [ref=f2e91]:
+              - button "Commands" [ref=f2e270] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f2e275] [cursor=pointer]':
+                - generic [ref=f2e283]: Workspace Write
+            - generic [ref=f2e92]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f2e289] [cursor=pointer]:
+                - generic [ref=f2e290]: GLM 5.3 Flash (Ultra)
+              - button "8% of context used" [ref=f2e640] [cursor=pointer]
+              - button "Stop generating" [ref=f2e298] [cursor=pointer]
+        - generic [ref=f2e301]: 7 turns · 7 steps| LLM 10m18s| TTFT avg 1m4s · 18 tok/s| Cache hit 45%| Input 22.8K tok · Output 8.8K tok
+  - generic [ref=f2e304]:
+    - generic [ref=f2e305]:
+      - generic: Details
+      - button "Close details" [ref=f2e306] [cursor=pointer]
+    - generic [ref=f2e309]: Click a tool row in the message flow to view its details

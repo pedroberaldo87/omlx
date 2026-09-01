@@ -1,0 +1,65 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "New Session" [selected] [ref=f11e853] [cursor=pointer]
+          - treeitem "Explique a diferença entre memória 1min" [ref=f11e802] [cursor=pointer]:
+            - generic [ref=f11e634]: Explique a diferença entre memória
+            - generic [ref=f11e724]: 1min
+          - treeitem "O que é um índice 6min" [ref=f11e856] [cursor=pointer]:
+            - generic [ref=f11e403]: O que é um índice
+            - generic [ref=f11e492]: 6min
+          - treeitem "Qual a diferença entre os 10min" [ref=f11e857] [cursor=pointer]:
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: 10min
+          - treeitem "Completed Qual a diferença entre os 12min" [ref=f11e858] [cursor=pointer]:
+            - generic [ref=f11e133]: Completed
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 12min
+          - button "Show 30 more sessions" [ref=f11e859] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e865]:
+    - generic [ref=f11e868]:
+      - generic [ref=f11e873]: Into the Unknown
+      - generic [ref=f11e874]: Preview
+    - generic [ref=f11e875]:
+      - button "Choose workspace" [ref=f11e876] [cursor=pointer]:
+        - generic [ref=f11e880]: DEEPSEEK
+      - button "Standard Bl" [ref=f11e885] [cursor=pointer]
+    - generic [ref=f11e895]:
+      - textbox "Describe what you want to build" [active] [ref=f11e898]
+      - generic [ref=f11e899]:
+        - generic [ref=f11e900]:
+          - button "Commands" [ref=f11e901] [cursor=pointer]
+          - 'button "Access mode, current: Workspace Write" [ref=f11e906] [cursor=pointer]':
+            - generic [ref=f11e914]: Workspace Write
+        - generic [ref=f11e918]:
+          - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e921] [cursor=pointer]:
+            - generic [ref=f11e922]: GLM 5.3 Flash (Ultra)
+          - button "Send message" [disabled] [ref=f11e925]
+  - generic [ref=f11e928]:
+    - generic [ref=f11e929]:
+      - generic: Details
+      - button "Close details" [ref=f11e930] [cursor=pointer]
+    - generic [ref=f11e933]: Click a tool row in the message flow to view its details

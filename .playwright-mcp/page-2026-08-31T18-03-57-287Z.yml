@@ -1,0 +1,73 @@
+- generic [ref=f8e1]:
+  - generic [ref=f8e4]:
+    - generic [ref=f8e7]:
+      - generic [ref=f8e8]:
+        - button "New session" [ref=f8e9] [cursor=pointer]:
+          - generic [ref=f8e16]:
+            - generic [ref=f8e17]: DSH Local Build
+            - generic [ref=f8e18]: b150a55
+        - button "Collapse sidebar" [ref=f8e19] [cursor=pointer]
+      - button "New session" [ref=f8e22] [cursor=pointer]:
+        - generic [ref=f8e25]: New Session
+      - generic [ref=f8e28]:
+        - generic [ref=f8e29]:
+          - generic [ref=f8e30]: Workspaces
+          - generic [ref=f8e32]:
+            - button "Search sessions" [ref=f8e33] [cursor=pointer]
+            - textbox "Search sessions..."
+          - generic [ref=f8e37]:
+            - button "View options" [ref=f8e39] [cursor=pointer]
+            - button "Add workspace" [ref=f8e42] [cursor=pointer]
+        - tree "Sessions" [ref=f8e48]:
+          - treeitem "pedro-plugins-dsh" [ref=f8e96] [cursor=pointer]
+          - treeitem "CAPTACAO-REGIONAL" [ref=f8e104] [cursor=pointer]
+          - treeitem "MeetingBuddy" [ref=f8e112] [cursor=pointer]
+          - generic [ref=f8e118]:
+            - treeitem "DEEPSEEK" [expanded] [ref=f8e120] [cursor=pointer]
+            - treeitem "New Session" [selected] [ref=f8e272] [cursor=pointer]
+            - treeitem "Oi 13min" [ref=f8e128] [cursor=pointer]:
+              - generic [ref=f8e130]: Oi
+              - generic [ref=f8e131]: 13min
+            - treeitem "Olá 18min" [ref=f8e275] [cursor=pointer]:
+              - generic [ref=f8e135]: Olá
+              - generic [ref=f8e136]: 18min
+            - treeitem "Sem usar ferramenta, responda em 20min" [ref=f8e138] [cursor=pointer]:
+              - generic [ref=f8e140]: Sem usar ferramenta, responda em
+              - generic [ref=f8e141]: 20min
+            - treeitem "Responda em uma frase, sem 48min" [ref=f8e276] [cursor=pointer]:
+              - generic [ref=f8e145]: Responda em uma frase, sem
+              - generic [ref=f8e146]: 48min
+            - button "Show 23 more sessions" [ref=f8e277] [cursor=pointer]
+      - button "Settings" [ref=f8e53] [cursor=pointer]
+    - generic [ref=f8e283]:
+      - generic [ref=f8e286]:
+        - generic [ref=f8e291]: Into the Unknown
+        - generic [ref=f8e292]: Preview
+      - generic [ref=f8e293]:
+        - button "Choose workspace" [ref=f8e294] [cursor=pointer]:
+          - generic [ref=f8e298]: DEEPSEEK
+        - button "Standard Bl" [ref=f8e303] [cursor=pointer]
+      - generic [ref=f8e313]:
+        - textbox "Describe what you want to build" [ref=f8e316]
+        - generic [ref=f8e317]:
+          - generic [ref=f8e318]:
+            - button "Commands" [ref=f8e319] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f8e324] [cursor=pointer]':
+              - generic [ref=f8e332]: Workspace Write
+          - generic [ref=f8e336]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f8e339] [cursor=pointer]:
+              - generic [ref=f8e340]: GLM 5.3 Flash (Ultra)
+            - button "Send message" [disabled] [ref=f8e343]
+    - generic [ref=f8e346]:
+      - generic [ref=f8e347]:
+        - generic: Details
+        - button "Close details" [ref=f8e348] [cursor=pointer]
+      - generic [ref=f8e351]: Click a tool row in the message flow to view its details
+  - dialog "Internal Testing Notice" [ref=f8e353]:
+    - generic [ref=f8e354]:
+      - heading "Internal Testing Notice" [active] [level=2] [ref=f8e355]
+      - generic [ref=f8e356]:
+        - generic [ref=f8e357]:
+          - paragraph [ref=f8e358]: DeepSeek Harness 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. DeepSeek Harness's core plugins and foundational APIs will continue to evolve rapidly over the coming months.
+          - paragraph [ref=f8e359]: We look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the DSH plugin ecosystem.
+        - button "Continue" [ref=f8e361] [cursor=pointer]

@@ -1,0 +1,85 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "Running Explique a diferença entre memória now" [selected] [ref=f11e713] [cursor=pointer]:
+            - generic [ref=f11e633]: Running
+            - generic [ref=f11e634]: Explique a diferença entre memória
+            - generic [ref=f11e724]: now
+          - treeitem "O que é um índice 4min" [ref=f11e725] [cursor=pointer]:
+            - generic [ref=f11e403]: O que é um índice
+            - generic [ref=f11e492]: 4min
+          - treeitem "Qual a diferença entre os 8min" [ref=f11e635] [cursor=pointer]:
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: 8min
+          - treeitem "Completed Qual a diferença entre os 10min" [ref=f11e636] [cursor=pointer]:
+            - generic [ref=f11e133]: Completed
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 10min
+          - treeitem "Para que serve o cabeçalho 13min" [ref=f11e637] [cursor=pointer]:
+            - generic [ref=f11e149]: Para que serve o cabeçalho
+            - generic [ref=f11e150]: 13min
+          - button "Show 29 more sessions" [ref=f11e638] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e639]:
+    - banner [ref=f11e727]:
+      - generic [ref=f11e728]:
+        - generic [ref=f11e729]:
+          - navigation "Session hierarchy" [ref=f11e730]:
+            - button "Explique a diferença entre memória" [disabled] [ref=f11e732]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f11e735]': Standard Bl
+        - button "Session log" [ref=f11e743] [cursor=pointer]
+      - tablist [ref=f11e747]:
+        - tab "Chat" [selected] [ref=f11e748] [cursor=pointer]
+        - tab "Trajectory" [ref=f11e749] [cursor=pointer]
+    - generic [ref=f11e640]:
+      - generic [ref=f11e755]:
+        - generic [ref=f11e758]:
+          - generic [ref=f11e759]: Explique a diferença entre memória virtual e memória física num sistema operacional. Responda em duas frases, em português.
+          - generic [ref=f11e762]:
+            - generic [ref=f11e763]: 15:25
+            - button "Copy" [ref=f11e764] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f11e770] [cursor=pointer]:
+          - generic [ref=f11e779]: Context injection
+          - generic [ref=f11e781]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f11e785] [cursor=pointer]:
+          - generic [ref=f11e794]: Context injection
+          - generic [ref=f11e796]: skill-catalog
+        - status [ref=f11e797]: Deep diving...
+      - generic [ref=f11e674]:
+        - textbox "Message the agent" [active] [ref=f11e798]
+        - generic [ref=f11e678]:
+          - generic [ref=f11e679]:
+            - button "Commands" [ref=f11e680] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f11e685] [cursor=pointer]':
+              - generic [ref=f11e693]: Workspace Write
+          - generic [ref=f11e697]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e700] [cursor=pointer]:
+              - generic [ref=f11e701]: GLM 5.3 Flash (Ultra)
+            - button "Stop generating" [ref=f11e799] [cursor=pointer]
+  - generic [ref=f11e707]:
+    - generic [ref=f11e708]:
+      - generic: Details
+      - button "Close details" [ref=f11e709] [cursor=pointer]
+    - generic [ref=f11e712]: Click a tool row in the message flow to view its details

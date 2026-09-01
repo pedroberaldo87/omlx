@@ -1,0 +1,89 @@
+- generic [ref=f12e4]:
+  - generic [ref=f12e7]:
+    - generic [ref=f12e8]:
+      - button "New session" [ref=f12e9] [cursor=pointer]:
+        - generic [ref=f12e16]:
+          - generic [ref=f12e17]: DSH Local Build
+          - generic [ref=f12e18]: b150a55
+      - button "Collapse sidebar" [ref=f12e19] [cursor=pointer]
+    - button "New session" [ref=f12e22] [cursor=pointer]:
+      - generic [ref=f12e25]: New Session
+    - generic [ref=f12e28]:
+      - generic [ref=f12e29]:
+        - generic [ref=f12e30]: Workspaces
+        - generic [ref=f12e32]:
+          - button "Search sessions" [ref=f12e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f12e37]:
+          - button "View options" [ref=f12e39] [cursor=pointer]
+          - button "Add workspace" [ref=f12e42] [cursor=pointer]
+      - tree "Sessions" [ref=f12e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f12e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f12e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f12e112] [cursor=pointer]
+        - generic [ref=f12e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f12e120] [cursor=pointer]
+          - treeitem "Running Leia o arquivo /Users/pedroberaldo/omlx- now" [selected] [ref=f12e189] [cursor=pointer]:
+            - generic [ref=f12e129]: Running
+            - generic [ref=f12e130]: Leia o arquivo /Users/pedroberaldo/omlx-
+            - generic [ref=f12e200]: now
+          - treeitem "Explique a diferença entre memória 1h" [ref=f12e132] [cursor=pointer]:
+            - generic [ref=f12e134]: Explique a diferença entre memória
+            - generic [ref=f12e135]: 1h
+          - treeitem "O que é um índice 1h" [ref=f12e137] [cursor=pointer]:
+            - generic [ref=f12e139]: O que é um índice
+            - generic [ref=f12e140]: 1h
+          - treeitem "Qual a diferença entre os 1h" [ref=f12e142] [cursor=pointer]:
+            - generic [ref=f12e144]: Qual a diferença entre os
+            - generic [ref=f12e145]: 1h
+          - treeitem "Para que serve o cabeçalho 1h" [ref=f12e147] [cursor=pointer]:
+            - generic [ref=f12e149]: Para que serve o cabeçalho
+            - generic [ref=f12e150]: 1h
+          - button "Show 29 more sessions" [ref=f12e151] [cursor=pointer]
+    - button "Settings" [ref=f12e53] [cursor=pointer]
+  - generic [ref=f12e62]:
+    - banner [ref=f12e202]:
+      - generic [ref=f12e203]:
+        - generic [ref=f12e204]:
+          - navigation "Session hierarchy" [ref=f12e205]:
+            - button "Leia o arquivo /Users/pedroberaldo/omlx-" [disabled] [ref=f12e207]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f12e210]': Standard Bl
+        - button "Session log" [ref=f12e218] [cursor=pointer]
+      - tablist [ref=f12e222]:
+        - tab "Chat" [selected] [ref=f12e223] [cursor=pointer]
+        - tab "Trajectory" [ref=f12e224] [cursor=pointer]
+    - generic [ref=f12e63]:
+      - generic [ref=f12e230]:
+        - generic [ref=f12e233]:
+          - generic [ref=f12e235]:
+            - generic [ref=f12e236]: Leia o arquivo
+            - generic "/Users" [ref=f12e237]
+            - generic [ref=f12e238]: /pedroberaldo/omlx-qwen38-flash/CLAUDE.md e me diga, em uma frase, qual é a armadilha que mais custa tempo nesse projeto.
+          - generic [ref=f12e239]:
+            - generic [ref=f12e240]: 17:04
+            - button "Copy" [ref=f12e241] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f12e247] [cursor=pointer]:
+          - generic [ref=f12e256]: Context injection
+          - generic [ref=f12e258]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f12e262] [cursor=pointer]:
+          - generic [ref=f12e271]: Context injection
+          - generic [ref=f12e273]: skill-catalog
+        - status [ref=f12e274]:
+          - text: Deep diving...
+          - generic [ref=f12e278]: 35s
+      - generic [ref=f12e86]:
+        - textbox "Message the agent" [active] [ref=f12e275]
+        - generic [ref=f12e90]:
+          - generic [ref=f12e91]:
+            - button "Commands" [ref=f12e156] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f12e161] [cursor=pointer]':
+              - generic [ref=f12e169]: Workspace Write
+          - generic [ref=f12e92]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f12e175] [cursor=pointer]:
+              - generic [ref=f12e176]: GLM 5.3 Flash (Ultra)
+            - button "Stop generating" [ref=f12e276] [cursor=pointer]
+  - generic [ref=f12e183]:
+    - generic [ref=f12e184]:
+      - generic: Details
+      - button "Close details" [ref=f12e185] [cursor=pointer]
+    - generic [ref=f12e188]: Click a tool row in the message flow to view its details

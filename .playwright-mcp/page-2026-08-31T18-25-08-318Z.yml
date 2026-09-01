@@ -1,0 +1,65 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "New Session" [selected] [ref=f11e632] [cursor=pointer]
+          - treeitem "O que é um índice 3min" [ref=f11e599] [cursor=pointer]:
+            - generic [ref=f11e403]: O que é um índice
+            - generic [ref=f11e492]: 3min
+          - treeitem "Qual a diferença entre os 8min" [ref=f11e635] [cursor=pointer]:
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: 8min
+          - treeitem "Completed Qual a diferença entre os 10min" [ref=f11e636] [cursor=pointer]:
+            - generic [ref=f11e133]: Completed
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 10min
+          - treeitem "Para que serve o cabeçalho 13min" [ref=f11e637] [cursor=pointer]:
+            - generic [ref=f11e149]: Para que serve o cabeçalho
+            - generic [ref=f11e150]: 13min
+          - button "Show 29 more sessions" [ref=f11e638] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e644]:
+    - generic [ref=f11e647]:
+      - generic [ref=f11e652]: Into the Unknown
+      - generic [ref=f11e653]: Preview
+    - generic [ref=f11e654]:
+      - button "Choose workspace" [ref=f11e655] [cursor=pointer]:
+        - generic [ref=f11e659]: DEEPSEEK
+      - button "Standard Bl" [ref=f11e664] [cursor=pointer]
+    - generic [ref=f11e674]:
+      - textbox "Describe what you want to build" [active] [ref=f11e677]
+      - generic [ref=f11e678]:
+        - generic [ref=f11e679]:
+          - button "Commands" [ref=f11e680] [cursor=pointer]
+          - 'button "Access mode, current: Workspace Write" [ref=f11e685] [cursor=pointer]':
+            - generic [ref=f11e693]: Workspace Write
+        - generic [ref=f11e697]:
+          - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e700] [cursor=pointer]:
+            - generic [ref=f11e701]: GLM 5.3 Flash (Ultra)
+          - button "Send message" [disabled] [ref=f11e704]
+  - generic [ref=f11e707]:
+    - generic [ref=f11e708]:
+      - generic: Details
+      - button "Close details" [ref=f11e709] [cursor=pointer]
+    - generic [ref=f11e712]: Click a tool row in the message flow to view its details

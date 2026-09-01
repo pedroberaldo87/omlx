@@ -1,0 +1,102 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "Por que o algoritmo quicksort 1min" [selected] [ref=f11e1023] [cursor=pointer]:
+            - generic [ref=f11e855]: Por que o algoritmo quicksort
+            - generic [ref=f11e945]: 1min
+          - treeitem "Explique a diferença entre memória 3min" [ref=f11e1024] [cursor=pointer]:
+            - generic [ref=f11e634]: Explique a diferença entre memória
+            - generic [ref=f11e724]: 3min
+          - treeitem "O que é um índice 7min" [ref=f11e1025] [cursor=pointer]:
+            - generic [ref=f11e403]: O que é um índice
+            - generic [ref=f11e492]: 7min
+          - treeitem "Qual a diferença entre os 12min" [ref=f11e1026] [cursor=pointer]:
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: 12min
+          - treeitem "Completed Qual a diferença entre os 14min" [ref=f11e1027] [cursor=pointer]:
+            - generic [ref=f11e133]: Completed
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 14min
+          - button "Show 30 more sessions" [ref=f11e859] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e860]:
+    - banner [ref=f11e948]:
+      - generic [ref=f11e949]:
+        - generic [ref=f11e950]:
+          - navigation "Session hierarchy" [ref=f11e951]:
+            - button "Por que o algoritmo quicksort" [disabled] [ref=f11e953]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f11e956]': Standard Bl
+        - button "Session log" [ref=f11e964] [cursor=pointer]
+      - tablist [ref=f11e968]:
+        - tab "Chat" [selected] [ref=f11e969] [cursor=pointer]
+        - tab "Trajectory" [ref=f11e970] [cursor=pointer]
+    - generic [ref=f11e861]:
+      - generic [ref=f11e976]:
+        - generic [ref=f11e979]:
+          - generic [ref=f11e980]: Por que o algoritmo quicksort tem pior caso O(n²) e como isso costuma ser evitado na prática? Responda em duas frases, em português.
+          - generic [ref=f11e983]:
+            - generic [ref=f11e984]: 15:27
+            - button "Copy" [ref=f11e985] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f11e991] [cursor=pointer]:
+          - generic [ref=f11e1000]: Context injection
+          - generic [ref=f11e1002]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f11e1006] [cursor=pointer]:
+          - generic [ref=f11e1015]: Context injection
+          - generic [ref=f11e1017]: skill-catalog
+        - generic [ref=f11e1031]:
+          - button "Think" [ref=f11e1034] [cursor=pointer]
+          - generic [ref=f11e1044]:
+            - paragraph [ref=f11e1045]:
+              - strong [ref=f11e1046]: "Por quê:"
+              - text: O pior caso ocorre quando cada escolha de pivô deixa as partições sistematicamente desequilibradas — típico com pivô fixo (primeiro/último elemento) numa entrada já ordenada ou quase ordenada, ou pivô que cai sempre numa extremidade — reduzindo a profundidade recursiva de O(log n) para O(n) e o custo de O(n log n) para O(n²).
+            - paragraph [ref=f11e1047]:
+              - strong [ref=f11e1048]: "Como evitar:"
+              - text: Na prática, escolhe-se o pivô aleatoriamente (randomized quicksort) ou via median-of-three/median-of-nine, e bibliotecas usam híbridos como introsort — quicksort com fallback para heapsort/insertion sort — que tornam o pior caso garantido O(n log n).
+        - generic [ref=f11e1052]:
+          - button "Copy" [ref=f11e1053] [cursor=pointer]
+          - generic [ref=f11e1056]:
+            - button "Good response" [ref=f11e1057] [cursor=pointer]
+            - button "Bad response" [ref=f11e1060] [cursor=pointer]
+          - button "Branch into a new conversation" [ref=f11e1063] [cursor=pointer]
+          - generic [ref=f11e1066]: 15:28 · Ran for 1m 40s · TTFT 68s · 18 tok/s
+      - generic [ref=f11e894]:
+        - generic [ref=f11e895]:
+          - textbox "Message the agent" [active] [ref=f11e1019]
+          - generic [ref=f11e899]:
+            - generic [ref=f11e900]:
+              - button "Commands" [ref=f11e901] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f11e906] [cursor=pointer]':
+                - generic [ref=f11e914]: Workspace Write
+            - generic [ref=f11e918]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e921] [cursor=pointer]:
+                - generic [ref=f11e922]: GLM 5.3 Flash (Ultra)
+              - button "4% of context used" [ref=f11e1068] [cursor=pointer]
+              - button "Send message" [disabled] [ref=f11e1072]
+        - generic [ref=f11e1074]: 1 turns · 1 steps| LLM 1m41s| TTFT avg 1m8s · 18 tok/s| Cache hit 0%| Input 11.1K tok · Output 602 tok
+  - generic [ref=f11e928]:
+    - generic [ref=f11e929]:
+      - generic: Details
+      - button "Close details" [ref=f11e930] [cursor=pointer]
+    - generic [ref=f11e933]: Click a tool row in the message flow to view its details

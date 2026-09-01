@@ -1,0 +1,92 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "Running Qual a diferença entre os 3min" [selected] [ref=f11e341] [cursor=pointer]:
+            - generic [ref=f11e129]: Running
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: 3min
+          - treeitem "Running Qual a diferença entre os 5min" [ref=f11e342] [cursor=pointer]:
+            - generic [ref=f11e133]: Running
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 5min
+          - treeitem "Para que serve o cabeçalho 8min" [ref=f11e343] [cursor=pointer]:
+            - generic [ref=f11e149]: Para que serve o cabeçalho
+            - generic [ref=f11e150]: 8min
+          - treeitem "Para que serve o cabeçalho 12min" [ref=f11e344] [cursor=pointer]:
+            - generic [ref=f11e154]: Para que serve o cabeçalho
+            - generic [ref=f11e155]: 12min
+          - treeitem "Para que serve o cabeçalho 15min" [ref=f11e345] [cursor=pointer]:
+            - generic [ref=f11e159]: Para que serve o cabeçalho
+            - generic [ref=f11e160]: 15min
+          - button "Show 27 more sessions" [ref=f11e161] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e162]:
+    - banner [ref=f11e261]:
+      - generic [ref=f11e262]:
+        - generic [ref=f11e263]:
+          - navigation "Session hierarchy" [ref=f11e264]:
+            - button "Qual a diferença entre os" [disabled] [ref=f11e266]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f11e269]': Standard Bl
+        - button "Session log" [ref=f11e277] [cursor=pointer]
+      - tablist [ref=f11e281]:
+        - tab "Chat" [selected] [ref=f11e282] [cursor=pointer]
+        - tab "Trajectory" [ref=f11e283] [cursor=pointer]
+    - generic [ref=f11e163]:
+      - generic [ref=f11e289]:
+        - generic [ref=f11e292]:
+          - generic [ref=f11e293]: Qual a diferença entre os códigos HTTP 301 e 302? Responda em duas frases, em português.
+          - generic [ref=f11e296]:
+            - generic [ref=f11e297]: 15:16
+            - button "Copy" [ref=f11e298] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f11e304] [cursor=pointer]:
+          - generic [ref=f11e313]: Context injection
+          - generic [ref=f11e315]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f11e319] [cursor=pointer]:
+          - generic [ref=f11e328]: Context injection
+          - generic [ref=f11e330]: skill-catalog
+        - generic [ref=f11e350]:
+          - generic [ref=f11e351]: Running
+          - button "Think The user is asking a simple question in Portuguese" [ref=f11e353] [cursor=pointer]:
+            - generic [ref=f11e361]: Think
+            - generic [ref=f11e363]: The user is asking a simple question in Portuguese
+        - status [ref=f11e331]:
+          - text: Deep diving...
+          - generic [ref=f11e335]: 3m 13s
+      - generic [ref=f11e197]:
+        - textbox "Message the agent" [active] [ref=f11e332]
+        - generic [ref=f11e201]:
+          - generic [ref=f11e202]:
+            - button "Commands" [ref=f11e203] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f11e208] [cursor=pointer]':
+              - generic [ref=f11e216]: Workspace Write
+          - generic [ref=f11e220]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e223] [cursor=pointer]:
+              - generic [ref=f11e224]: GLM 5.3 Flash (Ultra)
+            - button "Stop generating" [ref=f11e333] [cursor=pointer]
+  - generic [ref=f11e231]:
+    - generic [ref=f11e232]:
+      - generic: Details
+      - button "Close details" [ref=f11e233] [cursor=pointer]
+    - generic [ref=f11e236]: Click a tool row in the message flow to view its details

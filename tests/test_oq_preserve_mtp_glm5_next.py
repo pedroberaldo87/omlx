@@ -97,8 +97,22 @@ def test_a_limpeza_de_nomes_nao_pode_descartar_a_cabeca():
     limpeza = _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=True)
     assert limpeza is not None, "sem limpeza de nomes não há o que testar"
 
-    ultima_normal = sorted([k for k in mapa if ".layers.44." in k])[:6]
-    cabeca = sorted([k for k in mapa if ".layers.45." in k])[:6]
+    # So pesos NAO quantizados: este teste mede NOMES, e a limpeza desfaz a
+    # quantizacao de origem quando ve um `_scale_inv` ao lado — o que cobraria
+    # dtype e forma reais de um arreio que so tem nomes.
+    escalados = {k[: -len("_scale_inv")] for k in mapa if k.endswith("_scale_inv")}
+
+    def limpos(camada):
+        return sorted(
+            k
+            for k in mapa
+            if f".layers.{camada}." in k
+            and not k.endswith("_scale_inv")
+            and k not in escalados
+        )
+
+    ultima_normal = limpos(44)[:6]
+    cabeca = limpos(45)[:6]
     assert ultima_normal and cabeca
 
     entrada = {k: mx.zeros((2, 2), dtype=mx.float16) for k in ultima_normal + cabeca}
@@ -274,10 +288,22 @@ def test_com_a_opcao_ligada_a_cabeca_atravessa_a_limpeza():
     # Quem renomeia e o runtime de previsao multipla, quando ele esta aplicado
     # no processo; sem ele os nomes de origem seguem intactos.
     sobrou = [k for k in saida if f"layers.{n}." in k or k.startswith("mtp.")]
-    assert len(sobrou) == 3, (
-        f"com preserve_mtp ligado a cabeca tem que atravessar inteira; sobraram "
-        f"{len(sobrou)} de 3: {sorted(sobrou)}. Sem isso a quantizacao grava um "
-        f"modelo com o sufixo '-mtp' no nome e sem a cabeca dentro."
+    # Os tres que ENTRARAM tem que sair. Podem sair mais: desde 01/09 a limpeza
+    # PREENCHE os seis coeficientes de hiperconexao que o checkpoint nao traz na
+    # camada da cabeca, com o valor de fabrica que a referencia usa — sem isso a
+    # carga estrita morre com "Missing 6 parameters".
+    trio = {"eh_proj.weight", "enorm.weight", "hnorm.weight"}
+    achados = {k.split(".")[-2] + "." + k.split(".")[-1] for k in sobrou}
+    assert trio <= achados, (
+        f"com preserve_mtp ligado a cabeca tem que atravessar inteira; faltaram "
+        f"{sorted(trio - achados)} em {sorted(sobrou)}. Sem isso a quantizacao "
+        f"grava um modelo com o sufixo '-mtp' no nome e sem a cabeca dentro."
+    )
+    extras = achados - trio
+    assert all("_hc." in k or k.startswith("attn_hc") or k.startswith("ffn_hc")
+               for k in extras), (
+        f"sobrou coisa que nao e nem o trio da cabeca nem hiperconexao: "
+        f"{sorted(extras)}"
     )
 
 

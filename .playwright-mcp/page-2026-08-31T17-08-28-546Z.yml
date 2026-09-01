@@ -1,0 +1,76 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e4]:
+    - generic [ref=f4e7]:
+      - generic [ref=f4e8]:
+        - button "New session" [ref=f4e9] [cursor=pointer]:
+          - generic [ref=f4e16]:
+            - generic [ref=f4e17]: DSH Local Build
+            - generic [ref=f4e18]: b150a55
+        - button "Collapse sidebar" [ref=f4e19] [cursor=pointer]
+      - button "New session" [ref=f4e22] [cursor=pointer]:
+        - generic [ref=f4e25]: New Session
+      - generic [ref=f4e28]:
+        - generic [ref=f4e29]:
+          - generic [ref=f4e30]: Workspaces
+          - generic [ref=f4e32]:
+            - button "Search sessions" [ref=f4e33] [cursor=pointer]
+            - textbox "Search sessions..."
+          - generic [ref=f4e37]:
+            - button "View options" [ref=f4e39] [cursor=pointer]
+            - button "Add workspace" [ref=f4e42] [cursor=pointer]
+        - tree "Sessions" [ref=f4e48]:
+          - treeitem "pedro-plugins-dsh" [ref=f4e96] [cursor=pointer]
+          - treeitem "CAPTACAO-REGIONAL" [ref=f4e104] [cursor=pointer]
+          - treeitem "MeetingBuddy" [ref=f4e112] [cursor=pointer]
+          - generic [ref=f4e118]:
+            - treeitem "DEEPSEEK" [expanded] [ref=f4e120] [cursor=pointer]
+            - treeitem "New Session" [selected] [ref=f4e128] [cursor=pointer]
+            - treeitem "Running Em duas frases, explique a 12min" [ref=f4e132] [cursor=pointer]:
+              - generic [ref=f4e133]: Running
+              - generic [ref=f4e144]: Em duas frases, explique a
+              - generic [ref=f4e145]: 12min
+            - treeitem "Olá 1h" [ref=f4e147] [cursor=pointer]:
+              - generic [ref=f4e149]: Olá
+              - generic [ref=f4e150]: 1h
+            - treeitem "Oi 1h" [ref=f4e152] [cursor=pointer]:
+              - generic [ref=f4e154]: Oi
+              - generic [ref=f4e155]: 1h
+            - treeitem "Oi 2h" [ref=f4e157] [cursor=pointer]:
+              - generic [ref=f4e159]: Oi
+              - generic [ref=f4e160]: 2h
+            - button "Show 18 more sessions" [ref=f4e161] [cursor=pointer]
+      - button "Settings" [ref=f4e53] [cursor=pointer]
+    - generic [ref=f4e167]:
+      - generic [ref=f4e170]:
+        - generic [ref=f4e175]: Into the Unknown
+        - generic [ref=f4e176]: Preview
+      - generic [ref=f4e177]:
+        - button "Choose workspace" [ref=f4e178] [cursor=pointer]:
+          - generic [ref=f4e182]: DEEPSEEK
+        - button "Standard Bl" [ref=f4e187] [cursor=pointer]
+      - generic [ref=f4e197]:
+        - generic [ref=f4e199]:
+          - generic: "Responda em uma frase, sem usar nenhuma ferramenta: para que serve o cabecalho HTTP ETag?"
+          - textbox "Describe what you want to build" [ref=f4e200]: "Responda em uma frase, sem usar nenhuma ferramenta: para que serve o cabecalho HTTP ETag?"
+        - generic [ref=f4e201]:
+          - generic [ref=f4e202]:
+            - button "Commands" [ref=f4e203] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=f4e208] [cursor=pointer]':
+              - generic [ref=f4e216]: Workspace Write
+          - generic [ref=f4e220]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f4e223] [cursor=pointer]:
+              - generic [ref=f4e224]: GLM 5.3 Flash (Ultra)
+            - button "Send message" [ref=f4e227] [cursor=pointer]
+    - generic [ref=f4e231]:
+      - generic [ref=f4e232]:
+        - generic: Details
+        - button "Close details" [ref=f4e233] [cursor=pointer]
+      - generic [ref=f4e236]: Click a tool row in the message flow to view its details
+  - dialog "Internal Testing Notice" [ref=f4e238]:
+    - generic [ref=f4e239]:
+      - heading "Internal Testing Notice" [level=2] [ref=f4e240]
+      - generic [ref=f4e241]:
+        - generic [ref=f4e242]:
+          - paragraph [ref=f4e243]: DeepSeek Harness 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. DeepSeek Harness's core plugins and foundational APIs will continue to evolve rapidly over the coming months.
+          - paragraph [ref=f4e244]: We look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the DSH plugin ecosystem.
+        - button "Continue" [ref=f4e246] [cursor=pointer]

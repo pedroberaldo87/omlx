@@ -1,0 +1,84 @@
+- generic [ref=e4]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - button "New session" [ref=e9] [cursor=pointer]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: DSH Local Build
+          - generic [ref=e18]: b150a55
+      - button "Collapse sidebar" [ref=e19] [cursor=pointer]
+    - button "New session" [ref=e22] [cursor=pointer]:
+      - generic [ref=e25]: New Session
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: Workspaces
+        - generic [ref=e32]:
+          - button "Search sessions" [ref=e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=e37]:
+          - button "View options" [ref=e39] [cursor=pointer]
+          - button "Add workspace" [ref=e42] [cursor=pointer]
+      - tree "Sessions" [ref=e48]:
+        - treeitem "pedro-plugins-dsh" [ref=e187] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=e195] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=e203] [cursor=pointer]
+        - generic [ref=e209]:
+          - treeitem "DEEPSEEK" [expanded] [ref=e211] [cursor=pointer]
+          - treeitem "Running Em duas frases, explique a now" [selected] [ref=e383] [cursor=pointer]:
+            - generic [ref=e286]: Running
+            - generic [ref=e287]: Em duas frases, explique a
+            - generic [ref=e394]: now
+          - treeitem "Olá 7min" [ref=e395] [cursor=pointer]:
+            - generic [ref=e291]: Olá
+            - generic [ref=e292]: 7min
+          - treeitem "Oi 14min" [ref=e294] [cursor=pointer]:
+            - generic [ref=e296]: Oi
+            - generic [ref=e297]: 14min
+          - treeitem "Oi 23min" [ref=e299] [cursor=pointer]:
+            - generic [ref=e301]: Oi
+            - generic [ref=e302]: 23min
+          - treeitem "/visual me arepsenta como a 23min" [ref=e304] [cursor=pointer]:
+            - generic [ref=e306]: /visual me arepsenta como a
+            - generic [ref=e307]: 23min
+          - button "Show 17 more sessions" [ref=e308] [cursor=pointer]
+    - button "Settings" [ref=e53] [cursor=pointer]
+  - generic [ref=e309]:
+    - banner [ref=e397]:
+      - generic [ref=e398]:
+        - generic [ref=e399]:
+          - navigation "Session hierarchy" [ref=e400]:
+            - button "Em duas frases, explique a" [disabled] [ref=e402]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=e405]': Standard Bl
+        - button "Session log" [ref=e413] [cursor=pointer]
+      - tablist [ref=e417]:
+        - tab "Chat" [selected] [ref=e418] [cursor=pointer]
+        - tab "Trajectory" [ref=e419] [cursor=pointer]
+    - generic [ref=e310]:
+      - generic [ref=e425]:
+        - generic [ref=e428]:
+          - generic [ref=e429]: "Em duas frases, explique a diferenca entre os cabecalhos HTTP Cache-Control: no-store e Cache-Control: no-cache."
+          - generic [ref=e432]:
+            - generic [ref=e433]: 12:30
+            - button "Copy" [ref=e434] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=e440] [cursor=pointer]:
+          - generic [ref=e449]: Context injection
+          - generic [ref=e451]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=e455] [cursor=pointer]:
+          - generic [ref=e464]: Context injection
+          - generic [ref=e466]: skill-catalog
+        - status [ref=e467]: Deep diving...
+      - generic [ref=e344]:
+        - textbox "Message the agent" [active] [ref=e468]
+        - generic [ref=e348]:
+          - generic [ref=e349]:
+            - button "Commands" [ref=e350] [cursor=pointer]
+            - 'button "Access mode, current: Workspace Write" [ref=e355] [cursor=pointer]':
+              - generic [ref=e363]: Workspace Write
+          - generic [ref=e367]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=e370] [cursor=pointer]:
+              - generic [ref=e371]: GLM 5.3 Flash (Ultra)
+            - button "Stop generating" [ref=e469] [cursor=pointer]
+  - generic [ref=e377]:
+    - generic [ref=e378]:
+      - generic: Details
+      - button "Close details" [ref=e379] [cursor=pointer]
+    - generic [ref=e382]: Click a tool row in the message flow to view its details

@@ -423,8 +423,19 @@ def test_o_prefixo_do_checkpoint_publicado_e_normalizado():
     class _Cru:
         args = types.SimpleNamespace(num_hidden_layers=45)
 
-    entrada = {k: None for k in chaves}
-    saida = Model.sanitize(_Cru(), entrada)
+    # Poucas chaves representativas, com arrays de verdade: a limpeza delega ao
+    # renomeador do modelo vendorado, que opera nos valores, então uma entrada
+    # vazia não atravessa. O que este teste mede é o PREFIXO.
+    import mlx.core as mx
+
+    amostra = [
+        "model.language_model.embed_tokens.weight",
+        "model.language_model.norm.weight",
+        "model.language_model.layers.0.input_layernorm.weight",
+        visao[0],
+    ]
+    entrada = {k: mx.zeros((4, 4)) for k in amostra}
+    saida = Model.sanitize(_Cru(), dict(entrada))
 
     assert not [k for k in saida if "language_model" in k], (
         "sobrou chave com o prefixo de linguagem; ela não casa com o modelo"
@@ -432,8 +443,43 @@ def test_o_prefixo_do_checkpoint_publicado_e_normalizado():
     assert not [k for k in saida if k.startswith(("model.visual.", "visual."))], (
         "a torre de visão atravessou a limpeza"
     )
-    assert len(saida) == len(chaves) - len(visao), (
-        f"entraram {len(chaves)}, saíram {len(saida)}; deveriam sair "
-        f"{len(chaves) - len(visao)} (todas menos as {len(visao)} da visão)"
+    assert "model.embed_tokens.weight" in saida
+    assert "model.layers.0.input_layernorm.weight" in saida
+    assert len(saida) == len(amostra) - 1, (
+        f"entraram {len(amostra)} (uma de visão), saíram {len(saida)}"
     )
-    assert "model.layers.0.hc_attn_base" in saida
+
+
+def test_a_limpeza_do_modelo_completa_a_hiperconexao_da_cabeca():
+    """A CHAMADA do preenchimento, não só a função.
+
+    A camada da cabeça não traz os seis coeficientes de hiperconexão no
+    checkpoint, e a carga estrita morre com "Missing 6 parameters" se a limpeza
+    não os completar com o valor de fábrica — que é o neutro que a referência
+    usa. Testar a função sozinha não cobre a linha que a invoca.
+    """
+    import mlx.core as mx
+
+    glm, _ = _glm_com_remendo()
+    modelo, args = _modelo_com_cabeca(glm)
+    n = args.num_hidden_layers
+
+    # os pesos da camada da cabeça como o checkpoint os traz: SEM hiperconexão
+    entrada = {
+        f"model.layers.{n}.eh_proj.weight": mx.zeros((args.hidden_size, 2 * args.hidden_size)),
+        f"model.layers.{n}.enorm.weight": mx.ones((args.hidden_size,)),
+        f"model.layers.{n}.hnorm.weight": mx.ones((args.hidden_size,)),
+    }
+    saida = modelo.sanitize(dict(entrada))
+
+    faltando = [
+        k
+        for k, _ in __import__("mlx.utils", fromlist=["tree_flatten"]).tree_flatten(
+            modelo.mtp[0].parameters()
+        )
+        if "_hc." in k and f"mtp.0.{k}" not in saida
+    ]
+    assert not faltando, (
+        f"a limpeza não completou {len(faltando)} coeficientes de hiperconexão "
+        f"da cabeça: {faltando}; a carga estrita morre neles"
+    )

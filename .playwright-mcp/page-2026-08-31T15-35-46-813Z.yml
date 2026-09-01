@@ -1,0 +1,95 @@
+- generic [ref=f1e4]:
+  - generic [ref=f1e7]:
+    - generic [ref=f1e8]:
+      - button "New session" [ref=f1e9] [cursor=pointer]:
+        - generic [ref=f1e16]:
+          - generic [ref=f1e17]: DSH Local Build
+          - generic [ref=f1e18]: b150a55
+      - button "Collapse sidebar" [ref=f1e19] [cursor=pointer]
+    - button "New session" [ref=f1e22] [cursor=pointer]:
+      - generic [ref=f1e25]: New Session
+    - generic [ref=f1e28]:
+      - generic [ref=f1e29]:
+        - generic [ref=f1e30]: Workspaces
+        - generic [ref=f1e32]:
+          - button "Search sessions" [ref=f1e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f1e37]:
+          - button "View options" [ref=f1e39] [cursor=pointer]
+          - button "Add workspace" [ref=f1e42] [cursor=pointer]
+      - tree "Sessions" [ref=f1e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f1e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f1e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f1e112] [cursor=pointer]
+        - generic [ref=f1e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f1e120] [cursor=pointer]
+          - treeitem "Running Em duas frases, explique a now" [selected] [ref=f1e128] [cursor=pointer]:
+            - generic [ref=f1e129]: Running
+            - generic [ref=f1e140]: Em duas frases, explique a
+            - generic [ref=f1e141]: now
+          - treeitem "Olá 12min" [ref=f1e143] [cursor=pointer]:
+            - generic [ref=f1e145]: Olá
+            - generic [ref=f1e146]: 12min
+          - treeitem "Oi 19min" [ref=f1e148] [cursor=pointer]:
+            - generic [ref=f1e150]: Oi
+            - generic [ref=f1e151]: 19min
+          - treeitem "Oi 28min" [ref=f1e153] [cursor=pointer]:
+            - generic [ref=f1e155]: Oi
+            - generic [ref=f1e156]: 28min
+          - treeitem "/visual me arepsenta como a 29min" [ref=f1e158] [cursor=pointer]:
+            - generic [ref=f1e160]: /visual me arepsenta como a
+            - generic [ref=f1e161]: 29min
+          - button "Show 17 more sessions" [ref=f1e162] [cursor=pointer]
+    - button "Settings" [ref=f1e53] [cursor=pointer]
+  - generic [ref=f1e62]:
+    - banner [ref=f1e164]:
+      - generic [ref=f1e165]:
+        - generic [ref=f1e166]:
+          - navigation "Session hierarchy" [ref=f1e167]:
+            - button "Em duas frases, explique a" [disabled] [ref=f1e169]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f1e172]': Standard Bl
+        - button "Session log" [ref=f1e180] [cursor=pointer]
+      - tablist [ref=f1e184]:
+        - tab "Chat" [selected] [ref=f1e185] [cursor=pointer]
+        - tab "Trajectory" [ref=f1e186] [cursor=pointer]
+    - generic [ref=f1e63]:
+      - generic [ref=f1e192]:
+        - generic [ref=f1e195]:
+          - generic [ref=f1e196]: "Em duas frases, explique a diferenca entre os cabecalhos HTTP Cache-Control: no-store e Cache-Control: no-cache."
+          - generic [ref=f1e199]:
+            - generic [ref=f1e200]: 12:30
+            - button "Copy" [ref=f1e201] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f1e207] [cursor=pointer]:
+          - generic [ref=f1e216]: Context injection
+          - generic [ref=f1e218]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f1e222] [cursor=pointer]:
+          - generic [ref=f1e231]: Context injection
+          - generic [ref=f1e233]: skill-catalog
+        - status [ref=f1e236]:
+          - generic [ref=f1e238]: "This turn failed400: {\"message\":\"oMLX prefill memory guard rejected this prompt: Prefill would require ~116.45 GB peak (current 103.44 GB + KV+SDPA 13.01 GB) but dynamic ceiling is 114.00 GB. Raise custom_ceiling_bytes in admin Memory settings (currently pinned at 120.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context.\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"prefill_memory_exceeded\",\"omlx_code\":\"prefill_memory_exceeded\",\"estimated_bytes\":125041448652,\"limit_bytes\":122406567936}"
+          - code [ref=f1e239]: INVALID_REQUEST
+        - generic [ref=f1e242]:
+          - generic [ref=f1e243]: "Em duas frases, explique a diferenca entre Cache-Control: no-store e no-cache."
+          - generic [ref=f1e246]:
+            - generic [ref=f1e247]: 12:35
+            - button "Copy" [ref=f1e248] [cursor=pointer]
+        - status [ref=f1e251]: Deep diving...
+      - generic [ref=f1e85]:
+        - generic [ref=f1e86]:
+          - textbox "Message the agent" [active] [ref=f1e252]
+          - generic [ref=f1e90]:
+            - generic [ref=f1e91]:
+              - button "Commands" [ref=f1e253] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f1e258] [cursor=pointer]':
+                - generic [ref=f1e266]: Workspace Write
+            - generic [ref=f1e92]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f1e272] [cursor=pointer]:
+                - generic [ref=f1e273]: GLM 5.3 Flash (Ultra)
+              - button "0% of context used" [ref=f1e277] [cursor=pointer]
+              - button "Stop generating" [ref=f1e281] [cursor=pointer]
+        - generic [ref=f1e284]: 1 turns · 1 steps
+  - generic [ref=f1e287]:
+    - generic [ref=f1e288]:
+      - generic: Details
+      - button "Close details" [ref=f1e289] [cursor=pointer]
+    - generic [ref=f1e292]: Click a tool row in the message flow to view its details

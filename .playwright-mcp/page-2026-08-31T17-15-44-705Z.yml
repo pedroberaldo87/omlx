@@ -1,0 +1,62 @@
+- generic [ref=f5e4]:
+  - generic [ref=f5e7]:
+    - generic [ref=f5e8]:
+      - button "New session" [ref=f5e9] [cursor=pointer]:
+        - generic [ref=f5e16]:
+          - generic [ref=f5e17]: DSH Local Build
+          - generic [ref=f5e18]: b150a55
+      - button "Collapse sidebar" [ref=f5e19] [cursor=pointer]
+    - button "New session" [ref=f5e22] [cursor=pointer]:
+      - generic [ref=f5e25]: New Session
+    - generic [ref=f5e28]:
+      - generic [ref=f5e29]:
+        - generic [ref=f5e30]: Workspaces
+        - generic [ref=f5e32]:
+          - button "Search sessions" [ref=f5e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f5e37]:
+          - button "View options" [ref=f5e39] [cursor=pointer]
+          - button "Add workspace" [ref=f5e42] [cursor=pointer]
+      - tree "Sessions" [ref=f5e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f5e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f5e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f5e112] [cursor=pointer]
+        - generic [ref=f5e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f5e120] [cursor=pointer]
+          - treeitem "New Session" [selected] [ref=f5e128] [cursor=pointer]
+          - treeitem "Responda em uma frase, sem 5min" [ref=f5e132] [cursor=pointer]:
+            - generic [ref=f5e134]: Responda em uma frase, sem
+            - generic [ref=f5e135]: 5min
+          - treeitem "Em duas frases, explique a 19min" [ref=f5e137] [cursor=pointer]:
+            - generic [ref=f5e139]: Em duas frases, explique a
+            - generic [ref=f5e140]: 19min
+          - treeitem "Olá 1h" [ref=f5e142] [cursor=pointer]:
+            - generic [ref=f5e144]: Olá
+            - generic [ref=f5e145]: 1h
+          - treeitem "Oi 1h" [ref=f5e147] [cursor=pointer]:
+            - generic [ref=f5e149]: Oi
+            - generic [ref=f5e150]: 1h
+          - button "Show 19 more sessions" [ref=f5e151] [cursor=pointer]
+    - button "Settings" [ref=f5e53] [cursor=pointer]
+  - generic [ref=f5e67]:
+    - generic [ref=f5e70]:
+      - generic [ref=f5e75]: Into the Unknown
+      - generic [ref=f5e76]: Preview
+    - button "Choose workspace" [ref=f5e78] [cursor=pointer]:
+      - generic [ref=f5e81]: DEEPSEEK
+    - generic [ref=f5e86]:
+      - textbox "Describe what you want to build" [ref=f5e155]
+      - generic [ref=f5e90]:
+        - generic [ref=f5e91]:
+          - button "Commands" [ref=f5e156] [cursor=pointer]
+          - 'button "Access mode, current: Workspace Write" [ref=f5e161] [cursor=pointer]':
+            - generic [ref=f5e169]: Workspace Write
+        - generic [ref=f5e92]:
+          - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f5e175] [cursor=pointer]:
+            - generic [ref=f5e176]: GLM 5.3 Flash (Ultra)
+          - button "Send message" [disabled] [ref=f5e179]
+  - generic [ref=f5e183]:
+    - generic [ref=f5e184]:
+      - generic: Details
+      - button "Close details" [ref=f5e185] [cursor=pointer]
+    - generic [ref=f5e188]: Click a tool row in the message flow to view its details

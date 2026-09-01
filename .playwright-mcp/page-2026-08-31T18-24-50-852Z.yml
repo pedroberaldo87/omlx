@@ -1,0 +1,107 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "O que é um índice 3min" [selected] [ref=f11e599] [cursor=pointer]:
+            - generic [ref=f11e403]: O que é um índice
+            - generic [ref=f11e492]: 3min
+          - treeitem "Qual a diferença entre os 7min" [ref=f11e573] [cursor=pointer]:
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: 7min
+          - treeitem "Completed Qual a diferença entre os 9min" [ref=f11e574] [cursor=pointer]:
+            - generic [ref=f11e133]: Completed
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 9min
+          - treeitem "Para que serve o cabeçalho 12min" [ref=f11e577] [cursor=pointer]:
+            - generic [ref=f11e149]: Para que serve o cabeçalho
+            - generic [ref=f11e150]: 12min
+          - treeitem "Para que serve o cabeçalho 17min" [ref=f11e600] [cursor=pointer]:
+            - generic [ref=f11e154]: Para que serve o cabeçalho
+            - generic [ref=f11e155]: 17min
+          - button "Show 28 more sessions" [ref=f11e406] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e407]:
+    - banner [ref=f11e494]:
+      - generic [ref=f11e495]:
+        - generic [ref=f11e496]:
+          - navigation "Session hierarchy" [ref=f11e497]:
+            - button "O que é um índice" [disabled] [ref=f11e499]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f11e502]': Standard Bl
+        - button "Session log" [ref=f11e510] [cursor=pointer]
+      - tablist [ref=f11e514]:
+        - tab "Chat" [selected] [ref=f11e515] [cursor=pointer]
+        - tab "Trajectory" [ref=f11e516] [cursor=pointer]
+    - generic [ref=f11e408]:
+      - generic [ref=f11e522]:
+        - generic [ref=f11e525]:
+          - generic [ref=f11e526]: O que é um índice parcial em PostgreSQL e quando ele vale a pena? Responda em duas frases, em português.
+          - generic [ref=f11e529]:
+            - generic [ref=f11e530]: 15:21
+            - button "Copy" [ref=f11e531] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f11e537] [cursor=pointer]:
+          - generic [ref=f11e546]: Context injection
+          - generic [ref=f11e548]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f11e552] [cursor=pointer]:
+          - generic [ref=f11e561]: Context injection
+          - generic [ref=f11e563]: skill-catalog
+        - generic [ref=f11e582]:
+          - button "Think" [ref=f11e585] [cursor=pointer]
+          - paragraph [ref=f11e596]:
+            - text: Um índice parcial é um índice criado com uma cláusula
+            - code [ref=f11e597]: WHERE
+            - text: (
+            - code [ref=f11e598]: CREATE INDEX ... ON tabela (coluna) WHERE predicado
+            - text: ), que indexa apenas as linhas que satisfazem essa condição em vez de toda a tabela. Ele vale a pena quando as consultas frequentes buscam um subconjunto pequeno e estável das linhas — como registros "ativos" ou não cancelados numa tabela com muitos valores "mortos" — pois o índice fica muito menor, mais barato de manter e mais rápido, desde que a consulta use o mesmo predicado (ou predicado idêntico com
+            - code [ref=f11e601]: pg_size_princt...
+            - text: "da query planner aceitar). Para garantia do planner, pode-se envolver o predicado em colunas \"imutáveis\" (ex.: usar uma coluna booleana em vez de"
+            - code [ref=f11e602]: deleted_at IS NULL
+            - text: dependente de
+            - code [ref=f11e603]: now()
+            - text: ), caso contrário o planner pode não reconhecer o índice.
+        - generic [ref=f11e607]:
+          - button "Copy" [ref=f11e608] [cursor=pointer]
+          - generic [ref=f11e611]:
+            - button "Good response" [ref=f11e612] [cursor=pointer]
+            - button "Bad response" [ref=f11e615] [cursor=pointer]
+          - button "Branch into a new conversation" [ref=f11e618] [cursor=pointer]
+          - generic [ref=f11e621]: 15:24 · Ran for 3m 10s · TTFT 169s · 18 tok/s
+      - generic [ref=f11e441]:
+        - generic [ref=f11e442]:
+          - textbox "Message the agent" [active] [ref=f11e565]
+          - generic [ref=f11e446]:
+            - generic [ref=f11e447]:
+              - button "Commands" [ref=f11e448] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f11e453] [cursor=pointer]':
+                - generic [ref=f11e461]: Workspace Write
+            - generic [ref=f11e465]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e468] [cursor=pointer]:
+                - generic [ref=f11e469]: GLM 5.3 Flash (Ultra)
+              - button "4% of context used" [ref=f11e623] [cursor=pointer]
+              - button "Send message" [disabled] [ref=f11e627]
+        - generic [ref=f11e629]: 1 turns · 1 steps| LLM 3m10s| TTFT avg 2m49s · 18 tok/s| Cache hit 0%| Input 11.1K tok · Output 398 tok
+  - generic [ref=f11e475]:
+    - generic [ref=f11e476]:
+      - generic: Details
+      - button "Close details" [ref=f11e477] [cursor=pointer]
+    - generic [ref=f11e480]: Click a tool row in the message flow to view its details

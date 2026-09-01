@@ -1,0 +1,110 @@
+- generic [ref=f11e4]:
+  - generic [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - button "New session" [ref=f11e9] [cursor=pointer]:
+        - generic [ref=f11e16]:
+          - generic [ref=f11e17]: DSH Local Build
+          - generic [ref=f11e18]: b150a55
+      - button "Collapse sidebar" [ref=f11e19] [cursor=pointer]
+    - button "New session" [ref=f11e22] [cursor=pointer]:
+      - generic [ref=f11e25]: New Session
+    - generic [ref=f11e28]:
+      - generic [ref=f11e29]:
+        - generic [ref=f11e30]: Workspaces
+        - generic [ref=f11e32]:
+          - button "Search sessions" [ref=f11e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f11e37]:
+          - button "View options" [ref=f11e39] [cursor=pointer]
+          - button "Add workspace" [ref=f11e42] [cursor=pointer]
+      - tree "Sessions" [ref=f11e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f11e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f11e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f11e112] [cursor=pointer]
+        - generic [ref=f11e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f11e120] [cursor=pointer]
+          - treeitem "Running Qual a diferença entre os now" [selected] [ref=f11e1076] [cursor=pointer]:
+            - generic [ref=f11e129]: Running
+            - generic [ref=f11e130]: Qual a diferença entre os
+            - generic [ref=f11e258]: now
+          - treeitem "Por que o algoritmo quicksort 58min" [ref=f11e1087] [cursor=pointer]:
+            - generic [ref=f11e855]: Por que o algoritmo quicksort
+            - generic [ref=f11e945]: 58min
+          - treeitem "Explique a diferença entre memória 1h" [ref=f11e1088] [cursor=pointer]:
+            - generic [ref=f11e634]: Explique a diferença entre memória
+            - generic [ref=f11e724]: 1h
+          - treeitem "O que é um índice 1h" [ref=f11e1089] [cursor=pointer]:
+            - generic [ref=f11e403]: O que é um índice
+            - generic [ref=f11e492]: 1h
+          - treeitem "Completed Qual a diferença entre os 1h" [ref=f11e1090] [cursor=pointer]:
+            - generic [ref=f11e133]: Completed
+            - generic [ref=f11e144]: Qual a diferença entre os
+            - generic [ref=f11e145]: 1h
+          - button "Show 30 more sessions" [ref=f11e859] [cursor=pointer]
+    - button "Settings" [ref=f11e53] [cursor=pointer]
+  - generic [ref=f11e1091]:
+    - banner [ref=f11e1093]:
+      - generic [ref=f11e1094]:
+        - generic [ref=f11e1095]:
+          - navigation "Session hierarchy" [ref=f11e1096]:
+            - button "Qual a diferença entre os" [disabled] [ref=f11e1098]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f11e1101]': Standard Bl
+        - button "Session log" [ref=f11e1109] [cursor=pointer]
+      - tablist [ref=f11e1113]:
+        - tab "Chat" [selected] [ref=f11e1114] [cursor=pointer]
+        - tab "Trajectory" [ref=f11e1115] [cursor=pointer]
+    - generic [ref=f11e1116]:
+      - generic [ref=f11e1122]:
+        - generic [ref=f11e1125]:
+          - generic [ref=f11e1126]: Qual a diferença entre os códigos HTTP 301 e 302? Responda em duas frases, em português.
+          - generic [ref=f11e1129]:
+            - generic [ref=f11e1130]: 15:16
+            - button "Copy" [ref=f11e1131] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f11e1137] [cursor=pointer]:
+          - generic [ref=f11e1146]: Context injection
+          - generic [ref=f11e1148]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f11e1152] [cursor=pointer]:
+          - generic [ref=f11e1161]: Context injection
+          - generic [ref=f11e1163]: skill-catalog
+        - generic [ref=f11e1167]:
+          - button "Think" [ref=f11e1170] [cursor=pointer]
+          - paragraph [ref=f11e1181]:
+            - text: 301 é o redirecionamento
+            - strong [ref=f11e1182]: permanente
+            - text: ": indica que a página mudou de endereço definitivamente, então navegadores e mecanismos de busca atualizam seus registros para o novo URL. 302 é o redirecionamento"
+            - strong [ref=f11e1183]: temporário
+            - text: ": o novo destino vale só por enquanto, e o navegador e os buscadores continuam usando o URL original em requisições futuras."
+        - generic [ref=f11e1187]:
+          - button "Copy" [ref=f11e1188] [cursor=pointer]
+          - generic [ref=f11e1191]:
+            - button "Good response" [ref=f11e1192] [cursor=pointer]
+            - button "Bad response" [ref=f11e1195] [cursor=pointer]
+          - button "Branch into a new conversation" [ref=f11e1198] [cursor=pointer]
+          - generic [ref=f11e1201]: 15:20 · Ran for 3m 50s · TTFT 193s · 5.8 tok/s
+        - generic [ref=f11e1204]:
+          - generic [ref=f11e1205]: E o 307, em que difere do 302? Responda em uma frase.
+          - generic [ref=f11e1208]:
+            - generic [ref=f11e1209]: 16:25
+            - button "Copy" [ref=f11e1210] [cursor=pointer]
+        - status [ref=f11e1213]:
+          - text: Deep diving...
+          - generic [ref=f11e1266]: 1m 10s
+      - generic [ref=f11e1219]:
+        - generic [ref=f11e1220]:
+          - textbox "Message the agent" [ref=f11e1223]
+          - generic [ref=f11e1224]:
+            - generic [ref=f11e1225]:
+              - button "Commands" [ref=f11e1226] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f11e1231] [cursor=pointer]':
+                - generic [ref=f11e1239]: Workspace Write
+            - generic [ref=f11e1243]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f11e1246] [cursor=pointer]:
+                - generic [ref=f11e1247]: GLM 5.3 Flash (Ultra)
+              - button "4% of context used" [ref=f11e1251] [cursor=pointer]
+              - button "Stop generating" [ref=f11e1255] [cursor=pointer]
+        - generic [ref=f11e1258]: 1 turns · 1 steps| LLM 3m50s| TTFT avg 3m13s · 5.8 tok/s| Cache hit 0%| Input 11.1K tok · Output 215 tok
+  - generic [ref=f11e1260]:
+    - generic [ref=f11e1261]:
+      - generic: Details
+      - button "Close details" [ref=f11e1262] [cursor=pointer]
+    - generic [ref=f11e1265]: Click a tool row in the message flow to view its details

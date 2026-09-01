@@ -1,0 +1,78 @@
+- generic [ref=f2e2]:
+  - navigation [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - generic [ref=f2e5]:
+        - link [ref=f2e6] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f2e7]
+        - generic [ref=f2e8]:
+          - link "oMLX" [ref=f2e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.3" [ref=f2e10] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - generic [ref=f2e11]:
+        - button "Dashboard" [ref=f2e12] [cursor=pointer]
+        - generic [ref=f2e15]:
+          - button "Models" [active] [ref=f2e16] [cursor=pointer]
+          - generic: "1"
+          - generic [ref=f2e346]:
+            - button "Manager" [ref=f2e347] [cursor=pointer]
+            - button "Downloader" [ref=f2e350] [cursor=pointer]
+            - button "oQ Quantization" [ref=f2e355] [cursor=pointer]
+            - button "oQ Uploader" [ref=f2e358] [cursor=pointer]
+        - button "Settings" [ref=f2e21] [cursor=pointer]
+        - button "Logs" [ref=f2e25] [cursor=pointer]
+        - button "Bench" [ref=f2e30] [cursor=pointer]
+        - link "Chat" [ref=f2e34] [cursor=pointer]:
+          - /url: /admin/chat
+      - generic [ref=f2e37]:
+        - button "Auto" [ref=f2e39] [cursor=pointer]
+        - button "Logout" [ref=f2e46] [cursor=pointer]
+  - main [ref=f2e50]:
+    - generic [ref=f2e363]:
+      - generic [ref=f2e364]:
+        - button "Manager" [ref=f2e365] [cursor=pointer]
+        - button "Downloader" [ref=f2e366] [cursor=pointer]
+        - button "oQ Quantization" [ref=f2e367] [cursor=pointer]
+        - button "oQ Uploader" [ref=f2e368] [cursor=pointer]
+      - generic [ref=f2e369]:
+        - generic [ref=f2e370]:
+          - heading "Models" [level=2] [ref=f2e371]
+          - generic [ref=f2e372]:
+            - heading "Model Manager" [level=3] [ref=f2e373]
+            - button "Reload" [ref=f2e374] [cursor=pointer]
+          - paragraph [ref=f2e380]: Manage your local models.
+        - generic [ref=f2e381]:
+          - generic [ref=f2e382]:
+            - generic [ref=f2e383]:
+              - generic [ref=f2e386]: Local Models
+              - generic [ref=f2e387]: 2 models
+            - button "Refresh" [ref=f2e388] [cursor=pointer]
+          - generic [ref=f2e394]:
+            - textbox "Search models..." [ref=f2e396]
+            - button "Reset sort" [disabled] [ref=f2e397]
+          - generic [ref=f2e402]:
+            - generic [ref=f2e403]:
+              - generic [ref=f2e404] [cursor=pointer]:
+                - text: Model
+                - generic [ref=f2e405]: ▲
+              - generic [ref=f2e406] [cursor=pointer]: Type
+              - generic [ref=f2e407] [cursor=pointer]: Size
+            - generic [ref=f2e408]:
+              - generic [ref=f2e409]:
+                - generic [ref=f2e410]:
+                  - button [ref=f2e411] [cursor=pointer]
+                  - generic "Jundot/Qwen3.8-Flash-Next-oQ4e-mtp" [ref=f2e414]
+                  - button "Copy model name" [ref=f2e415] [cursor=pointer]
+                - generic [ref=f2e419]: vlm
+                - generic [ref=f2e421]: 104.89 GB
+                - generic [ref=f2e422]:
+                  - button "Model settings" [ref=f2e423] [cursor=pointer]
+                  - button "Delete model" [ref=f2e427] [cursor=pointer]
+              - generic [ref=f2e431]:
+                - generic [ref=f2e432]:
+                  - generic "Qwen/Qwen3.8-Flash-Next" [ref=f2e433]
+                  - button "Copy model name" [ref=f2e434] [cursor=pointer]
+                - generic [ref=f2e438]: llm
+                - generic [ref=f2e440]: 127.80 GB
+                - button "Delete model" [ref=f2e442] [cursor=pointer]

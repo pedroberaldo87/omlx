@@ -180,6 +180,27 @@ def expand_per_layer_quant_keys(cfg: dict) -> dict:
                 proj_variant = key + ".proj"
                 if proj_variant not in quant and proj_variant not in extras:
                     extras[proj_variant] = val
+            # GLM-5.3 forget gate: sanitize MOVES the two projections into the
+            # gate submodule (``self_attn.f_a_proj`` -> ``self_attn.
+            # forget_gate.f_a_proj``), but the published per-layer key keeps the
+            # flat name. Same failure mode as the Laguna router above: the
+            # lookup misses, the global bits are used, and strict loading dies
+            # with "Expected shape (128, 256) but received shape (128, 1024)"
+            # -- measured on Vontra/GLM-5.3-Flash-MLX-2bit-MTP on 2026-09-01.
+            for proj in (".self_attn.f_a_proj", ".self_attn.f_b_proj"):
+                # Vale para a chave publicada E para a variante de prefixo que
+                # acabou de sair: o caminho que o modelo de texto usa é o das
+                # duas coisas juntas (prefixo trocado E projeção movida).
+                for base in (key, variant):
+                    if not base.endswith(proj):
+                        continue
+                    gated = (
+                        base[: -len(proj)]
+                        + ".self_attn.forget_gate."
+                        + proj[len(".self_attn.") :]
+                    )
+                    if gated not in quant and gated not in extras:
+                        extras[gated] = val
         if extras:
             quant.update(extras)
         if str(cfg.get("model_type", "")).startswith("minimax_m3"):
@@ -700,6 +721,20 @@ def maybe_apply_pre_load_patches(
             logger.info(
                 "GLM-5.3 mlx-vlm compatibility patch applied for %s",
                 model_name,
+            )
+
+    if not for_vlm and model_type == "glm5_next":
+        # O GLM-5.2 (glm_moe_dsa) vem de fábrica no mlx-lm; o 5.3 é inteiramente
+        # nosso e só existe lá depois deste registro. Até 01/09 quem registrava
+        # era só a quantização e o rascunhador, e o carregamento comum morria com
+        # "Model type glm5_next not supported" antes de ler um peso — o que
+        # também deixava o runtime de previsão múltipla inalcançável, porque ele
+        # remenda a classe do mlx-lm que ninguém tinha criado.
+        from ..patches.mlx_lm_glm5_next import register_into_mlx_lm
+
+        if register_into_mlx_lm():
+            logger.info(
+                "GLM-5.3 text model registered into mlx-lm for %s", model_name
             )
 
     # Apply the MTP patch whenever the model has MTP heads on a compatible

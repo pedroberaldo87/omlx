@@ -1,0 +1,213 @@
+- generic [ref=f4e2]:
+  - generic [ref=f4e3]:
+    - generic [ref=f4e4]: Projetoomlx-qwen38-flash
+    - generic [ref=f4e5]: ArtefatoPlano Decode Galático — resultado final
+    - generic [ref=f4e6]:
+      - text: Gerado de
+      - code [ref=f4e8]: plan_state.py close · relatório em oMLX-WORKS/01-MEDICOES/plano-v5-decode-galatico.md
+    - generic [ref=f4e9]: gerado
+  - generic [ref=f4e10]: 📊 Plano v5 · fechado 16/16
+  - heading "Decode Galático — o resultado" [level=1] [ref=f4e11]
+  - paragraph [ref=f4e12]: "16 passos fechados: quatro desafiantes medidas contra a config atual, com piso de ruído e régua estatística"
+  - generic [ref=f4e13]:
+    - generic [ref=f4e14]: ⏱ 3 min de leitura
+    - generic [ref=f4e15]: 🧪 22 medições
+    - generic [ref=f4e16]: 🖥 Qwen3.8-Flash-Next
+  - generic [ref=f4e17]:
+    - generic [ref=f4e18]: 🏁
+    - generic [ref=f4e19]: "A config que já está no ar venceu as quatro desafiantes — e o número dela agora é medido: 26,4 tok/s no repetido, 21,0 no inédito."
+  - generic [ref=f4e20]:
+    - generic [ref=f4e21]:
+      - generic [ref=f4e22]: "1"
+      - heading "O que foi testado, e como" [level=2] [ref=f4e23]
+    - paragraph [ref=f4e24]: O plano ligou quatro mecanismos novos no motor de geração, um por vez, e mediu cada um contra a configuração de produção.
+    - list [ref=f4e25]:
+      - listitem [ref=f4e26]:
+        - strong [ref=f4e27]: MTP
+        - text: (Multi-Token Prediction) — módulo do modelo que palpita vários tokens à frente; o modelo confere e só aceita o que ele mesmo geraria.
+      - listitem [ref=f4e28]:
+        - text: Junto do MTP roda a
+        - strong [ref=f4e29]: cópia de histórico
+        - text: ": quando o texto recente já apareceu antes, o que veio depois daquela vez vira o palpite."
+      - listitem [ref=f4e30]:
+        - strong [ref=f4e31]: Cadeia
+        - text: — a cópia cresce token a token e pode emendar a continuação de uma aparição com a de outra, em vez de copiar um bloco único.
+      - listitem [ref=f4e32]:
+        - strong [ref=f4e33]: Histerese
+        - text: — quantos tokens o MTP palpita por vez (a profundidade) sobe um degrau após acertos cheios seguidos e desce a cada erro.
+      - listitem [ref=f4e34]:
+        - strong [ref=f4e35]: Freio paciente
+        - text: — só zera a memória da cópia após 5 rodadas ruins seguidas, no lugar de congelar regiões após 2 falhas.
+      - listitem [ref=f4e36]:
+        - strong [ref=f4e37]: Margem
+        - text: — a cópia só palpita quando a continuação dominante aparece 2 vezes mais que as rivais somadas; entrada ambígua fica calada.
+    - list [ref=f4e38]:
+      - listitem [ref=f4e39]: "Cada medição é um A/B: a mesma carga roda com o mecanismo ligado e desligado, alternando lado a lado (A,B,A,B) para diluir o aquecimento."
+      - listitem [ref=f4e40]:
+        - strong [ref=f4e41]: Repetido
+        - text: — reescrever um código que já está no prompt; o texto a gerar já apareceu antes, o cenário ideal da cópia.
+      - listitem [ref=f4e42]:
+        - strong [ref=f4e43]: Inédito
+        - text: — escrever uma história nova; não há nada para copiar, e o cenário mede o custo do mecanismo quando ele não ajuda.
+      - listitem [ref=f4e44]: "A régua de adoção: o ganho segue positivo no repetido mesmo descontando 2 vezes a margem de erro da medição, e não regride no inédito."
+      - listitem [ref=f4e45]: Foram 24 pares de medição por mecanismo, somando duas rodadas; a segunda também gravou a telemetria de cada lado.
+  - generic [ref=f4e46]:
+    - generic [ref=f4e47]:
+      - generic [ref=f4e48]: "2"
+      - heading "O placar" [level=2] [ref=f4e49]
+    - generic [ref=f4e50]:
+      - paragraph [ref=f4e51]: Quatro desafiantes, nenhuma passou a régua — e a titular saiu com número oficial.
+      - generic [ref=f4e52]:
+        - generic [ref=f4e53]:
+          - generic [ref=f4e54]: "1"
+          - generic [ref=f4e55]: Cadeia
+          - generic [ref=f4e56]: reprovada
+          - generic [ref=f4e57]: regrediu −7,8% no repetido; o portão tudo-ou-nada derrubou a taxa de serviço
+        - generic [ref=f4e58]:
+          - generic [ref=f4e59]: "2"
+          - generic [ref=f4e60]: Histerese
+          - generic [ref=f4e61]: seca
+          - generic [ref=f4e62]: "−1,3% e +2,3%: nada que a margem de erro não explique"
+        - generic [ref=f4e63]:
+          - generic [ref=f4e64]: "3"
+          - generic [ref=f4e65]: Freio paciente
+          - generic [ref=f4e66]: seca
+          - generic [ref=f4e67]: "0,0% e +4,0%: dobrou o serviço no inédito, mas não move a velocidade"
+        - generic [ref=f4e68]:
+          - generic [ref=f4e69]: "4"
+          - generic [ref=f4e70]: Margem
+          - generic [ref=f4e71]: candidata futura
+          - generic [ref=f4e72]: +5,6% no repetido, abaixo do piso de 6,9%; a única com direção consistente
+        - generic [ref=f4e73]:
+          - generic [ref=f4e74]: "5"
+          - generic [ref=f4e75]: Config atual
+          - generic [ref=f4e76]: vencedora
+          - generic [ref=f4e77]: "vence todas; agora medida: 26,4 tok/s no repetido · 21,0 no inédito"
+    - list [ref=f4e78]:
+      - listitem [ref=f4e79]: Na prova abaixo, cada medição aparece pelo id — o código de 12 letras que o painel dá a cada rodada; é por ele que o relatório se audita.
+      - listitem [ref=f4e80]: A notação [a .. b] soma e subtrai 2 margens de erro do ganho (o "±2EP" da prova); com o zero dentro, não dá para afirmar nada.
+      - listitem [ref=f4e81]: "\"serviço\" é a fatia dos ciclos de geração em que a cópia de histórico serviu um palpite; \"depth\" é a profundidade média do MTP."
+    - group [ref=f4e82]:
+      - generic "python3 final_analysis.py · pares agregados das rodadas 1+2 · 2026-08-27 26 linhas ›" [ref=f4e83] [cursor=pointer]:
+        - text: python3 final_analysis.py · pares agregados das rodadas 1+2 · 2026-08-27
+        - generic [ref=f4e84]: 26 linhas
+        - generic [ref=f4e85]: ›
+  - generic [ref=f4e86]:
+    - generic [ref=f4e87]:
+      - generic [ref=f4e88]: "3"
+      - heading "O chão e a âncora — piso de ruído e baseline" [level=2] [ref=f4e89]
+    - list [ref=f4e90]:
+      - listitem [ref=f4e91]:
+        - strong [ref=f4e92]: Piso de ruído
+        - text: — o A/B rodou com os dois lados IGUAIS, 3 vezes por cenário; a diferença que aparece ali é ruído puro da máquina.
+      - listitem [ref=f4e93]: O piso deu 6,9% no repetido e 2,8% no inédito — ganho menor que isso não se distingue de nada (prova abaixo).
+      - listitem [ref=f4e94]: "Descoberta colateral: a velocidade DERIVA dentro de um teste, de 23 para 30 tok/s — aquecimento; alternar os lados amortece isso."
+      - listitem [ref=f4e95]:
+        - strong [ref=f4e96]: Baseline
+        - text: — as 60 amostras dos testes de lados iguais rodam a config de produção intocada; delas sai o número oficial dela.
+      - listitem [ref=f4e97]: O antigo "26-29 tok/s inferido" fechou em 26,38 ± 2,62; o inédito, nunca medido, fechou em 21,01 ± 0,80.
+    - group [ref=f4e98]:
+      - generic "python3 analyze.py · 6 runs nulos · 2026-08-27 11 linhas ›" [ref=f4e99] [cursor=pointer]:
+        - text: python3 analyze.py · 6 runs nulos · 2026-08-27
+        - generic [ref=f4e100]: 11 linhas
+        - generic [ref=f4e101]: ›
+  - generic [ref=f4e102]:
+    - generic [ref=f4e103]:
+      - generic [ref=f4e104]: "4"
+      - heading "Por que cada desafiante perdeu" [level=2] [ref=f4e105]
+    - list [ref=f4e106]:
+      - listitem [ref=f4e107]:
+        - strong [ref=f4e108]: Cadeia
+        - text: "— o serviço caiu de 5,8% para 5,1% dos ciclos (prova no placar): o portão descarta as cópias curtas que pagavam a conta."
+      - listitem [ref=f4e109]: "As cadeias longas prometidas não repuseram o volume perdido: −7,8% líquido no repetido, com o intervalo inteiro no negativo."
+      - listitem [ref=f4e110]:
+        - strong [ref=f4e111]: Histerese
+        - text: — a escada escolheu profundidade MENOR que o medidor atual (2,20 contra 2,45; 1,35 contra 1,67 no inédito).
+      - listitem [ref=f4e112]: A credencial dela veio do llama.cpp, medida em outro modelo e outra máquina — e não se transferiu para cá.
+      - listitem [ref=f4e113]:
+        - strong [ref=f4e114]: Freio paciente
+        - text: — no inédito o serviço dobrou (0,7% → 1,3%), a direção prevista; serviço tão raro não move a velocidade final.
+      - listitem [ref=f4e115]:
+        - strong [ref=f4e116]: Margem
+        - text: — tudo na direção certa (serviço 7,6% contra 5,5%, mais tokens por ciclo), mas +5,6% fica abaixo do piso de 6,9%.
+    - generic [ref=f4e117]: Se um dia valer comprar mais horas de medição, a margem é a candidata — é a única cujos sinais internos todos apontam para ganho.
+  - generic [ref=f4e118]:
+    - generic [ref=f4e119]:
+      - generic [ref=f4e120]: "5"
+      - heading "O que fica valendo" [level=2] [ref=f4e121]
+    - list [ref=f4e122]:
+      - listitem [ref=f4e123]: "A bancada honesta: teste de lados iguais, erro em botão desconhecido, lados alternados, restauração total e telemetria por lado."
+      - listitem [ref=f4e124]: Os quatro mecanismos seguem no código, cada um atrás de um botão desligado — reversíveis a um clique se o modelo ou a máquina mudarem.
+      - listitem [ref=f4e125]: "A baseline oficial da config de produção, com procedência: 60 amostras citadas por id no relatório da base de conhecimento."
+      - listitem [ref=f4e126]: A suíte inteira verde com tudo isso dentro, e o plano encerrado com prova em cada um dos 16 passos.
+    - group [ref=f4e127]:
+      - generic "pytest tests/ · plan_state.py close · git log · 2026-08-27 11 linhas ›" [ref=f4e128] [cursor=pointer]:
+        - text: pytest tests/ · plan_state.py close · git log · 2026-08-27
+        - generic [ref=f4e129]: 11 linhas
+        - generic [ref=f4e130]: ›
+  - generic [ref=f4e131]:
+    - heading "📋 Sumário Executivo" [level=2] [ref=f4e132]
+    - generic [ref=f4e133]:
+      - heading "1 · Nenhum mecanismo novo adotado" [level=4] [ref=f4e134]
+      - generic [ref=f4e135]:
+        - generic [ref=f4e136]: 🔧 Como
+        - generic [ref=f4e137]: os quatro ficam no código atrás de botões desligados
+      - generic [ref=f4e138]:
+        - generic [ref=f4e139]: 💡 Por quê
+        - generic [ref=f4e140]: nenhum passou a régua de 2 margens de erro; a cadeia chegou a regredir
+      - generic [ref=f4e141]:
+        - generic [ref=f4e142]: 📁 Toca em
+        - generic [ref=f4e143]: config de produção intocada
+    - generic [ref=f4e144]:
+      - heading "2 · Baseline fechada" [level=4] [ref=f4e145]
+      - generic [ref=f4e146]:
+        - generic [ref=f4e147]: 🔧 Como
+        - generic [ref=f4e148]: 60 amostras de testes com lados iguais
+      - generic [ref=f4e149]:
+        - generic [ref=f4e150]: 💡 Por quê
+        - generic [ref=f4e151]: o número da config no ar era estimativa; agora é 26,4 / 21,0 tok/s medidos
+      - generic [ref=f4e152]:
+        - generic [ref=f4e153]: 📁 Toca em
+        - generic [ref=f4e154]: tabela mestre da base de conhecimento
+    - generic [ref=f4e155]:
+      - heading "3 · Relatório canônico gravado" [level=4] [ref=f4e156]
+      - generic [ref=f4e157]:
+        - generic [ref=f4e158]: 🔧 Como
+        - generic [ref=f4e159]: medições citadas por id, telemetria por lado, 22 arquivos crus anexados
+      - generic [ref=f4e160]:
+        - generic [ref=f4e161]: 💡 Por quê
+        - generic [ref=f4e162]: qualquer número citado no futuro tem origem apontável
+      - generic [ref=f4e163]:
+        - generic [ref=f4e164]: 📁 Toca em
+        - generic [ref=f4e165]: oMLX-WORKS/01-MEDICOES + 06-ANEXOS
+  - generic [ref=f4e166]:
+    - heading "📝 Como ficou esta página?" [level=2] [ref=f4e167]
+    - paragraph [ref=f4e168]: Opcional — serve só pra próxima página sair melhor
+    - generic [ref=f4e169]:
+      - generic [ref=f4e170]:
+        - text: Clareza
+        - emphasis [ref=f4e171]: deu pra entender sem esforço?
+      - generic [ref=f4e172]:
+        - button "👍" [ref=f4e173] [cursor=pointer]
+        - button "😐" [ref=f4e174] [cursor=pointer]
+        - button "👎" [ref=f4e175] [cursor=pointer]
+    - generic [ref=f4e176]:
+      - generic [ref=f4e177]:
+        - text: Escaneabilidade
+        - emphasis [ref=f4e178]: achou o que importa batendo o olho?
+      - generic [ref=f4e179]:
+        - button "👍" [ref=f4e180] [cursor=pointer]
+        - button "😐" [ref=f4e181] [cursor=pointer]
+        - button "👎" [ref=f4e182] [cursor=pointer]
+    - generic [ref=f4e183]:
+      - generic [ref=f4e184]:
+        - text: Detalhamento
+        - emphasis [ref=f4e185]: tinha o suficiente pra decidir, sem sobra?
+      - generic [ref=f4e186]:
+        - button "👍" [ref=f4e187] [cursor=pointer]
+        - button "😐" [ref=f4e188] [cursor=pointer]
+        - button "👎" [ref=f4e189] [cursor=pointer]
+    - generic [ref=f4e190]:
+      - generic [ref=f4e191]: O que exatamente ficou ruim — é o que mais ensina
+      - textbox "O que exatamente ficou ruim — é o que mais ensina" [ref=f4e192]:
+        - /placeholder: "Ex: o bloco de prova da decisão 2 não dizia por que aquilo era problema..."

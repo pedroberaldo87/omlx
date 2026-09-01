@@ -1,0 +1,44 @@
+- generic [ref=f3e2]:
+  - navigation [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - generic [ref=f3e5]:
+        - link [ref=f3e6] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img "oMLX" [ref=f3e7]
+        - generic [ref=f3e8]:
+          - link "oMLX" [ref=f3e9] [cursor=pointer]:
+            - /url: /admin/dashboard
+          - link "v0.6.3" [ref=f3e10] [cursor=pointer]:
+            - /url: https://github.com/jundot/omlx
+      - generic [ref=f3e11]:
+        - button "Dashboard" [ref=f3e12] [cursor=pointer]
+        - button "Models" [ref=f3e16] [cursor=pointer]
+        - button "Settings" [ref=f3e21] [cursor=pointer]
+        - button "Logs" [ref=f3e25] [cursor=pointer]
+        - button "Bench" [ref=f3e30] [cursor=pointer]
+        - link "Chat" [ref=f3e34] [cursor=pointer]:
+          - /url: /admin/chat
+      - generic [ref=f3e37]:
+        - button "Auto" [ref=f3e39] [cursor=pointer]
+        - button "Logout" [ref=f3e46] [cursor=pointer]
+  - main [ref=f3e50]:
+    - generic [ref=f3e54]:
+      - generic [ref=f3e55]:
+        - button "Manager" [ref=f3e56] [cursor=pointer]
+        - button "Downloader" [ref=f3e57] [cursor=pointer]
+        - button "oQ Quantization" [ref=f3e58] [cursor=pointer]
+        - button "oQ Uploader" [ref=f3e59] [cursor=pointer]
+      - generic [ref=f3e60]:
+        - generic [ref=f3e61]:
+          - heading "Models" [level=2] [ref=f3e62]
+          - generic [ref=f3e63]:
+            - heading "Model Manager" [level=3] [ref=f3e64]
+            - button "Reload" [ref=f3e65] [cursor=pointer]
+          - paragraph [ref=f3e71]: Manage your local models.
+        - generic [ref=f3e72]:
+          - generic [ref=f3e73]:
+            - generic [ref=f3e74]:
+              - generic [ref=f3e77]: Local Models
+              - generic [ref=f3e78]: 0 models
+            - button "Refresh" [ref=f3e79] [cursor=pointer]
+          - paragraph [ref=f3e89]: No models found in model directory.

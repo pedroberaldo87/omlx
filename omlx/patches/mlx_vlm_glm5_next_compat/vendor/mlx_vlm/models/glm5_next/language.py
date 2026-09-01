@@ -983,9 +983,20 @@ class LanguageModel(nn.Module):
                 continue
 
             for p in fg_parts:
-                suffix = ".self_attn." + p
-                if nk.endswith(suffix):
-                    nk = nk[: -len(p)] + "forget_gate." + p
+                # Um checkpoint JA QUANTIZADO traz `.scales` e `.biases` ao lado
+                # do `.weight`, e os tres tem que entrar juntos no portao de
+                # esquecimento. Casar so o `.weight` deixava os companheiros
+                # para tras: medido em 01/09 no Vontra (2 bits), 136 chaves
+                # recusadas por nao existirem no modelo.
+                alvos = [p]
+                if p.endswith(".weight"):
+                    base = p[: -len(".weight")]
+                    alvos += [base + ".scales", base + ".biases"]
+                casou = next(
+                    (a for a in alvos if nk.endswith(".self_attn." + a)), None
+                )
+                if casou is not None:
+                    nk = nk[: -len(casou)] + "forget_gate." + casou
                     break
 
             remapped[nk] = v

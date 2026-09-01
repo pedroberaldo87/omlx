@@ -442,6 +442,7 @@ def _patch_model(glm: Any) -> None:
             finally:
                 self.args.num_hidden_layers = n_main
             weights = _renomeia_para_mtp(weights, n_main, n_mtp)
+            weights = _completa_hiperconexao_da_cabeca(self, weights)
             return weights
 
         return original_sanitize(self, weights)
@@ -460,6 +461,31 @@ def _patch_model(glm: Any) -> None:
 # ---------------------------------------------------------------------------
 # Auxiliares.
 # ---------------------------------------------------------------------------
+
+
+def _completa_hiperconexao_da_cabeca(modelo: Any, weights: Dict[str, Any]) -> Dict[str, Any]:
+    """Preenche os coeficientes de hiperconexão que o checkpoint não traz.
+
+    A camada da cabeça é a única sem eles no disco: as comuns trazem os seis
+    (`hc_attn_*`, `hc_ffn_*`), a 45 não traz nenhum. Não é peso perdido — a
+    implementação de referência os deixa no valor de fábrica, e esse valor é o
+    NEUTRO: mistura zerada e escala unitária, o que faz a hiperconexão não
+    alterar o que passa por ela.
+
+    Copiar do módulo recém-construído é reproduzir esse padrão, não inventar
+    peso. Sem isto a carga estrita morre com "Missing 6 parameters".
+    """
+    from mlx.utils import tree_flatten
+
+    cabecas = getattr(modelo, "mtp", None) or []
+    for i, bloco in enumerate(cabecas):
+        for nome, valor in tree_flatten(bloco.parameters()):
+            if "_hc." not in nome:
+                continue
+            chave = f"mtp.{i}.{nome}"
+            if chave not in weights:
+                weights[chave] = valor
+    return weights
 
 
 def _cache_para(camada: Any) -> Any:

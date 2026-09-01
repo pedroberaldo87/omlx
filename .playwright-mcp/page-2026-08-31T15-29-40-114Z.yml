@@ -1,0 +1,52 @@
+- generic [ref=e4]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - button "New session" [ref=e9] [cursor=pointer]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: DSH Local Build
+          - generic [ref=e18]: b150a55
+      - button "Collapse sidebar" [ref=e19] [cursor=pointer]
+    - button "New session" [ref=e22] [cursor=pointer]:
+      - generic [ref=e25]: New Session
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: Workspaces
+        - generic [ref=e32]:
+          - button "Search sessions" [ref=e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=e37]:
+          - button "View options" [ref=e39] [cursor=pointer]
+          - button "Add workspace" [ref=e42] [cursor=pointer]
+      - tree "Sessions" [ref=e48]:
+        - treeitem "pedro-plugins-dsh" [ref=e187] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=e195] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=e203] [cursor=pointer]
+        - treeitem "DEEPSEEK" [ref=e211] [cursor=pointer]
+        - generic [ref=e217]:
+          - treeitem "Ungrouped" [expanded] [ref=e218] [cursor=pointer]
+          - treeitem "New Session" [selected] [ref=e226] [cursor=pointer]
+    - button "Settings" [ref=e53] [cursor=pointer]
+  - generic [ref=e67]:
+    - generic [ref=e70]:
+      - generic [ref=e75]: Into the Unknown
+      - generic [ref=e76]: Preview
+    - button "Choose workspace" [ref=e78] [cursor=pointer]
+    - generic [ref=e86] [cursor=pointer]:
+      - textbox "Choose workspace" [ref=e89]:
+        - /placeholder: Choose a workspace to start
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - button "Commands" [disabled]
+          - generic [ref=e230]:
+            - 'button "Access mode, current: Workspace Write" [disabled]':
+              - generic: Workspace Write
+        - generic [ref=e92]:
+          - generic [ref=e232]:
+            - button "Select model, current GLM 5.3 Flash (Ultra)" [disabled]:
+              - generic: GLM 5.3 Flash (Ultra)
+          - button "Send message" [disabled]
+  - generic [ref=e234]:
+    - generic [ref=e235]:
+      - generic: Details
+      - button "Close details" [ref=e236] [cursor=pointer]
+    - generic [ref=e239]: Click a tool row in the message flow to view its details

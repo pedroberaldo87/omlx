@@ -1,0 +1,66 @@
+- generic [ref=e4]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - button "New session" [ref=e9] [cursor=pointer]:
+        - generic [ref=e16]:
+          - generic [ref=e17]: DSH Local Build
+          - generic [ref=e18]: b150a55
+      - button "Collapse sidebar" [ref=e19] [cursor=pointer]
+    - button "New session" [ref=e22] [cursor=pointer]:
+      - generic [ref=e25]: New Session
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: Workspaces
+        - generic [ref=e32]:
+          - button "Search sessions" [ref=e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=e37]:
+          - button "View options" [ref=e39] [cursor=pointer]
+          - button "Add workspace" [ref=e42] [cursor=pointer]
+      - tree "Sessions" [ref=e48]:
+        - generic [ref=e49]: No sessions yet
+    - generic [ref=e52]:
+      - button "Settings" [expanded] [ref=e53] [cursor=pointer]
+      - dialog "Settings" [ref=e104]:
+        - navigation [ref=e105]:
+          - generic [ref=e106]: Settings
+          - generic [ref=e107]:
+            - button "General" [ref=e108] [cursor=pointer]
+            - button "Models" [ref=e114] [cursor=pointer]
+            - button "Plugins" [ref=e119] [cursor=pointer]
+            - button "Agent presets" [ref=e123] [cursor=pointer]
+        - generic [ref=e130]:
+          - button "Close" [active] [ref=e132] [cursor=pointer]
+          - generic [ref=e140]:
+            - generic [ref=e141]:
+              - generic [ref=e142]:
+                - generic [ref=e143]: Agent preset
+                - alert [ref=e144]: crypto.randomUUID is not a function
+              - button "Loading presets…" [disabled] [ref=e146]
+            - generic [ref=e149]:
+              - generic [ref=e150]: Language
+              - button "English" [ref=e153] [cursor=pointer]
+            - generic [ref=e156]:
+              - generic [ref=e157]: Appearance
+              - generic [ref=e158]:
+                - button "Light" [ref=e159] [cursor=pointer]
+                - button "Dark" [ref=e170] [cursor=pointer]
+                - button "System" [pressed] [ref=e173] [cursor=pointer]
+            - generic [ref=e177]:
+              - generic [ref=e178]:
+                - generic [ref=e179]: Enter behavior while busy
+                - generic [ref=e180]: Busy only; Cmd/Ctrl+Enter uses the other behavior
+              - button "Queue" [ref=e182] [cursor=pointer]
+  - generic [ref=e67]:
+    - generic [ref=e70]:
+      - generic [ref=e75]: Into the Unknown
+      - generic [ref=e76]: Preview
+    - button "Choose workspace" [ref=e78] [cursor=pointer]
+    - generic [ref=e86] [cursor=pointer]:
+      - textbox "Choose workspace" [ref=e89]:
+        - /placeholder: Choose a workspace to start
+      - generic [ref=e90]:
+        - generic [ref=e91]:
+          - button "Commands" [disabled]
+        - generic [ref=e92]:
+          - button "Send message" [disabled]

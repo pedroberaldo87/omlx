@@ -1,0 +1,88 @@
+- generic [ref=f8e4]:
+  - generic [ref=f8e7]:
+    - generic [ref=f8e8]:
+      - button "New session" [ref=f8e9] [cursor=pointer]:
+        - generic [ref=f8e16]:
+          - generic [ref=f8e17]: DSH Local Build
+          - generic [ref=f8e18]: b150a55
+      - button "Collapse sidebar" [ref=f8e19] [cursor=pointer]
+    - button "New session" [ref=f8e22] [cursor=pointer]:
+      - generic [ref=f8e25]: New Session
+    - generic [ref=f8e28]:
+      - generic [ref=f8e29]:
+        - generic [ref=f8e30]: Workspaces
+        - generic [ref=f8e32]:
+          - button "Search sessions" [ref=f8e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f8e37]:
+          - button "View options" [ref=f8e39] [cursor=pointer]
+          - button "Add workspace" [ref=f8e42] [cursor=pointer]
+      - tree "Sessions" [ref=f8e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f8e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f8e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f8e112] [cursor=pointer]
+        - generic [ref=f8e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f8e120] [cursor=pointer]
+          - treeitem "Para que serve o cabeçalho now" [selected] [ref=f8e450] [cursor=pointer]:
+            - generic [ref=f8e274]: Para que serve o cabeçalho
+            - generic [ref=f8e373]: now
+          - treeitem "Oi 14min" [ref=f8e451] [cursor=pointer]:
+            - generic [ref=f8e130]: Oi
+            - generic [ref=f8e131]: 14min
+          - treeitem "Olá 19min" [ref=f8e452] [cursor=pointer]:
+            - generic [ref=f8e135]: Olá
+            - generic [ref=f8e136]: 19min
+          - treeitem "Sem usar ferramenta, responda em 21min" [ref=f8e453] [cursor=pointer]:
+            - generic [ref=f8e140]: Sem usar ferramenta, responda em
+            - generic [ref=f8e141]: 21min
+          - treeitem "Responda em uma frase, sem 49min" [ref=f8e454] [cursor=pointer]:
+            - generic [ref=f8e145]: Responda em uma frase, sem
+            - generic [ref=f8e146]: 49min
+          - button "Show 23 more sessions" [ref=f8e277] [cursor=pointer]
+    - button "Settings" [ref=f8e53] [cursor=pointer]
+  - generic [ref=f8e278]:
+    - banner [ref=f8e375]:
+      - generic [ref=f8e376]:
+        - generic [ref=f8e377]:
+          - navigation "Session hierarchy" [ref=f8e378]:
+            - button "Para que serve o cabeçalho" [disabled] [ref=f8e380]
+          - 'generic "Standard com compactação blindada pro slot pc13 (llama.cpp n_ctx=81920): dispara em 0.75 da janela e resumo com 32K de saída." [ref=f8e383]': Standard Bl
+        - button "Session log" [ref=f8e391] [cursor=pointer]
+      - tablist [ref=f8e395]:
+        - tab "Chat" [selected] [ref=f8e396] [cursor=pointer]
+        - tab "Trajectory" [ref=f8e397] [cursor=pointer]
+    - generic [ref=f8e279]:
+      - generic [ref=f8e403]:
+        - generic [ref=f8e406]:
+          - generic [ref=f8e407]: Para que serve o cabeçalho HTTP Vary? Responda em duas frases, em português.
+          - generic [ref=f8e410]:
+            - generic [ref=f8e411]: 15:04
+            - button "Copy" [ref=f8e412] [cursor=pointer]
+        - button "Context injection @deepseek-ai/dsh-system-prompt" [ref=f8e418] [cursor=pointer]:
+          - generic [ref=f8e427]: Context injection
+          - generic [ref=f8e429]: "@deepseek-ai/dsh-system-prompt"
+        - button "Context injection skill-catalog" [ref=f8e433] [cursor=pointer]:
+          - generic [ref=f8e442]: Context injection
+          - generic [ref=f8e444]: skill-catalog
+        - status [ref=f8e457]:
+          - generic [ref=f8e459]: "This turn failedoMLX prefill memory guard rejected this prompt: Prefill context too large for available memory (pre-chunk guard at 2048 tokens, kv_len=8192): predicted peak would exceed prefill safety cap 117.8GB (95% of metal_cap ceiling 124.0GB). Raise kernel iogpu.wired_limit_mb in Terminal (currently caps Metal at 124.00 GB), or reduce context length. To continue, set Memory Guard to aggressive, raise the custom memory guard ceiling, free system memory, or compact/reduce context."
+          - code [ref=f8e460]: PI_AI_ERROR
+      - generic [ref=f8e312]:
+        - generic [ref=f8e313]:
+          - textbox "Message the agent" [active] [ref=f8e446]
+          - generic [ref=f8e317]:
+            - generic [ref=f8e318]:
+              - button "Commands" [ref=f8e319] [cursor=pointer]
+              - 'button "Access mode, current: Workspace Write" [ref=f8e324] [cursor=pointer]':
+                - generic [ref=f8e332]: Workspace Write
+            - generic [ref=f8e336]:
+              - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f8e339] [cursor=pointer]:
+                - generic [ref=f8e340]: GLM 5.3 Flash (Ultra)
+              - button "0% of context used" [ref=f8e462] [cursor=pointer]
+              - button "Send message" [disabled] [ref=f8e466]
+        - generic [ref=f8e468]: 1 turns · 1 steps
+  - generic [ref=f8e346]:
+    - generic [ref=f8e347]:
+      - generic: Details
+      - button "Close details" [ref=f8e348] [cursor=pointer]
+    - generic [ref=f8e351]: Click a tool row in the message flow to view its details

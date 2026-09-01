@@ -1,0 +1,35 @@
+- generic [ref=f6e4]:
+  - generic [ref=f6e7]:
+    - generic [ref=f6e8]:
+      - button "New session" [ref=f6e9] [cursor=pointer]:
+        - generic [ref=f6e16]:
+          - generic [ref=f6e17]: DSH Local Build
+          - generic [ref=f6e18]: b150a55
+      - button "Collapse sidebar" [ref=f6e19] [cursor=pointer]
+    - button "New session" [ref=f6e22] [cursor=pointer]:
+      - generic [ref=f6e25]: New Session
+    - generic [ref=f6e28]:
+      - generic [ref=f6e29]:
+        - generic [ref=f6e30]: Workspaces
+        - generic [ref=f6e32]:
+          - button "Search sessions" [ref=f6e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f6e37]:
+          - button "View options" [ref=f6e39] [cursor=pointer]
+          - button "Add workspace" [ref=f6e42] [cursor=pointer]
+      - tree "Sessions" [ref=f6e48]:
+        - generic [ref=f6e49]: No sessions yet
+    - button "Settings" [ref=f6e53] [cursor=pointer]
+  - generic [ref=f6e67]:
+    - generic [ref=f6e70]:
+      - generic [ref=f6e75]: Into the Unknown
+      - generic [ref=f6e76]: Preview
+    - button "Choose workspace" [ref=f6e78] [cursor=pointer]
+    - generic [ref=f6e86] [cursor=pointer]:
+      - textbox "Choose workspace" [ref=f6e89]:
+        - /placeholder: Choose a workspace to start
+      - generic [ref=f6e90]:
+        - generic [ref=f6e91]:
+          - button "Commands" [disabled]
+        - generic [ref=f6e92]:
+          - button "Send message" [disabled]

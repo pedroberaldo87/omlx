@@ -1,0 +1,62 @@
+- generic [ref=f12e4]:
+  - generic [ref=f12e7]:
+    - generic [ref=f12e8]:
+      - button "New session" [ref=f12e9] [cursor=pointer]:
+        - generic [ref=f12e16]:
+          - generic [ref=f12e17]: DSH Local Build
+          - generic [ref=f12e18]: b150a55
+      - button "Collapse sidebar" [ref=f12e19] [cursor=pointer]
+    - button "New session" [ref=f12e22] [cursor=pointer]:
+      - generic [ref=f12e25]: New Session
+    - generic [ref=f12e28]:
+      - generic [ref=f12e29]:
+        - generic [ref=f12e30]: Workspaces
+        - generic [ref=f12e32]:
+          - button "Search sessions" [ref=f12e33] [cursor=pointer]
+          - textbox "Search sessions..."
+        - generic [ref=f12e37]:
+          - button "View options" [ref=f12e39] [cursor=pointer]
+          - button "Add workspace" [ref=f12e42] [cursor=pointer]
+      - tree "Sessions" [ref=f12e48]:
+        - treeitem "pedro-plugins-dsh" [ref=f12e96] [cursor=pointer]
+        - treeitem "CAPTACAO-REGIONAL" [ref=f12e104] [cursor=pointer]
+        - treeitem "MeetingBuddy" [ref=f12e112] [cursor=pointer]
+        - generic [ref=f12e118]:
+          - treeitem "DEEPSEEK" [expanded] [ref=f12e120] [cursor=pointer]
+          - treeitem "New Session" [selected] [ref=f12e128] [cursor=pointer]
+          - treeitem "Explique a diferença entre memória 1h" [ref=f12e132] [cursor=pointer]:
+            - generic [ref=f12e134]: Explique a diferença entre memória
+            - generic [ref=f12e135]: 1h
+          - treeitem "O que é um índice 1h" [ref=f12e137] [cursor=pointer]:
+            - generic [ref=f12e139]: O que é um índice
+            - generic [ref=f12e140]: 1h
+          - treeitem "Qual a diferença entre os 1h" [ref=f12e142] [cursor=pointer]:
+            - generic [ref=f12e144]: Qual a diferença entre os
+            - generic [ref=f12e145]: 1h
+          - treeitem "Para que serve o cabeçalho 1h" [ref=f12e147] [cursor=pointer]:
+            - generic [ref=f12e149]: Para que serve o cabeçalho
+            - generic [ref=f12e150]: 1h
+          - button "Show 29 more sessions" [ref=f12e151] [cursor=pointer]
+    - button "Settings" [ref=f12e53] [cursor=pointer]
+  - generic [ref=f12e67]:
+    - generic [ref=f12e70]:
+      - generic [ref=f12e75]: Into the Unknown
+      - generic [ref=f12e76]: Preview
+    - button "Choose workspace" [ref=f12e78] [cursor=pointer]:
+      - generic [ref=f12e81]: DEEPSEEK
+    - generic [ref=f12e86]:
+      - textbox "Describe what you want to build" [ref=f12e155]
+      - generic [ref=f12e90]:
+        - generic [ref=f12e91]:
+          - button "Commands" [ref=f12e156] [cursor=pointer]
+          - 'button "Access mode, current: Workspace Write" [ref=f12e161] [cursor=pointer]':
+            - generic [ref=f12e169]: Workspace Write
+        - generic [ref=f12e92]:
+          - button "Select model, current GLM 5.3 Flash (Ultra)" [ref=f12e175] [cursor=pointer]:
+            - generic [ref=f12e176]: GLM 5.3 Flash (Ultra)
+          - button "Send message" [disabled] [ref=f12e179]
+  - generic [ref=f12e183]:
+    - generic [ref=f12e184]:
+      - generic: Details
+      - button "Close details" [ref=f12e185] [cursor=pointer]
+    - generic [ref=f12e188]: Click a tool row in the message flow to view its details
