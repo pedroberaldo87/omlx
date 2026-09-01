@@ -508,3 +508,53 @@ def test_sem_cabeca_o_cache_dela_e_vazio_e_nao_levanta():
     assert not hasattr(sem_cabeca, "mtp")
     assert sem_cabeca._omlx_mtp_decode_enabled is False
     assert sem_cabeca.make_mtp_cache() == []
+
+
+def test_a_cabeca_recebe_o_hidden_ANTES_da_norma_final():
+    """A cabeça consome o hidden PRÉ-norma, e o `hnorm` dela normaliza.
+
+    O tronco termina com `return self.norm(h)`, e o bloco da cabeça começa com
+    `eh_proj([enorm(embedding), hnorm(h)])`. Entregar o pós-norma faz o dado
+    passar por DUAS normalizações, cada uma com peso próprio e diferente — a
+    cabeça recebe uma escala que nunca viu no treino.
+
+    O efeito medido não é rascunho ruim, é rascunho SEMPRE recusado: a tela do
+    agente mostrou `draft share 0%` e `0 draft tok`, com a geração em 1,6 tokens
+    por segundo contra 18,8 sem a cabeça.
+
+    Como este teste prova que é o pré-norma: aplicar a norma final ao hidden
+    devolvido tem que reproduzir o que gera os logits. Se o hidden já viesse
+    normalizado, aplicar a norma de novo mudaria o valor.
+    """
+    import mlx.core as mx
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, args = _modelo_com_cabeca(glm_lang)
+    ids = mx.array([[3, 9, 17, 42]])
+
+    saida = modelo(ids, return_hidden=True)
+    h = saida.hidden_states[0]
+    mx.eval(h, saida.logits)
+
+    # o que o tronco faria com o pré-norma para chegar aos logits
+    pos = modelo.model.norm(h)
+    from mlx_vlm.models.glm5_next.language import linear_forward
+
+    esperado = (
+        modelo.model.embed_tokens.as_linear(pos)
+        if args.tie_word_embeddings
+        else linear_forward(modelo.lm_head, pos)
+    )
+    mx.eval(esperado)
+
+    assert bool(mx.allclose(esperado, saida.logits, atol=1e-2).item()), (
+        "aplicar a norma final ao hidden devolvido não reproduz os logits; "
+        "o hidden entregue à cabeça não é o pré-norma"
+    )
+
+    # e o pós-norma tem que ser DIFERENTE do que foi entregue — se fossem
+    # iguais, a norma não estaria fazendo nada e o teste não provaria nada
+    assert not bool(mx.allclose(h, pos, atol=1e-3).item()), (
+        "o hidden entregue é igual ao pós-norma; ou a norma é identidade "
+        "(e este teste não prova nada), ou ainda estamos entregando o errado"
+    )

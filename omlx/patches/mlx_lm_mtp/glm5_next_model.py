@@ -329,13 +329,17 @@ def _patch_model(glm: Any) -> None:
             # cada passo — medido: "MTP path activated" a cada 0,75s, e 2,2 tok/s
             # contra 16,8 sem a cabeça.
             _arma_desfazer(cache)
-        out = self.model(inputs, cache=cache)
         if return_hidden:
-            # ``out`` já é o hidden pós-norma final, que é exatamente o que a
-            # cabeça consome — o irmão precisa de um `return_raw_hidden` porque
-            # a estrutura dele é outra.
-            return self._lm_head(out), out
-        return self._lm_head(out)
+            # O tronco termina com `self.norm(h)`, e o bloco da cabeça começa
+            # com `hnorm`. Entregar o pós-norma faz o dado passar por DUAS
+            # normalizações, cada uma com peso próprio — a cabeça recebe uma
+            # escala que nunca viu no treino, e o rascunho é sempre recusado.
+            # Medido na tela do agente: draft share 0%, 0 draft tok.
+            from ..mlx_vlm_mtp.glm5_next_vlm_runtime import _tronco_ate_a_norma
+
+            h_pre = _tronco_ate_a_norma(self.model, inputs, cache, None)
+            return self._lm_head(self.model.norm(h_pre)), h_pre
+        return self._lm_head(self.model(inputs, cache=cache))
 
     __call__._omlx_mtp_call_marker = True
 

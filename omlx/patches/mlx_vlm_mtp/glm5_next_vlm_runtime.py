@@ -203,7 +203,13 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
 
         if inputs is None:
             inputs = kwargs.get("input_ids")
-        h = self.model(inputs, cache=cache, inputs_embeds=inputs_embeds)
+        # O tronco termina com `self.norm(h)`, e o bloco da cabeça começa com
+        # `hnorm`. Entregar o pós-norma faz o dado passar por DUAS
+        # normalizações, cada uma com peso próprio — a cabeça recebe uma escala
+        # que nunca viu no treino, e o rascunho dela é sempre recusado.
+        # Medido: draft share 0%, e 1,6 tokens por segundo contra 18,8 sem ela.
+        h_pre = _tronco_ate_a_norma(self.model, inputs, cache, inputs_embeds)
+        h = self.model.norm(h_pre)
         fonte = h
         nlk = kwargs.get("num_logits_to_keep", 0)
         if nlk:
@@ -212,7 +218,8 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
             logits = self.model.embed_tokens.as_linear(fonte)
         else:
             logits = linear_forward(self.lm_head, fonte)
-        return LanguageModelOutput(logits=logits, hidden_states=[h])
+        # o hidden que sai é o PRÉ-norma, que é o que a cabeça consome
+        return LanguageModelOutput(logits=logits, hidden_states=[h_pre])
 
     def mtp_forward(self, hidden_states, next_token_ids, mtp_cache,
                     return_hidden: bool = False, logits_keep: int = 0):
@@ -268,6 +275,42 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
     cls.mtp_forward = mtp_forward
     cls.make_mtp_cache = make_mtp_cache
     cls._omlx_mtp_runtime_patched = True
+
+
+def _tronco_ate_a_norma(modelo, inputs, cache, inputs_embeds):
+    """Roda o tronco e para ANTES da norma final, devolvendo o hidden cru.
+
+    É uma cópia do laço de ``Glm5NextModel.__call__`` sem a última linha. Não dá
+    para pedir isso ao tronco: ele devolve só o resultado já normalizado, e a
+    normalização não se desfaz.
+
+    Quem consome é a cabeça de previsão múltipla, cujo ``hnorm`` normaliza este
+    valor com o peso próprio dela.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.base import create_attention_mask
+    from mlx_vlm.models.glm5_next.language import create_ssm_mask
+
+    h = modelo.embed_tokens(inputs) if inputs_embeds is None else inputs_embeds
+    if cache is None:
+        cache = [None] * len(modelo.layers)
+
+    fa_cache = cache[modelo.fa_idx]
+    fa_mask = create_attention_mask(
+        h, fa_cache[0] if fa_cache else None, return_array=True
+    )
+    ssm_mask = create_ssm_mask(h, cache[modelo.ssm_idx])
+
+    h = mx.contiguous(
+        mx.broadcast_to(
+            h[:, :, None, :],
+            (h.shape[0], h.shape[1], modelo.hc_mult, h.shape[2]),
+        )
+    )
+    for camada, c in zip(modelo.layers, cache):
+        mask = ssm_mask if camada.is_linear else fa_mask
+        h = camada(h, mask=mask, cache=c)
+    return h.mean(axis=2)
 
 
 def _arma_desfazer(cache) -> None:
