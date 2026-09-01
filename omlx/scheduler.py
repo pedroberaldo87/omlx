@@ -5778,6 +5778,34 @@ class Scheduler:
             c if type(c).__name__ not in _KNOWN_SLICEABLE_CACHE_TYPES else None
             for c in prompt_cache
         ]
+        if os.environ.get("OMLX_DEBUG_BOUNDARY") == "1":
+            # F2.6: o que o retrato vê no instante da captura, por camada
+            # esparsa (KV offset e o pool do indexador). O bloco da posição
+            # 1024 saiu do disco com o pool de 128 linhas (= posição 512).
+            partes = []
+            for i, c in enumerate(prompt_cache):
+                subs = getattr(c, "caches", None)
+                if not subs:
+                    continue
+                kv = subs[0]
+                pool = subs[1] if len(subs) > 1 else None
+                pooled = getattr(pool, "pooled", None)
+                partes.append(
+                    "L%d kv=%s pool_len=%s pooled=%s rem=%s"
+                    % (
+                        i,
+                        getattr(kv, "offset", "?"),
+                        getattr(pool, "_pool_len", "?"),
+                        None if pooled is None else tuple(pooled.shape),
+                        getattr(pool, "remainder", "?"),
+                    )
+                )
+                if len(partes) >= 2:
+                    break
+            logger.info(
+                "[boundary-debug] captura tc=%d rid=%s %s",
+                total_tokens, request.request_id[:8], " | ".join(partes),
+            )
         self._on_prefill_boundary_snapshot(
             request.request_id,
             snapshot_cache,

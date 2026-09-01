@@ -7,6 +7,7 @@ with SSD persistence. oMLX only supports paged SSD-based caching.
 """
 
 import logging
+import os
 import math
 import threading
 import time
@@ -1215,6 +1216,23 @@ class BlockAwarePrefixCache(CacheManager):
                     externalize_arrays=split_gdn_layout,
                     live_state_at_true_end=live_state_at_true_end,
                 )
+                if os.environ.get("OMLX_DEBUG_BOUNDARY") == "1" and block_kv_data:
+                    # F2.6: o pool do indexador que vai para o disco em cada bloco
+                    try:
+                        desc = []
+                        for li, layer in enumerate(block_kv_data):
+                            st = layer.get("state") if isinstance(layer, dict) else None
+                            if isinstance(st, list) and len(st) >= 2 and isinstance(st[1], (list, tuple)) and len(st[1]) >= 3:
+                                pooled = st[1][2]
+                                desc.append("L%d pooled=%s" % (li, None if pooled is None else tuple(getattr(pooled, "shape", ()))))
+                                if len(desc) >= 2:
+                                    break
+                        logger.info(
+                            "[boundary-debug] bloco global [%d:%d] snapshot=%s %s",
+                            global_start, global_end, snapshot_cache_data is not None, " | ".join(desc),
+                        )
+                    except Exception as exc:  # noqa: BLE001 — diagnóstico
+                        logger.info("[boundary-debug] bloco [%d:%d]: %s", global_start, global_end, exc)
 
                 if block_kv_data and not self._block_token_count_matches_slices(
                     block_kv_data, block.token_count, layer_cache_types
