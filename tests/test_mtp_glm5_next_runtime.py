@@ -16,6 +16,7 @@ a construção, não os pesos.
 from __future__ import annotations
 
 import os
+import re
 
 import pytest
 
@@ -108,16 +109,101 @@ def test_as_listas_de_tipo_cobrem_a_camada_da_cabeca():
         )
 
 
-def test_a_camada_da_cabeca_espelha_a_ultima_comum():
-    """O config não declara o tipo dela; espelhar a última comum é a regra."""
+def test_a_camada_da_cabeca_usa_atencao_esparsa():
+    """A cabeça NÃO espelha a última camada comum — ela é sempre esparsa.
+
+    Espelhar a 44 (linear) era o palpite, e o checkpoint de referência o
+    derruba: a camada 45 de ``zai-org/GLM-5.3-Flash`` traz
+    ``self_attn.indexer.*``, ``kv_a_proj_with_mqa`` e ``q_a_proj`` — pesos que
+    só a esparsa tem — e nenhum ``conv1d``/``forget_gate`` da linear. O config
+    diz o mesmo por outro caminho: ``index_share_for_mtp_iteration`` liga o
+    indexer à iteração da cabeça, e indexer é peça exclusiva da esparsa.
+
+    Construir linear não levanta erro nenhum — só monta o bloco errado, e aí
+    nenhum peso da cabeça encontra destino no carregamento.
+    """
     glm, _ = _glm_com_remendo()
     args = glm.ModelArgs.from_dict(_config())
     n = args.num_hidden_layers
-    assert args.layer_types[n] == args.layer_types[n - 1], (
-        "a camada da cabeça consome o hidden que sai da última camada comum, "
-        "então assume o mesmo regime dela"
+    assert "linear" not in args.layer_types[n], (
+        f"a camada da cabeça saiu {args.layer_types[n]!r}; o checkpoint tem "
+        f"indexer e projeções q_a/kv_a nela, que só a atenção esparsa monta"
+    )
+    esparsas = [t for t in args.layer_types[:n] if "linear" not in t]
+    assert args.layer_types[n] == esparsas[-1], (
+        "o tipo tem que ser o mesmo nome que o tronco já usa para a esparsa, "
+        "não uma string inventada aqui"
     )
 
+
+_ORIGEM = os.path.expanduser("~/.omlx/models/zai-org/GLM-5.3-Flash")
+
+
+@pytest.mark.skipif(
+    not os.path.exists(os.path.join(_ORIGEM, "model.safetensors.index.json")),
+    reason="o checkpoint de origem não está em disco",
+)
+def test_o_bloco_construido_bate_com_os_pesos_do_checkpoint():
+    """A prova contra o dado real, com a régua calibrada pelo próprio modelo.
+
+    O que se exige não é casamento perfeito de nomes — nem a camada COMUM tem
+    isso: o modelo cria coeficientes de hiperconexão sob outro nome, gera
+    ``embed_q``/``unembed_out`` a partir do ``kv_b_proj`` do disco, e o
+    renomeador acerta tudo no carregamento.
+
+    O que se exige é que a camada da cabeça **não divirja mais que uma camada
+    comum do mesmo tipo**. Assim a régua acompanha o modelo em vez de virar
+    uma lista de exceções escrita à mão — e ela morde no que importa: com o
+    tipo errado a cabeça vinha com doze pesos da atenção linear que não
+    existem em camada nenhuma deste checkpoint.
+    """
+    import json
+    from mlx.utils import tree_flatten
+
+    from omlx.patches.mlx_lm_mtp.glm5_next_model import _vendored
+
+    glm, _ = _glm_com_remendo()
+    cfg = json.load(open(os.path.join(_ORIGEM, "config.json"), encoding="utf-8"))
+    texto = cfg.get("text_config", cfg)
+    params = dict(texto)
+    params["num_nextn_predict_layers"] = cfg.get(
+        "num_nextn_predict_layers", texto.get("num_nextn_predict_layers", 1)
+    )
+    args = _args_enxutos(glm, params)
+    n = int(texto["num_hidden_layers"])
+
+    idx = json.load(
+        open(os.path.join(_ORIGEM, "model.safetensors.index.json"), encoding="utf-8")
+    )
+
+    def no_disco(camada):
+        alvo = f".layers.{camada}."
+        nomes = {k.split(alvo, 1)[1] for k in idx["weight_map"] if alvo in k}
+        # o disco guarda um expert por vez; o MLX os empilha num tensor só
+        nomes = {re.sub(r"experts\.\d+\.", "switch_mlp.", k) for k in nomes}
+        # e guarda os fatores de escala da quantização de origem à parte
+        return {k for k in nomes if not k.endswith("_scale_inv")}
+
+    # a última camada COMUM do mesmo tipo é a régua
+    tipos = list(texto["layer_types"])
+    comum = max(i for i, t in enumerate(tipos) if "linear" not in t)
+    DecoderLayer, _lf = _vendored()
+    criados_comum = {k for k, _ in tree_flatten(DecoderLayer(args, comum).parameters())}
+    tolerado = criados_comum - no_disco(comum)
+
+    bloco = glm.Glm5NextMTPBlock(args, n)
+    criados = {k for k, _ in tree_flatten(bloco.parameters())}
+    # os nomes do bloco vêm prefixados por "block." fora do trio da cabeça
+    criados = {k[len("block.") :] if k.startswith("block.") else k for k in criados}
+    # a norma final tem nome próprio no disco
+    criados = {"shared_head.norm.weight" if k == "norm.weight" else k for k in criados}
+
+    orfaos = criados - no_disco(n) - tolerado
+    assert not orfaos, (
+        f"o bloco da cabeça cria {len(orfaos)} pesos que a camada {n} do "
+        f"checkpoint não tem e que uma camada comum ({comum}) também não cria: "
+        f"{sorted(orfaos)}"
+    )
 
 def test_o_bloco_da_cabeca_constroi_de_verdade():
     """O teste que importa: a camada extra vira objeto, sem IndexError."""

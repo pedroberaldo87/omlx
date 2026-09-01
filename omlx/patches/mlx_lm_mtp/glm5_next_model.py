@@ -107,12 +107,25 @@ def apply() -> bool:
 
 
 def _tipo_da_camada_da_cabeca(tipos: list) -> str:
-    """Que tipo a camada da cabeça assume.
+    """Que tipo a camada da cabeça assume: a atenção ESPARSA, sempre.
 
-    O config não declara. Espelhar a ÚLTIMA camada comum é o que mantém o bloco
-    construível e coerente com o que a cabeça recebe: ela consome o hidden que
-    sai justamente dessa camada. No GLM-5.3-Flash a 44 é ``linear_attention``.
+    ``layer_types`` para na última camada comum e não diz o tipo da cabeça, mas
+    o config diz por outro caminho: ``index_share_for_mtp_iteration`` liga o
+    indexer à iteração da cabeça, e indexer é peça exclusiva da esparsa. O
+    checkpoint de referência confirma — a camada 45 de ``zai-org/GLM-5.3-Flash``
+    traz ``self_attn.indexer.*``, ``kv_a_proj_with_mqa`` e ``q_a_proj``, e
+    nenhum ``conv1d``/``forget_gate``.
+
+    Espelhar a última camada comum era o palpite anterior, e ele erra: no
+    GLM-5.3-Flash a 44 é linear. Construir linear não levanta erro nenhum —
+    monta o bloco errado em silêncio, e aí nenhum peso da cabeça acha destino.
+
+    O nome do tipo sai da própria lista, não de uma constante escrita aqui:
+    se o tronco mudar de nomenclatura, a cabeça acompanha.
     """
+    esparsas = [t for t in tipos if "linear" not in t]
+    if esparsas:
+        return esparsas[-1]
     return tipos[-1] if tipos else "linear_attention"
 
 
