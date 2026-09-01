@@ -294,6 +294,17 @@ class Glm5NextLinearAttention(nn.Module):
         )
         if cache is not None:
             cache[1] = state
+            # A camada linear guarda DOIS estados que so fazem sentido juntos: o
+            # da convolucao (cache[0], escrito acima) e o recorrente (cache[1],
+            # agora). Sem amarra entre eles, uma avaliacao no meio do grafo pode
+            # congelar um novo com o outro velho — e o cache de prefixo faz
+            # exatamente isso, materializando o estado recorrente a cada
+            # fronteira de bloco durante o preparo (ver o comentario em
+            # scheduler.py sobre 'ArraysCache snapshots materialize recurrent GDN
+            # state at every block boundary'). A camada esparsa ja se protege
+            # assim, amarrando o KV ao acumulado de compressao; esta faltava.
+            if cache[0] is not None and isinstance(cache[0], mx.array):
+                cache[0] = mx.depends(cache[0], (state,))
             cache.advance(S)
 
         gate = linear_forward(self.g_b_proj, ga_o).reshape(

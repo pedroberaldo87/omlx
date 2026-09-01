@@ -152,3 +152,65 @@ def test_a_barreira_nao_esta_escondida_dentro_de_um_desvio():
         f"{intrusos}. Nesses caminhos o KV sai sem a amarra com o acumulado de "
         "compressao. Ela precisa rodar no corpo da funcao, logo depois do indexer."
     )
+
+
+# ---------------------------------------------------------------------------
+# A camada LINEAR tem o mesmo problema, no outro par de estados.
+# ---------------------------------------------------------------------------
+
+
+def _funcao_da_atencao_linear() -> ast.FunctionDef:
+    """O ``__call__`` de ``Glm5NextLinearAttention``."""
+    arvore = ast.parse(ALVO.read_text(encoding="utf-8"))
+    for no in ast.walk(arvore):
+        if isinstance(no, ast.ClassDef) and no.name == "Glm5NextLinearAttention":
+            for interno in no.body:
+                if isinstance(interno, ast.FunctionDef) and interno.name == "__call__":
+                    return interno
+    raise AssertionError("Glm5NextLinearAttention.__call__ não encontrada")
+
+
+def test_a_camada_linear_amarra_os_dois_estados_que_ela_guarda():
+    """Os dois estados da camada linear só fazem sentido juntos.
+
+    Ela guarda o da convolução em ``cache[0]`` e o recorrente em ``cache[1]``,
+    escritos em pontos diferentes da função. Sem amarra, uma avaliação no meio
+    do grafo pode congelar um novo com o outro velho — e o cache de prefixo faz
+    exatamente isso, materializando o estado recorrente a cada fronteira de
+    bloco durante o preparo.
+
+    A camada esparsa já se protegia; esta não. Foi o segundo caminho do defeito
+    que sobrou depois de o primeiro conserto levar a degeneração de 67% para 37%.
+    """
+    fn = _funcao_da_atencao_linear()
+
+    escreve_recorrente = [
+        no.lineno
+        for no in ast.walk(fn)
+        if isinstance(no, ast.Assign)
+        and any(
+            isinstance(a, ast.Subscript)
+            and isinstance(a.value, ast.Name)
+            and a.value.id == "cache"
+            for a in no.targets
+        )
+    ]
+    assert escreve_recorrente, "a camada linear deveria escrever no cache"
+
+    amarras = [
+        no.lineno
+        for no in ast.walk(fn)
+        if isinstance(no, ast.Call)
+        and isinstance(no.func, ast.Attribute)
+        and no.func.attr == "depends"
+    ]
+    assert amarras, (
+        "a camada linear escreve dois estados no cache e não amarra um ao outro. "
+        "Com o cache de prefixo ligado, a materialização de fronteira pode "
+        "capturar o estado da convolução novo com o recorrente velho. A camada "
+        "esparsa usa mx.depends para isso; esta precisa do mesmo."
+    )
+    assert max(amarras) > min(escreve_recorrente), (
+        "a amarra tem que vir DEPOIS de os dois estados estarem escritos, senão "
+        "ela ordena contra um valor que ainda vai mudar"
+    )
