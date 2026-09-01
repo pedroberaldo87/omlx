@@ -443,3 +443,15 @@ def test_std_tax_probe_measures_and_smooths():
     for _ in range(_STD_TAX_SAMPLES):
         _record_std_tax_sample(gb, 11.0)
     assert 1.0 < model._omlx_mtp_loop_tax < 1.2
+
+
+def test_marginal_est_ignora_o_passo_simples_na_inclinacao():
+    """t[0] é o passo simples, abaixo do salto L=1→2 (o próprio _t_est diz);
+    incluí-lo na inclinação superestima o custo por linha. Medido em 01/09 no
+    GLM-5.3: passo 48, d1 71, d2 93 → o marginal real é 22; com o 0 dentro da
+    conta sairia (93−30)/2 = 31,5 num aquecimento com t[0] baixo."""
+    c = _DepthController(3, marginal_ms=7.0)
+    c.t = {0: 30.0, 1: 71.0, 2: 93.0}
+    assert math.isclose(c._marginal_est(), 22.0, rel_tol=1e-9)
+    c.t = {0: 30.0, 1: 71.0}
+    assert c._marginal_est() == 7.0, "com uma só profundidade especulativa fica o prior"

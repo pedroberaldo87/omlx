@@ -309,17 +309,18 @@ def _patch_model(glm: Any) -> None:
             self._omlx_mtp_chain = True
             self._omlx_mtp_depth = get_mtp_depth()
             self._omlx_mtp_head_clone = False
-            # Custo de UM rascunho a mais, em milissegundos. É a estimativa que
-            # o controlador usa ANTES de ter medida própria; se ela vier alta
-            # demais, ele conclui que rascunhar não paga e devolve a sequência
-            # ao decodificador comum (`_park_mtp_to_standard`).
+            # Custo de UMA POSIÇÃO A MAIS na janela de verificação do TRONCO, em
+            # milissegundos — é assim que o controlador consome este valor
+            # (`_DepthController.MARGINAL_MS`: "one extra verify token's cost"),
+            # até ter medida própria da inclinação entre profundidades.
             #
-            # MEDIDO em 01/09, 20 corridas nos dois modelos de 2 bits: 0,7 a
-            # 2,5 ms por ciclo, contra 57 a 96 ms do tronco. O valor anterior
-            # (35 ms, copiado do irmão) fazia o controlador ver a cabeça como
-            # 20 a 50 vezes mais cara do que ela é, e estacionar cedo — o
-            # registro mostrava `d0=18`, dezoito ciclos sem nem tentar.
-            self._omlx_mtp_marginal_ms = 2.5
+            # MEDIDO em 01/09 no servidor: cada linha a mais no forward custa
+            # 19–23 ms (decode em lote B=1/2/4: 48,2 / 71,6 / 110,8 ms por passo;
+            # verify com barreira: +22 ms por posição). O valor anterior (2,5)
+            # era o custo da CABEÇA por rascunho — unidade errada, 8x baixo — e
+            # o de antes dele (35) o de outro modelo. Como o prior só governa o
+            # aquecimento, o efeito é nas corridas curtas.
+            self._omlx_mtp_marginal_ms = 21.0
 
     __init__._omlx_mtp_init_marker = True
 
