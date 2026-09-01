@@ -11,7 +11,7 @@ escrito neste repositório NÃO entra em vigor no servidor nem no painel web at�
 o aplicativo ser reconstruído.
 
 ```
-o repositório        /Users/pedroberaldo/omlx-qwen38-flash/omlx/
+o repositório        /Users/pedroberaldo/omlx-fork/omlx/
 a cópia que roda     ~/Applications/oMLX Fork.app/Contents/Resources/omlx/
 ```
 

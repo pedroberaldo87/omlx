@@ -12,7 +12,7 @@ quebrado porque o servidor lia a cópia antiga de dentro do aplicativo.
 
 | coisa | onde vive | quem usa |
 |---|---|---|
-| o código-fonte | `/Users/pedroberaldo/omlx-qwen38-flash/omlx/` | scripts que você roda à mão |
+| o código-fonte | `/Users/pedroberaldo/omlx-fork/omlx/` | scripts que você roda à mão |
 | o aplicativo | `~/Applications/oMLX Fork.app` | o ícone da barra, o servidor e o painel |
 | a cópia embutida | `oMLX Fork.app/Contents/Resources/omlx/` | é ELA que o servidor executa |
 
@@ -22,7 +22,7 @@ são o mesmo processo, servido pela cópia embutida.
 ## Construir
 
 ```bash
-cd /Users/pedroberaldo/omlx-qwen38-flash
+cd /Users/pedroberaldo/omlx-fork
 
 # 1. o build oficial. O app atual serve de doador do ambiente Python,
 #    o que dispensa remontar as camadas do zero (que leva muito mais tempo).
