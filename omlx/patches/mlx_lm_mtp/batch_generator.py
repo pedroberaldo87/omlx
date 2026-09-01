@@ -2229,7 +2229,10 @@ class _DepthController:
 # than the target: the 1-layer head's noisy tail otherwise gets sampled and
 # rejected, collapsing acceptance on high-entropy content. Exactness holds
 # because the Leviathan/Chen ratio uses this sampler's own distribution as q.
-_DRAFT_SAMPLER_TEMP = 0.6
+# A/B (F4.10): a regra de aceitação cobra a distância entre a distribuição do
+# rascunho e a do alvo (temperatura 1,0 no model card) — afiar demais tem um
+# teto de aceitação próprio. Ajustável pelo ambiente para medir sem rebuild.
+_DRAFT_SAMPLER_TEMP = float(os.environ.get("OMLX_MTP_DRAFT_TEMP", "0.6"))
 _DRAFT_SAMPLER_TOP_P = 0.95
 _DRAFT_SAMPLER_TOP_K = 20
 
