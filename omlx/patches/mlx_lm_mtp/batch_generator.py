@@ -1231,6 +1231,18 @@ def _prepare_mtp_state_for_next(gen_batch: Any) -> Optional[_MtpState]:
     _post_init_mtp(gen_batch)
     state = getattr(gen_batch, "_omlx_mtp_state", None)
     if not _mtp_state_valid_for_batch(gen_batch, state):
+        # Sem o motivo, "post-init-invalid" não diz nada: o ciclo reentra a
+        # cada passo, cai aqui, e o log registra 287 ativações sem uma única
+        # volta completa. Estas três coisas separam os casos possíveis.
+        uids = getattr(gen_batch, "uids", None)
+        logger.info(
+            "MTP post-init invalido: state=%s uids=%s state_uid=%s "
+            "next_tokens=%s",
+            "ausente" if state is None else "presente",
+            list(uids) if uids is not None else None,
+            getattr(state, "uid", None),
+            "None" if gen_batch._next_tokens is None else "ok",
+        )
         _drop_mtp_state(gen_batch, "post-init-invalid")
         return None
 

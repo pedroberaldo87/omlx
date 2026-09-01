@@ -406,17 +406,43 @@ def _patch_model(glm: Any) -> None:
     def mtp_partial_rollback(self, cache, accepted: int, num_drafts: int) -> bool:
         """Desfaz a janela de verificação até ``accepted`` rascunhos.
 
-        Devolve False quando algum cache não é aparável — o chamador então
-        descarta a janela inteira em vez de continuar com estado meio desfeito.
+        Duas famílias de camada convivem no tronco do GLM-5.3, e cada uma se
+        desfaz de um jeito:
+
+        - as ESPARSAS guardam KV, que se apara: `trim(n)` tira as n posições;
+        - as LINEARES guardam estado recorrente, que NÃO se apara — o estado
+          de agora não contém os anteriores. Elas voltam pelo par guardado
+          antes da verificação (`rollback_state`).
+
+        Exigir que TODAS fossem aparáveis fazia isto devolver False sempre, e o
+        ciclo encadeado morria antes de rascunhar: o registro do servidor
+        mostrava `cache layer rejects chain rollback` a cada passo, com
+        `cycles=0` e nenhum token vindo de rascunho.
         """
         n = num_drafts - accepted
         if n <= 0:
             return True
+
         alvos = [c for c in _achata(cache) if c is not None]
-        if not all(getattr(c, "is_trimmable", lambda: False)() for c in alvos):
-            return False
+
+        # Confere TODAS antes de mexer em qualquer uma: desfazer metade deixa
+        # as camadas com comprimentos diferentes, e aí o forward seguinte
+        # quebra na máscara, que é montada a partir da primeira.
+        plano = []
         for c in alvos:
-            if c.trim(n) != n:
+            if getattr(c, "rollback_state", None) is not None:
+                plano.append((c, "restaura"))
+            elif getattr(c, "is_trimmable", lambda: False)():
+                plano.append((c, "apara"))
+            else:
+                return False
+
+        for c, como in plano:
+            if como == "restaura":
+                anterior, recorrente = c.rollback_state
+                c[0], c[1] = anterior, recorrente
+                c.rollback_state = None
+            elif c.trim(n) != n:
                 logger.warning(
                     "GLM-5.3: desfazer parcial não aparou tudo em %s",
                     type(c).__name__,

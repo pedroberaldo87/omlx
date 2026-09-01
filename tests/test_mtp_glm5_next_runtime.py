@@ -490,3 +490,101 @@ def test_a_limpeza_do_modelo_completa_a_hiperconexao_da_cabeca():
         f"a limpeza não completou {len(faltando)} coeficientes de hiperconexão "
         f"da cabeça: {faltando}; a carga estrita morre neles"
     )
+
+
+def test_o_desfazer_encadeado_aceita_o_tronco_misto():
+    """O ciclo encadeado morria aqui, e com ele a previsão múltipla inteira.
+
+    Duas famílias de camada convivem no tronco: as ESPARSAS guardam KV, que se
+    apara; as LINEARES guardam estado recorrente, que NÃO se apara — o estado de
+    agora não contém os anteriores, então elas voltam pelo par guardado antes da
+    verificação.
+
+    Exigir que TODAS fossem apáraveis devolvia False sempre. O efeito era o
+    ciclo desistir ANTES de rascunhar: o registro do servidor mostrava
+    `cache layer rejects chain rollback` a cada passo, com `cycles=0`,
+    `accept=0/0` e a geração a 2,1 tokens por segundo contra 18,7 sem a cabeça.
+
+    Depois do conserto, no mesmo modelo: 33 ciclos, 51,4% de aceitação e
+    19,9 tokens por segundo.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache, CacheList, KVCache
+
+    glm, _ = _glm_com_remendo()
+    modelo, _args = _modelo_com_cabeca(glm)
+
+    # o tronco de verdade: três lineares para uma esparsa
+    tronco = modelo.make_cache()
+    lineares = [i for i, c in enumerate(tronco) if isinstance(c, ArraysCache)]
+    esparsas = [i for i, c in enumerate(tronco) if isinstance(c, CacheList)]
+    assert lineares and esparsas, "o tronco tem que ter as duas famílias"
+
+    # sem o par guardado, a linear não tem como voltar e o desfazer recusa
+    assert modelo.mtp_partial_rollback(tronco, 0, 2) is False, (
+        "sem o par guardado a recusa é o certo — é ela que impede desfazer "
+        "metade do tronco e deixar as camadas com comprimentos diferentes"
+    )
+
+    # com o par guardado, ele aceita e cada família volta do seu jeito
+    ids = mx.array([[3, 9, 17, 42]])
+    modelo(ids, cache=tronco, return_hidden=True)
+    marco = [(tronco[i][0], tronco[i][1]) for i in lineares]
+    modelo(mx.array([[8, 1]]), cache=tronco, return_hidden=True)
+
+    assert modelo.mtp_partial_rollback(tronco, 0, 1) is True, (
+        "com o par guardado o desfazer tem que aceitar; recusar aqui mata o "
+        "ciclo encadeado antes de ele rascunhar"
+    )
+
+    for k, i in enumerate(lineares):
+        for eixo, nome in ((0, "convolução"), (1, "recorrente")):
+            a, d = marco[k][eixo], tronco[i][eixo]
+            if a is None:
+                assert d is None
+                continue
+            assert bool(mx.array_equal(a, d).item()), (
+                f"camada {i}: o {nome} não voltou ao estado de antes"
+            )
+
+
+def test_o_desfazer_encadeado_confere_tudo_antes_de_mexer():
+    """Desfazer metade deixa as camadas com comprimentos diferentes.
+
+    A máscara de atenção é montada a partir da primeira camada, então um tronco
+    meio desfeito quebra no forward seguinte, longe da causa.
+    """
+
+    class _Apáravel:
+        """Uma camada que se apara, e anota se alguém a aparou."""
+
+        rollback_state = None
+        aparada = 0
+
+        def is_trimmable(self):
+            return True
+
+        def trim(self, n):
+            self.aparada += n
+            return n
+
+    class _Recusa:
+        """Uma camada que não se apara e não guarda o par."""
+
+        rollback_state = None
+
+        def is_trimmable(self):
+            return False
+
+    glm, _ = _glm_com_remendo()
+    modelo, _args = _modelo_com_cabeca(glm)
+
+    boa = _Apáravel()
+    assert modelo.mtp_partial_rollback([boa, _Recusa()], 0, 2) is False, (
+        "com uma camada recusando, o desfazer inteiro tem que recusar"
+    )
+    assert boa.aparada == 0, (
+        f"a camada apárável foi aparada {boa.aparada} vez(es) mesmo com outra "
+        f"recusando; o desfazer tem que conferir TODAS antes de tocar em "
+        f"qualquer uma, senão o tronco fica com comprimentos diferentes"
+    )
