@@ -13,8 +13,24 @@ from pathlib import Path
 import mlx.core as mx
 
 
-def test_runtime_uses_exact_mlx_0322():
-    assert mx.__version__ == "0.32.2"
+def test_runtime_usa_exatamente_a_versao_do_pin():
+    """O MLX instalado tem que ser o mesmo que o pyproject declara.
+
+    O upstream subiu para 0.32.2; este fork segurou o pin em 0.32.0 porque os
+    nucleos Metal foram compilados contra essa versao e nao existe release com
+    instalador da nova de onde tira-los. Travar a IGUALDADE em vez do numero faz
+    o teste valer nos dois estados: ele passa hoje, e continua passando no dia em
+    que o pin subir junto com os nucleos.
+    """
+    import re
+
+    texto = Path(__file__).resolve().parents[1].joinpath("pyproject.toml").read_text()
+    fixados = set(re.findall(r'"mlx==([0-9.]+)"', texto))
+    assert len(fixados) == 1, f"o pyproject fixa mais de uma versao de mlx: {fixados}"
+    assert mx.__version__ == fixados.pop(), (
+        f"instalado {mx.__version__}, mas o pyproject fixa outra — os nucleos "
+        "Metal sao acoplados por ABI a versao exata"
+    )
 
 
 def test_mlx_vlm_backport_matches_every_pinned_source():

@@ -37,8 +37,12 @@ except ImportError:
 
 ORIGEM = os.path.expanduser("~/.omlx/models/zai-org/GLM-5.3-Flash")
 
+# A pasta pode existir vazia depois de o checkpoint ser apagado — o que decide
+# e o indice de pesos, nao o diretorio.
 pytestmark = pytest.mark.skipif(
-    not HAS_MLX or not os.path.isdir(ORIGEM),
+    not HAS_MLX or not os.path.isfile(
+        os.path.join(ORIGEM, "model.safetensors.index.json")
+    ),
     reason="precisa do checkpoint de origem do GLM-5.3-Flash em disco",
 )
 
