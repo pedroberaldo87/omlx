@@ -76,16 +76,16 @@ def test_a_origem_declara_e_carrega_a_cabeca():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="defeito aberto: nao existe limpeza de nomes propria para "
-    "glm5_next, entao a de estoque do mlx-vlm corta a camada extra. "
-    "Quando alguem escrever essa limpeza, este teste passa e o aviso "
-    "de XPASS cobra a remocao desta marca.",
-)
 @precisa_do_checkpoint
 def test_a_limpeza_de_nomes_nao_pode_descartar_a_cabeca():
-    """O elo que quebra: com a opção LIGADA, a camada extra é descartada."""
+    """Com a opcao LIGADA, a camada extra atravessa a limpeza de nomes.
+
+    Este teste nasceu VERMELHO, marcado como falha esperada estrita, travando
+    o defeito: a limpeza de visao descartava a cabeca. Consertado em f98c67fb
+    (familias so-texto sao roteadas para a limpeza de texto quando a
+    preservacao esta ligada), e o proprio aviso de XPASS cobrou a remocao da
+    marca — que era exatamente para isso que ela existia.
+    """
     from omlx.oq import _build_model_sanitizer
 
     cfg = _config()
