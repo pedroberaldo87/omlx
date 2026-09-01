@@ -2807,6 +2807,22 @@ class Scheduler:
             int(self.config.prefill_step_size or 0),
             self._qwen35_prefill_floor,
         )
+        # A/B (F2.4): bloco menor guarda mais da cauda do prompt num laço de
+        # agente (com 2048, cada turno reprocessa até 2047 tokens), ao custo de
+        # mais retratos do estado recorrente. O passo de prefill acompanha o
+        # bloco, para as fronteiras continuarem iguais com cache ligado ou não.
+        alvo_env = os.environ.get("OMLX_ARRAYS_CACHE_BLOCK")
+        if alvo_env:
+            target = int(alvo_env)
+            self.config.prefill_step_size = target
+            logger.info(
+                "OMLX_ARRAYS_CACHE_BLOCK=%s: paged cache block_size and "
+                "prefill_step_size set to %s for the hybrid model",
+                alvo_env,
+                target,
+            )
+            self.config.paged_cache_block_size = target
+            return
         if self.config.paged_cache_block_size >= target:
             return
 
