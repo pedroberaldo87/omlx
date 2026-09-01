@@ -44,6 +44,11 @@ class PrefillTransientTracker:
     # above the largest observed legitimate fluctuation and below the
     # observed outlier.
     _EWMA_OUTLIER_RATIO = 8.0
+    # Above this per-token rate a chunk delta is not a per-token cost at all
+    # (the 128K-context SDPA row of a 64-head model is ~16MB/token; measured
+    # real transients are 2–6MB/token). Such readings are buffer-pool growth
+    # divided by a small chunk and must not steer the throttle.
+    _PER_TOKEN_SANITY_BYTES = 32 * 1024**2
 
     def __init__(self, model_id: str = "") -> None:
         self._model_id = model_id
@@ -109,7 +114,10 @@ class PrefillTransientTracker:
         constant's docstring) — it still counts toward ``samples`` and
         still updates ``last_delta_bytes``/``last_n_tokens`` raw, so a
         genuine regime change remains visible via those fields even while
-        the accumulated EWMA is protected from a single noisy reading.
+        the accumulated EWMA is protected from a single noisy reading. A
+        sample above ``_PER_TOKEN_SANITY_BYTES`` per token is dropped from
+        both: no model costs that per token, so it is pool noise over a
+        small chunk.
         """
         if n_tokens <= 0:
             return
@@ -135,6 +143,29 @@ class PrefillTransientTracker:
                 )
 
         per_token = transient_bytes / n_tokens
+        if per_token > self._PER_TOKEN_SANITY_BYTES:
+            # Physically impossible as a per-token cost (KV + SDPA transient
+            # of any served model stays far below this): it is buffer-pool
+            # growth or load residue divided by a small chunk. It must not
+            # seed the EWMA, blend into it, nor land in
+            # last_delta_bytes/last_n_tokens — the predictor
+            # (_predicted_chunk_transient) reads that pair as a rate and takes
+            # the MAX with the EWMA. Measured on GLM-5.3 oQ2e (01/09): the
+            # 14-token warm-up after load left 2.2GB of residue, seeded the
+            # EWMA at 157025KB/token (the 4GB seed clamp is on TOTAL bytes,
+            # so it passed), and the 29K-token prompt ran at the 32-token
+            # floor for 186s — real cost is 2.1–5.7MB/token.
+            logger.debug(
+                "PrefillTransientTracker(%s): dropped %.1f-byte/token sample "
+                "above the per-token sanity bound (%d)",
+                self._model_id,
+                per_token,
+                self._PER_TOKEN_SANITY_BYTES,
+            )
+            # Not counted as a sample: the next sane reading has to SEED the
+            # EWMA (an EWMA of 0 would reject every later sample as an
+            # outlier against 0 × ratio).
+            return
         if self._samples == 0:
             # The seeding sample carries the same load-residue noise the
             # running max is already protected from, and until now it entered
@@ -165,8 +196,9 @@ class PrefillTransientTracker:
             # the running rate is more likely a noisy phys_footprint()
             # delta (see _record_chunk_transient's docstring on
             # buffer-pool-driven noise) than a real per-token cost jump.
-            # last_delta_bytes/last_n_tokens below still record it raw for
-            # diagnostics — only the accumulated EWMA is protected.
+            # last_delta_bytes/last_n_tokens below still record it raw: a
+            # same-size spike within the sanity bound protects the next
+            # full step (test_record_chunk_transient_keeps_full_speed_spike).
             logger.debug(
                 "PrefillTransientTracker(%s): rejected %.1f-byte/token "
                 "outlier from EWMA (current %.1f, ratio limit %.1fx)",
