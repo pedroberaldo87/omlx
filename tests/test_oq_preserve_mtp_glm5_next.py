@@ -270,7 +270,12 @@ def test_com_a_opcao_ligada_a_cabeca_atravessa_a_limpeza():
     assert limpeza is not None, "sem limpeza de nomes nao ha o que testar"
 
     saida = limpeza(_amostra_com_a_cabeca(n))
-    sobrou = [k for k in saida if f"layers.{n}." in k]
+    # A cabeca pode atravessar com o nome de origem (``layers.<n>.*``) ou ja
+    # renomeada para ``mtp.<i>.*`` — as duas contam, porque as duas sao formas
+    # que o detector de pesos reconhece (_MTP_WEIGHT_PREFIXES inclui "mtp.").
+    # Quem renomeia e o runtime de previsao multipla, quando ele esta aplicado
+    # no processo; sem ele os nomes de origem seguem intactos.
+    sobrou = [k for k in saida if f"layers.{n}." in k or k.startswith("mtp.")]
     assert len(sobrou) == 3, (
         f"com preserve_mtp ligado a cabeca tem que atravessar inteira; sobraram "
         f"{len(sobrou)} de 3: {sorted(sobrou)}. Sem isso a quantizacao grava um "
@@ -290,7 +295,7 @@ def test_sem_a_opcao_o_caminho_de_antes_nao_muda():
     limpeza = _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=False)
     assert limpeza is not None
     saida = limpeza(_amostra_com_a_cabeca(n))
-    assert not [k for k in saida if f"layers.{n}." in k], (
+    assert not [k for k in saida if f"layers.{n}." in k or k.startswith("mtp.")], (
         "sem a opcao, o roteamento tem que continuar o de antes (a limpeza de "
         "visao, que descarta a cabeca) — senao o conserto deixou de ser cirurgico"
     )

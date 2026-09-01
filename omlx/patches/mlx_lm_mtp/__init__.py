@@ -211,6 +211,7 @@ def apply_mlx_lm_mtp_patch() -> bool:
         cache_rollback,
         deepseek_v4_model,
         gemma4_text_model,
+        glm5_next_model,
         glm_moe_dsa_model,
         nemotron_h_chain,
         nemotron_h_model,
@@ -230,6 +231,8 @@ def apply_mlx_lm_mtp_patch() -> bool:
         logger.debug("DeepSeek-V4 MTP patch did not apply (likely missing base patch)")
     if not glm_moe_dsa_model.apply():
         logger.debug("GLM-5.2 MTP patch did not apply (likely missing base patch)")
+    if not glm5_next_model.apply():
+        logger.debug("GLM-5.3 MTP patch did not apply (likely missing base patch)")
     if not step3p7_model.apply():
         logger.debug("Step-3.7 MTP patch did not apply (likely missing base patch)")
     if not nemotron_h_model.apply():
