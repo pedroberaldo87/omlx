@@ -4546,8 +4546,33 @@ def _get_predicate_bits(
 _MTP_MIN_BITS = 4
 
 
+_AVISOU_PISO_MTP = False
+
+
+def _reinicia_aviso_do_piso_mtp() -> None:
+    """Rearma o aviso do piso. Existe para os testes e para uma nova conversão."""
+    global _AVISOU_PISO_MTP
+    _AVISOU_PISO_MTP = False
+
+
 def _mtp_bits_override(bits: int) -> int:
     if bits and bits < _MTP_MIN_BITS:
+        global _AVISOU_PISO_MTP
+        if not _AVISOU_PISO_MTP:
+            _AVISOU_PISO_MTP = True
+            # Uma vez por conversão, não por tensor: a cabeça tem centenas
+            # deles e a decisão é uma só.
+            logger.info(
+                "preserve_mtp: a cabeca fica em %d bits enquanto o tronco vai a "
+                "%d — ela desenha os rascunhos e todo token emitido e verificado "
+                "pelo tronco, entao mais bits ali compram aceitacao barato. O "
+                "preco e memoria: no GLM-5.3-Flash-oQ2e foram 1,9 GB a mais, e "
+                "isso levou o modelo a 101,9 GB contra um teto de aborto de "
+                "102,1 — o guarda passou a recusar prompt de 24 tokens. Se a "
+                "maquina estiver apertada, e aqui que sobra espaco.",
+                _MTP_MIN_BITS,
+                bits,
+            )
         return _MTP_MIN_BITS
     return bits
 

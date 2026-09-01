@@ -321,6 +321,14 @@ def _patch_model(glm: Any) -> None:
         # ``n_confirmed`` só importa a modelos com estado recorrente de módulo
         # que o cache não cobre; aqui o estado todo vive em cache aparável, então
         # é aceito e ignorado — mesma postura do irmão.
+        if return_hidden:
+            # A verificação precisa poder DESFAZER um rascunho recusado. As 34
+            # camadas lineares do tronco não são apáraveis (``is_trimmable`` é
+            # False) e nada escreve ``rollback_state`` nelas neste caminho, de
+            # modo que o desfazer recusava e o ciclo era derrubado e reativado a
+            # cada passo — medido: "MTP path activated" a cada 0,75s, e 2,2 tok/s
+            # contra 16,8 sem a cabeça.
+            _arma_desfazer(cache)
         out = self.model(inputs, cache=cache)
         if return_hidden:
             # ``out`` já é o hidden pós-norma final, que é exatamente o que a
@@ -506,6 +514,37 @@ def _completa_hiperconexao_da_cabeca(modelo: Any, weights: Dict[str, Any]) -> Di
             if chave not in weights:
                 weights[chave] = valor
     return weights
+
+
+def _arma_desfazer(cache) -> None:
+    """Guarda o estado recorrente antes da verificação, para poder voltar.
+
+    Quem desfaz é ``_restore_or_trim_caches`` (em ``batch_generator.py``):
+    restaura ``rollback_state`` nas camadas que o têm e apara as demais. As
+    lineares do GLM-5.3 não oferecem nem um nem outro.
+
+    O critério de quais armar é o que o desfazer SABE FAZER, não o tipo da
+    camada: quem já é apárável ele trata sozinho. E o par é SEMPRE sobrescrito,
+    porque quando o rascunho é aceito ninguém consome o anterior.
+
+    Custa quase nada: os arrays do MLX são imutáveis e a camada os SUBSTITUI, de
+    modo que guardar a referência anterior não copia dado nenhum.
+    """
+    if not cache:
+        return
+    for c in cache:
+        if c is None:
+            continue
+        if hasattr(c, "is_trimmable") and c.is_trimmable():
+            continue
+        try:
+            anterior, recorrente = c[0], c[1]
+        except (TypeError, IndexError, KeyError):
+            continue
+        try:
+            c.rollback_state = (anterior, recorrente)
+        except AttributeError:
+            continue
 
 
 def _cache_para(camada: Any) -> Any:

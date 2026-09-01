@@ -422,3 +422,89 @@ def test_a_limpeza_levanta_a_contagem_para_a_camada_da_cabeca_nao_ser_descartada
         f"a contagem ficou em {modelo.args.num_hidden_layers} em vez de voltar "
         f"para {n}"
     )
+
+
+def test_o_tronco_aceita_os_dois_jeitos_de_receber_os_tokens():
+    """O motor chama ora por posição, ora por ``input_ids`` no dicionário.
+
+    O ``__call__`` de fábrica trata os dois; o nosso, que o envolve para o
+    ciclo de rascunho, tem que tratar igual — senão a verificação quebra
+    exatamente na chamada que o motor faz.
+    """
+    import mlx.core as mx
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, args = _modelo_com_cabeca(glm_lang)
+    ids = mx.array([[3, 9, 17, 42]])
+
+    por_posicao = modelo(ids, return_hidden=True)
+    por_nome = modelo(None, return_hidden=True, input_ids=ids)
+    mx.eval(por_posicao.logits, por_nome.logits)
+
+    assert por_nome.logits.shape == por_posicao.logits.shape
+    assert por_nome.hidden_states, "o hidden sumiu quando os tokens vêm por nome"
+
+
+def test_o_tronco_encolhe_a_projecao_quando_o_motor_pede():
+    """``num_logits_to_keep`` existe para pular a projeção de vocabulário.
+
+    Ela é o passo caro, e nas posições descartadas do preenchimento o resultado
+    não é usado. O ``__call__`` de fábrica corta antes de projetar; o nosso
+    tinha que manter isso, ou o preenchimento paga a projeção inteira.
+    """
+    import mlx.core as mx
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, args = _modelo_com_cabeca(glm_lang)
+    ids = mx.array([[3, 9, 17, 42, 8, 1]])
+
+    saida = modelo(ids, return_hidden=True, num_logits_to_keep=2)
+    mx.eval(saida.logits)
+    assert saida.logits.shape == (1, 2, args.vocab_size), (
+        f"com num_logits_to_keep=2 deveriam sair 2 posições, saíram "
+        f"{saida.logits.shape[1]}"
+    )
+    # o hidden NÃO é cortado: a cabeça consome todas as posições
+    assert saida.hidden_states[0].shape == (1, 6, args.hidden_size), (
+        "o hidden foi cortado junto; a cabeça precisa dele inteiro"
+    )
+
+
+def test_a_cabeca_roda_sem_cache_nenhum():
+    """Uma primeira volta pode chegar sem cache; não pode explodir."""
+    import mlx.core as mx
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, args = _modelo_com_cabeca(glm_lang)
+    ids = mx.array([[3, 9, 17, 42]])
+    saida = modelo(ids, return_hidden=True)
+
+    logits = modelo.mtp_forward(saida.hidden_states[0], ids, None)
+    mx.eval(logits)
+    assert logits.shape == (1, 4, args.vocab_size)
+    assert bool(mx.all(mx.isfinite(logits)).item())
+
+
+def test_sem_cabeca_o_cache_dela_e_vazio_e_nao_levanta():
+    """Modelo carregado sem previsão múltipla ainda responde ao motor.
+
+    O motor chama ``make_mtp_cache`` antes de saber se o ciclo vale; devolver
+    lista vazia é o contrato, levantar seria derrubar a requisição.
+    """
+    from omlx.patches import mlx_lm_mtp, mlx_vlm_mtp
+
+    glm_lang, _ = _glm_com_runtime()
+    args = _args_enxutos(glm_lang)
+    antes_ativo = mlx_lm_mtp.is_mtp_active()
+    antes_anexa = mlx_vlm_mtp.is_mtp_attach_enabled()
+    mlx_lm_mtp.set_mtp_active(False)
+    mlx_vlm_mtp.set_mtp_attach_enabled(False)
+    try:
+        sem_cabeca = glm_lang.LanguageModel(args)
+    finally:
+        mlx_lm_mtp.set_mtp_active(antes_ativo)
+        mlx_vlm_mtp.set_mtp_attach_enabled(antes_anexa)
+
+    assert not hasattr(sem_cabeca, "mtp")
+    assert sem_cabeca._omlx_mtp_decode_enabled is False
+    assert sem_cabeca.make_mtp_cache() == []
