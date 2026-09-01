@@ -147,11 +147,28 @@ class Model(nn.Module):
         """
         renomeados = {}
         for chave, valor in weights.items():
-            if chave.startswith("vision_model."):
+            if chave.startswith(("vision_model.", "visual.", "model.visual.",
+                                 "model.vision_model.")):
                 continue
-            if chave.startswith("language_model."):
+            # Os dois arranjos que os checkpoints desta família usam. O REAP37
+            # pendura a torre de texto na raiz; o publicado pela zai-org e o do
+            # Vontra a penduram sob `model.`, e medir só o primeiro deixava
+            # NENHUM dos 221 nomes de camada casar com os do modelo.
+            if chave.startswith("model.language_model."):
+                chave = "model." + chave[len("model.language_model."):]
+            elif chave.startswith("language_model."):
                 chave = chave[len("language_model."):]
             renomeados[chave] = valor
+
+        # ATENÇÃO, medido em 01/09: só o prefixo não basta para o checkpoint
+        # PUBLICADO. Ele chega com os nomes crus — `hc_attn_base` em vez de
+        # `attn_hc.base`, três convoluções separadas em vez de uma, o portão de
+        # esquecimento solto — e quem sabe desfazer isso é o `sanitize` do
+        # modelo vendorado, que esta classe não segura (ver __init__) e que o
+        # mlx-lm não chama, porque ele chama `sanitize` uma vez só. Delegar a
+        # ele é o caminho, mas muda a carga de TODO glm5_next e faz a
+        # dequantização de origem passar a rodar sempre; só entra com o modelo
+        # de pé para provar que não quebrou quem já carregava.
         return renomeados
 
 

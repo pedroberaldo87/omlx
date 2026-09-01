@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import types
 
 import pytest
 
@@ -384,3 +385,55 @@ def test_a_cabeca_enxerga_o_historico_ao_rascunhar_varias_posicoes():
         f"o cache da cabeça ficou em {cache[0][0].offset}; 8 do preenchimento "
         f"mais 4 do rascunho são 12"
     )
+
+
+@pytest.mark.skipif(
+    not os.path.exists(os.path.join(_ORIGEM, "model.safetensors.index.json")),
+    reason="o checkpoint de origem não está em disco",
+)
+def test_o_prefixo_do_checkpoint_publicado_e_normalizado():
+    """Os checkpoints desta família usam DOIS arranjos de prefixo.
+
+    O REAP37, em que a limpeza foi medida, pendura a torre de texto na raiz
+    (``language_model.*``). O publicado pela zai-org e o do Vontra a penduram
+    sob ``model.`` (``model.language_model.*``), e nesse arranjo NENHUM dos
+    nomes de camada casava com os do modelo — 221 esperados, 0 recebidos.
+
+    A torre de visão tem que sair junto: ela vem sob ``model.visual.*`` neste
+    arranjo, e não sob ``vision_model.*``.
+    """
+    import json
+
+    from omlx.patches.mlx_lm_glm5_next import Model
+
+    idx = json.load(
+        open(os.path.join(_ORIGEM, "model.safetensors.index.json"), encoding="utf-8")
+    )
+    chaves = list(idx["weight_map"])
+    assert any(k.startswith("model.language_model.") for k in chaves), (
+        "o checkpoint de origem mudou de arranjo; este teste precisa ser revisto"
+    )
+    visao = [k for k in chaves if k.startswith("model.visual.")]
+    assert visao, "o checkpoint de origem deveria trazer a torre de visão"
+
+    # Um objeto mínimo, não `None`: quando o remendo de previsão múltipla já
+    # foi aplicado por outro teste, `sanitize` é o invólucro dele, que lê
+    # `self.mtp` e `self.args` antes de delegar. Sem cabeça, ele delega direto
+    # para o de baixo, que é o que este teste mede.
+    class _Cru:
+        args = types.SimpleNamespace(num_hidden_layers=45)
+
+    entrada = {k: None for k in chaves}
+    saida = Model.sanitize(_Cru(), entrada)
+
+    assert not [k for k in saida if "language_model" in k], (
+        "sobrou chave com o prefixo de linguagem; ela não casa com o modelo"
+    )
+    assert not [k for k in saida if k.startswith(("model.visual.", "visual."))], (
+        "a torre de visão atravessou a limpeza"
+    )
+    assert len(saida) == len(chaves) - len(visao), (
+        f"entraram {len(chaves)}, saíram {len(saida)}; deveriam sair "
+        f"{len(chaves) - len(visao)} (todas menos as {len(visao)} da visão)"
+    )
+    assert "model.layers.0.hc_attn_base" in saida
