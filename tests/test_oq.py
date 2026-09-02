@@ -7059,6 +7059,55 @@ class TestGlm5NextLayerWalk:
             collector.restore(model)
         assert linear_attention.fuse_in
 
+    def test_a_captura_do_embed_q_acha_o_modulo_no_caminho_por_camada(self):
+        """O coletor por camada instala em cada bloco com um prefixo; o
+        wrapper passa o nome COM prefixo e a busca era pelo relativo, então
+        devolvia None calada. Prova de 31/08: 666 módulos instalados, 644
+        entradas — as 11 de embed_q entre as 22 que faltavam."""
+        from omlx.patches import mlx_vlm_glm5_next_compat
+        from omlx.oq import _STREAM_TEXT_LAYER_PREFIX
+        from tests.test_mlx_vlm_glm5_next_compat import _tiny_config
+
+        mlx_vlm_glm5_next_compat.apply_mlx_vlm_glm5_next_compat_patch()
+        from mlx_vlm.models.glm5_next import Model
+
+        config = _tiny_config()
+        config.text_config.n_routed_experts = 4
+        config.text_config.n_shared_experts = 1
+        config.text_config.first_k_dense_replace = 1
+        config.text_config.mlp_layer_types = ["dense", "sparse"]
+        config.text_config.index_topk = 2048
+        # No modelo real kv_lora_rank (512) != qk_nope_head_dim (256): a
+        # chamada curta do embed_q chega com a largura do kv_lora_rank, o
+        # wrapper genérico a descarta, e só a captura via q_b_proj serve. Com
+        # os dois iguais (o brinquedo padrão) o wrapper genérico captura por
+        # coincidência e o teste não discrimina.
+        config.text_config.kv_lora_rank = 16
+        model = Model(config)
+        # Mais de 8 posições: abaixo disso a atenção absorve as projeções e
+        # chama o embed_q pelo caminho que o wrapper genérico já captura; a
+        # calibração real (512 posições) passa pelo caminho que não captura.
+        tokens = mx.arange(1, 13, dtype=mx.int32)[None]
+        layers = model.language_model.model.layers
+        inputs = model.language_model.model.embed_tokens(tokens)
+        inputs, masks, state = _prepare_layer_inputs(model, layers, tokens, inputs)
+
+        collector = OQImatrixCollector()
+        for layer_idx, layer in enumerate(layers):
+            assert collector.install(layer, name_prefix=f"{_STREAM_TEXT_LAYER_PREFIX}{layer_idx}.") > 0
+            try:
+                inputs, _ = _forward_layer_result(
+                    layer, inputs, masks[layer_idx], state, layer_idx=layer_idx
+                )
+                mx.eval(inputs)
+            finally:
+                collector.restore(layer)
+
+        embed_q = "language_model.model.layers.1.self_attn.embed_q"
+        assert embed_q in collector.entries, sorted(collector.entries)
+        assert collector.entries[embed_q].counts.shape == (2,)
+        assert int(collector.entries[embed_q].counts.sum()) > 0
+
 
 @pytest.mark.skipif(not HAS_MLX, reason="MLX not available")
 class TestInklingLayerWalk:

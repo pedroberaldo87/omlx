@@ -7853,6 +7853,10 @@ class OQImatrixCollector:
     def __init__(self):
         self.entries: dict[str, OQImatrixEntry] = {}
         self._original_modules: dict[str, Any] = {}
+        # Os mesmos modulos pelo nome COMPLETO (prefixo + caminho relativo),
+        # o nome que os wrappers e as entradas usam. ``_original_modules`` fica
+        # pelo caminho relativo porque ``restore`` devolve os modulos por ele.
+        self._modules_by_entry_name: dict[str, Any] = {}
         self._saved_attributes: list[tuple[Any, str, Any]] = []
         self.capture_module_classes: dict[str, int] = {}
         self.switch_capture_modules = 0
@@ -7922,6 +7926,7 @@ class OQImatrixCollector:
             if cls in _OQE_SWITCH_LINEAR_CLASSES:
                 self.switch_capture_modules += 1
             self._original_modules[name] = module
+            self._modules_by_entry_name[f"{name_prefix}{name}"] = module
             replacements.append(
                 (name, _ImatrixCaptureWrapper(module, f"{name_prefix}{name}", self))
             )
@@ -7936,6 +7941,7 @@ class OQImatrixCollector:
                 strict=False,
             )
             self._original_modules.clear()
+        self._modules_by_entry_name.clear()
         for module, attribute, value in self._saved_attributes:
             setattr(module, attribute, value)
         self._saved_attributes.clear()
@@ -8008,7 +8014,10 @@ class OQImatrixCollector:
         forcing calibration past the production indexer's short-prefix bypass.
         """
         embed_name = q_b_name[: -len("q_b_proj")] + "embed_q"
-        module = self._original_modules.get(embed_name)
+        # ``q_b_name`` vem do wrapper, com prefixo; no streaming os modulos
+        # estao guardados pelo caminho relativo e a busca por prefixo devolvia
+        # None em silencio — nenhuma das 11 entradas de embed_q saiu em 31/08.
+        module = self._modules_by_entry_name.get(embed_name)
         if module is None or type(module).__name__ not in _OQE_MULTI_LINEAR_CLASSES:
             return
         try:
