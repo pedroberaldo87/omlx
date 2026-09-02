@@ -4514,6 +4514,44 @@ class TestQuantizeOqStreamingPassthroughDtypes:
         assert tensors["model.layers.0.input_layernorm.weight"].dtype == mx.float16
         assert tensors["model.layers.0.self_attn.q_proj.weight"].dtype == mx.uint32
 
+    def test_o_resumo_da_conferencia_fica_ao_lado_do_modelo(self, tmp_path):
+        """Depois de um quant de brinquedo existe oq_verify_report.json com as
+        contagens por família e o veredito de cada checagem."""
+        from safetensors.numpy import save_file as np_save
+
+        src = tmp_path / "src"
+        src.mkdir()
+        hidden = 64
+        np_save(
+            {
+                "model.layers.0.self_attn.q_proj.weight": np.ones((hidden, hidden), dtype=np.float32),
+                "model.layers.0.input_layernorm.weight": np.ones(hidden, dtype=np.float32),
+                "model.layers.1.self_attn.q_proj.weight": np.ones((hidden, hidden), dtype=np.float32),
+                "model.layers.1.input_layernorm.weight": np.ones(hidden, dtype=np.float32),
+            },
+            str(src / "model.safetensors"),
+        )
+        (src / "config.json").write_text(json.dumps({
+            "architectures": ["TestModelForCausalLM"], "model_type": "test_resumo",
+            "num_hidden_layers": 2, "hidden_size": hidden, "vocab_size": 256,
+        }))
+        (src / "oq_sensitivity_map.json").write_text(json.dumps({"0": 0.1, "1": 0.1}))
+        out = tmp_path / "out"
+        quantize_oq_streaming(str(src), str(out), oq_level=4, dtype="float16")
+
+        rel = json.loads((out / "oq_verify_report.json").read_text())
+        assert rel["passed"] is True
+        assert rel["config_vs_weights"] == {
+            "vision_config": False, "vision_tensors": 0, "mtp_declared": False, "mtp_tensors": 0,
+        }
+        assert rel["families"]["expected_tensors"] == 4
+        assert rel["families"]["written_tensors"] == 4
+        assert rel["families"]["families"] == 2
+        assert rel["families"]["family_mismatches"] == {}
+        assert rel["precision_and_values"]["non_finite"] == []
+        assert rel["precision_and_values"]["downcast_sensitive"] == []
+        assert rel["precision_and_values"]["checked_float_tensors"] >= 2
+
 
 # =============================================================================
 # End-to-end: quantize_oq_streaming with FP8 sources

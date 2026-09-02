@@ -7161,11 +7161,21 @@ def quantize_oq_streaming(
     # origem trazia 1760 pesos na camada extra e 347 de visao; o resultado
     # saiu com zero dos dois, e o defeito so apareceu semanas depois, quando o
     # dono foi ligar a previsao multipla e ela nao existia.
-    _verifica_config_contra_pesos(output, output_config)
-    _verifica_familias_contra_indice(
-        set(tensor_names) - pulados_de_proposito, weight_map, output
-    )
-    _verifica_precisao_e_valores(output, weight_map, cast_predicate)
+    relatorio_da_conferencia = {
+        "config_vs_weights": _verifica_config_contra_pesos(output, output_config),
+        "families": _verifica_familias_contra_indice(
+            set(tensor_names) - pulados_de_proposito, weight_map, output
+        ),
+        "precision_and_values": _verifica_precisao_e_valores(
+            output, weight_map, cast_predicate
+        ),
+    }
+    # Cada conferencia levanta se falhar; chegar aqui e ter passado nas tres. O
+    # resumo fica ao lado do modelo para conferir sem reabrir os shards.
+    with open(output / "oq_verify_report.json", "w") as f:
+        json.dump(
+            {"passed": True, **relatorio_da_conferencia}, f, indent=2, ensure_ascii=False
+        )
 
     _copy_model_sidecars(source, output, text_only=text_only)
 
