@@ -1721,13 +1721,40 @@ def _trunk_norm_module(model: Any):
 _HEAD_HIDDEN_POST_NORM = _prompt_priming.HEAD_HIDDEN_POST_NORM
 
 
+def _head_cache_offset(c: Any) -> int:
+    """Token count held by one head-cache layer.
+
+    A plain KV cache exposes ``offset``; the GLM-5.x sparse head keeps a
+    ``CacheList(KVCache, PoolingCache)`` whose position count lives on the
+    KV member (a ``BatchKVCache`` offset is an array). Reading ``offset`` on
+    the list itself silently gave 0, so the speculative chain tokens were
+    never trimmed and the head drafted over a history of its own rejected
+    drafts (measured 02/09: 7 committed tokens, 12 in the head KV).
+    """
+    off = getattr(c, "offset", None)
+    if off is None:
+        subs = getattr(c, "caches", None)
+        if subs:
+            off = getattr(subs[0], "offset", 0)
+    if hasattr(off, "shape"):
+        off = off.reshape(-1)[0].item()
+    return int(off or 0)
+
+
 def _mtp_head_trim_to(mtp_cache: List[Any], offset: int) -> None:
     """Trim speculative chain entries so the head cache ends at ``offset``."""
     for c in mtp_cache:
-        current = int(getattr(c, "offset", 0))
+        current = _head_cache_offset(c)
         extra = current - offset
         if extra > 0:
-            c.trim(extra)
+            trimmed = c.trim(extra)
+            if trimmed is not None and int(trimmed) != extra:
+                logger.warning(
+                    "MTP head cache trimmed %s of %s speculative tokens (%s)",
+                    trimmed,
+                    extra,
+                    type(c).__name__,
+                )
 
 
 # Loop-tax measurement (feeds _DepthController.EXIT_MARGIN): right after a

@@ -165,7 +165,15 @@ def _patch_vlm_language_model(glm_lang: Any) -> None:
         if self._omlx_mtp_decode_enabled:
             self._omlx_mtp_chain = True
             self._omlx_mtp_depth = get_mtp_depth()
-            self._omlx_mtp_head_clone = False
+            # A cadeia de rascunhos roda numa CÓPIA do cache da cabeça, por
+            # ciclo: o cache persistente só recebe os tokens confirmados. Sem
+            # a cópia, os rascunhos recusados ficavam para sempre no cache da
+            # cabeça (CacheList(KVCache, PoolingCache) não expõe `offset`, e o
+            # aparador lia 0) — medido em 02/09: 7 tokens confirmados, 12 no
+            # KV da cabeça — e a cabeça passava a rascunhar sobre um histórico
+            # de rascunhos recusados, a aceitação caía e o controlador
+            # estacionava (11 vezes numa jornada de agente).
+            self._omlx_mtp_head_clone = True
             # Custo de UMA POSIÇÃO A MAIS na janela de verificação do TRONCO, em
             # milissegundos — é assim que o controlador consome este valor
             # (`_DepthController.MARGINAL_MS`: "one extra verify token's cost"),
