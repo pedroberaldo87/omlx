@@ -63,13 +63,7 @@ class Glm5NextRMSNormGated(nn.Module):
         self.weight = mx.ones(hidden_size)
 
     def __call__(self, hidden_states: mx.array, gate: mx.array) -> mx.array:
-        dt = hidden_states.dtype
-        x = hidden_states.astype(mx.float32)
-        var = (x * x).mean(-1, keepdims=True)
-        x = x * mx.rsqrt(var + self.eps)
-        x = self.weight.astype(mx.float32) * x
-        x = x * mx.sigmoid(gate.astype(mx.float32))
-        return x.astype(dt)
+        return _rms_norm_com_portao(hidden_states, gate, self.weight, self.eps)
 
 
 class Glm5NextForgetGate(nn.Module):
@@ -99,6 +93,34 @@ class Glm5NextForgetGate(nn.Module):
 
 def _l2norm(x: mx.array, eps: float = 1e-6) -> mx.array:
     return x * mx.rsqrt((x * x).sum(axis=-1, keepdims=True) + eps)
+
+
+@mx.compile
+def _qkv_da_conv(conv_raw, num_heads, head_dim, qkv_dim, scale):
+    # silu -> split -> reshape -> l2norm(q), l2norm(k): uma dezena de ops
+    # elementares e duas reducoes, que soltas custavam ~0,06 ms por camada
+    # em decode (34 camadas). Compilado, o MLX funde em poucos lancamentos.
+    conv_out = nn.silu(conv_raw)
+    B, S, _ = conv_out.shape
+    q, k, v = mx.split(conv_out, [qkv_dim, 2 * qkv_dim], axis=-1)
+    q = q.reshape(B, S, num_heads, head_dim)
+    k = k.reshape(B, S, num_heads, head_dim)
+    v = v.reshape(B, S, num_heads, head_dim)
+    in_dtype = q.dtype
+    q = (_l2norm(q.astype(mx.float32)) * scale).astype(in_dtype)
+    k = _l2norm(k.astype(mx.float32)).astype(in_dtype)
+    return q, k, v
+
+
+@mx.compile
+def _rms_norm_com_portao(hidden_states, gate, weight, eps):
+    dt = hidden_states.dtype
+    x = hidden_states.astype(mx.float32)
+    var = (x * x).mean(-1, keepdims=True)
+    x = x * mx.rsqrt(var + eps)
+    x = weight.astype(mx.float32) * x
+    x = x * mx.sigmoid(gate.astype(mx.float32))
+    return x.astype(dt)
 
 
 def recurrent_kimi_delta(
@@ -264,20 +286,18 @@ class Glm5NextLinearAttention(nn.Module):
                 )
             else:
                 cache[0] = mx.contiguous(conv_input[:, -state_size:, :])
-        conv_out = nn.silu(self.conv1d(conv_input))
-
-        q, k, v = mx.split(conv_out, [self.qkv_dim, 2 * self.qkv_dim], axis=-1)
-        q = q.reshape(B, S, self.num_heads, self.head_dim)
-        k = k.reshape(B, S, self.num_heads, self.head_dim)
-        v = v.reshape(B, S, self.num_heads, self.head_dim)
+        q, k, v = _qkv_da_conv(
+            self.conv1d(conv_input),
+            self.num_heads,
+            self.head_dim,
+            self.qkv_dim,
+            self.head_dim**-0.5,
+        )
 
         fg = self.forget_gate
         a = linear_forward(fg.f_b_proj, fa_o).reshape(
             B, S, self.num_heads, self.head_dim
         )
-        in_dtype = q.dtype
-        q = (_l2norm(q.astype(mx.float32)) * (self.head_dim**-0.5)).astype(in_dtype)
-        k = _l2norm(k.astype(mx.float32)).astype(in_dtype)
 
         state = cache[1] if cache is not None else None
         if cache is not None and getattr(cache, "_omlx_captura_desfazer", False):
