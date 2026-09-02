@@ -771,3 +771,30 @@ def test_o_desfazer_parcial_funciona_com_o_cache_em_lote_do_gerador():
     obtido = _logits_seguintes(modelo, cache, 99)
     dif = float(mx.max(mx.abs(obtido - esperado)).item())
     assert dif < 1e-3, dif
+
+
+def test_o_completador_da_hiperconexao_respeita_o_prefixo_das_chaves():
+    """O caminho de visão chama o sanitize da língua duas vezes: cru e já
+    prefixado com ``language_model.``. Na segunda, o completador gravava as
+    seis chaves SEM prefixo ao lado das prefixadas, e a carga estrita morria
+    com 'Received 6 parameters not in model: mtp.0.block.attn_hc.…' (Vontra,
+    02/09). Ele tem que copiar o prefixo das outras chaves da cabeça."""
+    import mlx.core as mx
+    from types import SimpleNamespace
+
+    from omlx.patches.mlx_lm_mtp.glm5_next_model import _completa_hiperconexao_da_cabeca
+
+    class _Bloco:
+        def parameters(self):
+            return {"block": {"attn_hc": {"fn": mx.zeros((1,)), "base": mx.zeros((1,))},
+                              "mlp": {"gate": {"weight": mx.zeros((1,))}}}}
+
+    modelo = SimpleNamespace(mtp=[_Bloco()])
+    # segunda passada: chaves já prefixadas
+    pesos = {"language_model.mtp.0.block.mlp.gate.weight": mx.zeros((1,))}
+    saida = _completa_hiperconexao_da_cabeca(modelo, dict(pesos))
+    assert "language_model.mtp.0.block.attn_hc.fn" in saida
+    assert "mtp.0.block.attn_hc.fn" not in saida, sorted(saida)
+    # primeira passada: sem prefixo
+    saida2 = _completa_hiperconexao_da_cabeca(modelo, {"mtp.0.block.mlp.gate.weight": mx.zeros((1,))})
+    assert "mtp.0.block.attn_hc.fn" in saida2 and "language_model.mtp.0.block.attn_hc.fn" not in saida2

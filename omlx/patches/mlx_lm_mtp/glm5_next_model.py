@@ -535,10 +535,22 @@ def _completa_hiperconexao_da_cabeca(modelo: Any, weights: Dict[str, Any]) -> Di
 
     cabecas = getattr(modelo, "mtp", None) or []
     for i, bloco in enumerate(cabecas):
+        # As chaves da cabeça podem chegar com prefixo (o caminho de visão
+        # chama o sanitize da língua duas vezes: cru e já prefixado com
+        # `language_model.`). Copiar o prefixo de uma chave da cabeça que já
+        # está no dicionário evita gravar a mesma coisa duas vezes — uma
+        # sem prefixo, que a carga estrita recusa ("6 parameters not in
+        # model", medido no checkpoint do Vontra em 02/09).
+        marca = f"mtp.{i}.block."
+        prefixo = ""
+        for k in weights:
+            if marca in k:
+                prefixo = k[: k.index(marca)]
+                break
         for nome, valor in tree_flatten(bloco.parameters()):
             if "_hc." not in nome:
                 continue
-            chave = f"mtp.{i}.{nome}"
+            chave = f"{prefixo}mtp.{i}.{nome}"
             if chave not in weights:
                 weights[chave] = valor
     return weights
