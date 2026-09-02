@@ -196,28 +196,52 @@ def test_o_detector_separa_com_cabeca_de_sem_cabeca(tmp_path):
     assert not _checkpoint_has_mtp_weights(_checkpoint_falso(tmp_path / "sem", False))
 
 
+def _saida_sintetica(caminho, chaves):
+    caminho.mkdir(parents=True, exist_ok=True)
+    (caminho / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {k: "model.safetensors" for k in chaves}})
+    )
+    return caminho
+
+
 def test_resultado_sem_cabeca_com_a_opcao_ligada_nao_passa_calado(tmp_path):
-    """O modelo de 31/08 saiu com '-mtp' no nome e sem a cabeca dentro.
+    """O modelo de 31/08 saiu com '-mtp' no nome e sem a cabeça dentro.
 
-    A conferencia de saida existe para que isso pare de ser possivel: com a opcao
-    ligada e o resultado sem a cabeca, a quantizacao levanta erro em vez de gravar.
-    """
-    import inspect
+    A conferência do resultado lê só o índice de pesos: config que declara a
+    cabeça e índice sem mtp.* → erro antes de gravar; com os dois → passa."""
+    from omlx.oq import _verifica_config_contra_pesos
 
-    from omlx import oq
+    cfg = {"model_type": "glm5_next", "text_config": {"num_nextn_predict_layers": 1}}
+    tronco = ["model.layers.0.self_attn.q_proj.weight"]
 
-    fonte = inspect.getsource(oq)
-    assert "resultado saiu SEM a cabeca" in fonte, (
-        "a conferencia de saida sumiu de omlx/oq.py — sem ela a quantizacao volta a "
-        "gravar um modelo com o sufixo '-mtp' e nada dentro"
+    with pytest.raises(RuntimeError, match="declara a cabeca.*nenhum mtp"):
+        _verifica_config_contra_pesos(_saida_sintetica(tmp_path / "sem", tronco), cfg)
+
+    veredito = _verifica_config_contra_pesos(
+        _saida_sintetica(tmp_path / "com", tronco + ["mtp.0.eh_proj.weight"]), cfg
     )
-    # a conferencia tem que rodar DEPOIS de escrever o resultado (ela le o output),
-    # e antes de anunciar sucesso
-    pos_conf = fonte.index("resultado saiu SEM a cabeca")
-    pos_ok = fonte.index("Quantized model saved")
-    assert pos_conf < pos_ok, (
-        "a conferencia precisa vir antes de anunciar 'Quantized model saved'"
+    assert veredito["mtp_declared"] and veredito["mtp_tensors"] == 1
+
+
+def test_resultado_sem_visao_com_o_config_anunciando_visao_nao_passa_calado(tmp_path):
+    """O oQ2e de 31/08 saiu com vision_config no config e zero tensores de
+    visão; o servidor caía do motor de imagem para o de texto, semanas depois."""
+    from omlx.oq import _verifica_config_contra_pesos
+
+    cfg = {"model_type": "glm5_next", "vision_config": {"depth": 1}, "text_config": {}}
+    tronco = ["model.layers.0.self_attn.q_proj.weight"]
+
+    with pytest.raises(RuntimeError, match="anuncia vision_config.*nenhum tensor de visao"):
+        _verifica_config_contra_pesos(_saida_sintetica(tmp_path / "sem", tronco), cfg)
+
+    veredito = _verifica_config_contra_pesos(
+        _saida_sintetica(tmp_path / "com", tronco + ["visual.blocks.0.attn.qkv.weight"]), cfg
     )
+    assert veredito["vision_config"] and veredito["vision_tensors"] == 1
+
+    # sem vision_config (text_only) nenhum tensor de visão é exigido
+    _verifica_config_contra_pesos(tmp_path / "sem", {"model_type": "glm5_next"})
+
 
 
 def test_a_estimativa_avisa_quando_desliga_a_preservacao():

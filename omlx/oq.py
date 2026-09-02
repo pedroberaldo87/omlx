@@ -4526,6 +4526,49 @@ def _holds_chat_template(path: Path) -> bool:
         return True
 
 
+def _verifica_config_contra_pesos(output: Path, output_config: dict) -> dict:
+    """The output config announces what the output weights must carry.
+
+    Reads only the weight index (or the shard headers) — never a tensor.
+    Two promises are checked: a ``vision_config`` means vision tensors, and a
+    declared MTP head means ``mtp.*`` tensors. Until 02/09 the only signal of
+    a broken result was the server giving up on the vision engine weeks later
+    (the oQ2e of 31/08 shipped a vision_config and zero vision tensors), and
+    the head had a guard of its own only when preserve_mtp was on.
+    """
+    from omlx.utils.model_loading import _has_mtp_heads
+
+    chaves = _shard_key_map(output)
+    visao_anunciada = isinstance(output_config.get("vision_config"), dict)
+    visao_presente = sum(1 for k in chaves if _is_vision_tensor(k))
+    cabeca_anunciada = bool(_has_mtp_heads(output_config))
+    cabeca_presente = sum(1 for k in chaves if _strip_mtp_key_prefix(k) is not None)
+    veredito = {
+        "vision_config": visao_anunciada,
+        "vision_tensors": visao_presente,
+        "mtp_declared": cabeca_anunciada,
+        "mtp_tensors": cabeca_presente,
+    }
+    problemas = []
+    if visao_anunciada and visao_presente == 0:
+        problemas.append(
+            "o config anuncia vision_config e o indice de pesos nao tem nenhum "
+            "tensor de visao — o servidor cairia do motor de imagem para o de texto"
+        )
+    if cabeca_anunciada and cabeca_presente == 0:
+        problemas.append(
+            "o config declara a cabeca de previsao multipla e o indice de pesos "
+            "nao tem nenhum mtp.* — ligar a previsao multipla falharia na carga"
+        )
+    if problemas:
+        raise RuntimeError(
+            f"oQ: o resultado nao bate com o que o config dele anuncia: "
+            + "; ".join(problemas)
+            + f". Nao gravo: {output}"
+        )
+    return veredito
+
+
 def _copy_model_sidecars(
     source: Path, output: Path, *, text_only: bool = False
 ) -> None:
@@ -6994,26 +7037,14 @@ def quantize_oq_streaming(
             json.dump(imatrix_report, f, indent=2, ensure_ascii=False)
         _cobra_faltantes_da_matriz(imatrix_report, output_path)
 
+    # O que o config do resultado anuncia tem que estar nos pesos: visao e a
+    # cabeca de previsao multipla. Medido em 31/08/2026 no GLM-5.3-Flash: a
+    # origem trazia 1760 pesos na camada extra e 347 de visao; o resultado
+    # saiu com zero dos dois, e o defeito so apareceu semanas depois, quando o
+    # dono foi ligar a previsao multipla e ela nao existia.
+    _verifica_config_contra_pesos(output, output_config)
+
     _copy_model_sidecars(source, output, text_only=text_only)
-
-    # Pedir para preservar a cabeca de previsao multipla tem que preserva-la. Sem
-    # esta conferencia o resultado sai com o sufixo "-mtp" no nome (o sufixo so e
-    # aposto quando a opcao esta ligada) e sem a cabeca dentro, e nada avisa —
-    # medido em 31/08/2026 no GLM-5.3-Flash: a origem trazia 1760 pesos na camada
-    # extra, o resultado saiu com zero, e o defeito so apareceu semanas depois,
-    # quando o dono foi ligar a previsao multipla e ela nao existia.
-    if preserve_mtp:
-        from omlx.utils.model_loading import _checkpoint_has_mtp_weights
-
-        if not _checkpoint_has_mtp_weights(output):
-            raise RuntimeError(
-                f"preserve_mtp estava ligado e o resultado saiu SEM a cabeca de "
-                f"previsao multipla: {output_path}. A origem a tinha, entao ela se "
-                f"perdeu na limpeza de nomes — a preservacao depende de uma limpeza "
-                f"propria por familia de modelo, e pode nao existir uma para este "
-                f"tipo. Nao gravo um modelo com o sufixo '-mtp' no nome e nada "
-                f"dentro."
-            )
 
     cb("saving", 100.0, "Quantized model saved")
     logger.info(
