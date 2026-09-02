@@ -3949,6 +3949,30 @@ def _registra_familia_so_texto_no_mlx_lm(model_type: str) -> bool:
         return False
 
 
+class _LimpezaDeVisaoObrigatoria(RuntimeError):
+    """A limpeza de nomes do caminho de visao falhou num modelo que TEM pesos
+    de visao a proteger. Nao pode virar desvio para o ramo de texto: ele
+    descarta esses pesos sem uma linha visivel."""
+
+
+def _fonte_tem_pesos_de_visao(model_path: str | Path | None) -> bool:
+    """A origem traz tensor de visao no indice de pesos?
+
+    Le so o indice (ou os nomes dos shards), nunca os pesos. Sem caminho ou
+    sem indice legivel devolve False — na duvida o comportamento antigo vale.
+    """
+    if model_path is None:
+        return False
+    try:
+        indice = Path(model_path) / "model.safetensors.index.json"
+        if indice.exists():
+            mapa = json.loads(indice.read_text()).get("weight_map") or {}
+            return any(_is_vision_tensor(k) for k in mapa)
+    except Exception as e:
+        logger.debug("nao deu para ler o indice de %s: %s", model_path, e)
+    return False
+
+
 def _build_model_sanitizer(
     config: dict,
     text_only: bool = False,
@@ -4078,16 +4102,23 @@ def _build_model_sanitizer(
                     )
 
                     apply_mlx_vlm_glm5_next_compat_patch()
-                    if preserva_cabeca_na_visao:
-                        from omlx.patches.mlx_vlm_mtp import glm5_next_vlm_runtime
-
-                        if not glm5_next_vlm_runtime.apply_sanitize():
-                            raise RuntimeError(
-                                "a limpeza de visao do glm5_next nao pode "
-                                "preservar a cabeca de previsao multipla"
-                            )
             except Exception as patch_err:
                 logger.debug(f"mlx-vlm compatibility patch not applied: {patch_err}")
+
+            # FORA do try acima de proposito. O except dele engole em DEBUG, e
+            # a limpeza que preserva a cabeca nao e opcional: sem ela a de
+            # fabrica descarta toda chave `mtp.` e o resultado sai com o
+            # sufixo "-mtp" no nome e sem a cabeca dentro. So a conferencia
+            # final (linha ~6885) pegaria isso — depois da conversao inteira.
+            if preserva_cabeca_na_visao:
+                from omlx.patches.mlx_vlm_mtp import glm5_next_vlm_runtime
+
+                if not glm5_next_vlm_runtime.apply_sanitize():
+                    raise _LimpezaDeVisaoObrigatoria(
+                        "a limpeza de visao do glm5_next nao pode preservar a "
+                        "cabeca de previsao multipla; sem ela o resultado sai "
+                        "sem a cabeca"
+                    )
 
             from mlx_vlm.utils import get_model_and_args, sanitize_weights
 
@@ -4261,7 +4292,20 @@ def _build_model_sanitizer(
                 f"(preserves vision{', audio' if has_audio else ''} weights)"
             )
             return _vlm_sanitize
+        except _LimpezaDeVisaoObrigatoria:
+            # Erro nosso, levantado de proposito la dentro: nao vira desvio.
+            raise
         except Exception as e:
+            # Cair no ramo de texto DESCARTA os pesos de visao. Em 31/08 isso
+            # tirou 347 tensores `model.visual.*` do GLM-5.3 e ninguem viu: a
+            # linha abaixo escreve em DEBUG. Quando a origem TEM visao a
+            # perder, o desvio deixa de ser aceitavel.
+            if _fonte_tem_pesos_de_visao(model_path) and not text_only:
+                raise _LimpezaDeVisaoObrigatoria(
+                    f"a limpeza de nomes de visao de {config.get('model_type')} "
+                    f"falhou ({e}) e a origem traz pesos de visao; o ramo de "
+                    "texto os descartaria em silencio"
+                ) from e
             logger.debug(f"mlx-vlm sanitizer not available: {e}")
 
     try:

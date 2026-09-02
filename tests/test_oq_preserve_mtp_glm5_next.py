@@ -361,3 +361,74 @@ def test_sem_a_opcao_o_caminho_de_antes_nao_muda():
         "sem a opcao, o roteamento tem que continuar o de antes (a limpeza de "
         "visao, que descarta a cabeca) — senao o conserto deixou de ser cirurgico"
     )
+
+
+@precisa_do_config
+def test_a_limpeza_da_cabeca_sabotada_para_a_quantizacao(monkeypatch):
+    """Sem a limpeza que preserva a cabeça, a de fábrica descarta toda chave
+    `mtp.` e o resultado sai com o sufixo "-mtp" no nome e sem a cabeça dentro.
+
+    O erro que avisa disso vivia dentro de um try cujo except só escreve em
+    depuração (oq.py:4084 antes de 02/09), então a quantização seguia por
+    horas e só a conferência final pegava. Agora ele interrompe na hora.
+    """
+    import json
+
+    from omlx.oq import _build_model_sanitizer
+    from omlx.patches.mlx_vlm_mtp import glm5_next_vlm_runtime
+
+    monkeypatch.setattr(glm5_next_vlm_runtime, "apply_sanitize", lambda: False)
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    with pytest.raises(RuntimeError, match="cabeca de previsao multipla"):
+        _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=True)
+
+
+@precisa_do_checkpoint
+def test_a_limpeza_de_visao_quebrada_para_quando_a_origem_tem_visao(monkeypatch):
+    """Cair no ramo de texto DESCARTA os pesos de visao — foi assim que 347
+    tensores `model.visual.*` sumiram do GLM-5.3 em 31/08, com a linha do
+    desvio escrita em nivel de depuracao. Com pesos de visao na origem, a
+    falha da limpeza passa a interromper."""
+    import json
+
+    import mlx_vlm.utils as vlm_utils
+
+    from omlx.oq import _build_model_sanitizer
+
+    def _quebra(*a, **k):
+        raise RuntimeError("get_model_and_args sabotado no teste")
+
+    monkeypatch.setattr(vlm_utils, "get_model_and_args", _quebra)
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    with pytest.raises(RuntimeError, match="a origem traz pesos de visao"):
+        _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=False)
+
+
+@precisa_do_checkpoint
+def test_a_mesma_falha_com_text_only_segue_no_caminho_de_antes(monkeypatch):
+    """Quem pediu so-texto ja abriu mao da visao: o desvio continua valendo."""
+    import json
+
+    import mlx_vlm.utils as vlm_utils
+
+    from omlx.oq import _build_model_sanitizer
+
+    def _quebra(*a, **k):
+        raise RuntimeError("get_model_and_args sabotado no teste")
+
+    monkeypatch.setattr(vlm_utils, "get_model_and_args", _quebra)
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=False, text_only=True)
+
+
+@precisa_do_config
+def test_sem_preservar_a_cabeca_a_limpeza_sabotada_nao_atrapalha(monkeypatch):
+    """O conserto é cirúrgico: quem não pediu a cabeça não vê diferença."""
+    import json
+
+    from omlx.oq import _build_model_sanitizer
+    from omlx.patches.mlx_vlm_mtp import glm5_next_vlm_runtime
+
+    monkeypatch.setattr(glm5_next_vlm_runtime, "apply_sanitize", lambda: False)
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    assert _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=False) is not None
