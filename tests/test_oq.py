@@ -7108,6 +7108,66 @@ class TestGlm5NextLayerWalk:
         assert collector.entries[embed_q].counts.shape == (2,)
         assert int(collector.entries[embed_q].counts.sum()) > 0
 
+    def test_a_passagem_do_lm_head_por_camada_bate_com_o_coletor_residente(self, monkeypatch):
+        """O laço por camada nunca visita o lm_head (não é uma camada); até
+        02/09 a matriz por camada saía sem a entrada dele. A passagem nova lê
+        a norma final e a forma da cabeça do plano e tem que produzir a MESMA
+        estatística que o coletor residente."""
+        import omlx.oq as oq
+        from omlx.patches import mlx_vlm_glm5_next_compat
+        from omlx.oq import (
+            _collect_glm5_next_lm_head_imatrix,
+            _streamed_glm5_next_lm_head_pass,
+        )
+        from tests.test_mlx_vlm_glm5_next_compat import _tiny_config
+
+        mlx_vlm_glm5_next_compat.apply_mlx_vlm_glm5_next_compat_patch()
+        from mlx_vlm.models.glm5_next import Model
+
+        config = _tiny_config()
+        model = Model(config)
+        tokens = mx.arange(1, 13, dtype=mx.int32)[None]
+        layers = model.language_model.model.layers
+        inputs = model.language_model.model.embed_tokens(tokens)
+        inputs, masks, state = _prepare_layer_inputs(model, layers, tokens, inputs)
+        for layer_idx, layer in enumerate(layers):
+            inputs, _ = _forward_layer_result(
+                layer, inputs, masks[layer_idx], state, layer_idx=layer_idx
+            )
+        mx.eval(inputs)
+        assert inputs.ndim == 4  # (B, L, hc_mult, hidden)
+
+        residente = OQImatrixCollector()
+        residente.install(model)
+        try:
+            assert _collect_glm5_next_lm_head_imatrix(model, inputs, residente)
+        finally:
+            residente.restore(model)
+
+        plano = {
+            "language_model.model.norm.weight": model.language_model.model.norm.weight,
+            "language_model.lm_head.weight": model.language_model.lm_head.weight,
+        }
+        monkeypatch.setattr(oq, "_streamed_source_plan", lambda source, cfg: dict(plano))
+        cfg = {
+            "model_type": "glm5_next",
+            "text_config": {"rms_norm_eps": config.text_config.rms_norm_eps},
+        }
+        por_camada = OQImatrixCollector()
+        assert _streamed_glm5_next_lm_head_pass("fonte", cfg, [inputs], por_camada)
+
+        a = residente.entries["language_model.lm_head"]
+        b = por_camada.entries["language_model.lm_head"]
+        assert a.counts.tolist() == b.counts.tolist() == [12]
+        np.testing.assert_allclose(b.in_sum2, a.in_sum2, rtol=1e-5)
+
+    def test_a_passagem_do_lm_head_sem_cabeca_devolve_false(self, monkeypatch):
+        import omlx.oq as oq
+        from omlx.oq import _streamed_glm5_next_lm_head_pass
+
+        monkeypatch.setattr(oq, "_streamed_source_plan", lambda source, cfg: {})
+        assert not _streamed_glm5_next_lm_head_pass("fonte", {}, [], OQImatrixCollector())
+
 
 @pytest.mark.skipif(not HAS_MLX, reason="MLX not available")
 class TestInklingLayerWalk:

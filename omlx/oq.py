@@ -8753,6 +8753,37 @@ def _streamed_embed_weight(source, config: dict):
     return weight
 
 
+_STREAM_GLM5_NEXT_NORM_KEY = "language_model.model.norm.weight"
+_STREAM_GLM5_NEXT_LM_HEAD_KEY = "language_model.lm_head.weight"
+
+
+def _streamed_glm5_next_lm_head_pass(source, config: dict, working, collector) -> bool:
+    """Measure the GLM-5.3 output head from the last layer's streamed output.
+
+    The layer loop never visits ``lm_head``: it is not a layer. The resident
+    collector measures it (``_collect_glm5_next_lm_head_imatrix``); this is
+    the same pass on the streamed slots — mean over the hc copies, then the
+    final RMS norm, then the input-channel energy of the 154880x4096 head.
+    Only the weight's shape is needed, so the tensor stays lazy on disk.
+    """
+    dp = _streamed_source_plan(source, config)
+    try:
+        norm_weight = dp.pop(_STREAM_GLM5_NEXT_NORM_KEY)
+        head_weight = dp.pop(_STREAM_GLM5_NEXT_LM_HEAD_KEY)
+    except KeyError:
+        # Tied checkpoints project through embed_tokens and have no lm_head.
+        return False
+    text_config = config.get("text_config") or {}
+    eps = float(text_config.get("rms_norm_eps") or config.get("rms_norm_eps") or 1e-5)
+    head = nn.Linear(int(head_weight.shape[-1]), int(head_weight.shape[0]), bias=False)
+    head.weight = head_weight
+    name = _STREAM_GLM5_NEXT_LM_HEAD_KEY[: -len(".weight")]
+    for slot in working:
+        hidden = slot.mean(axis=2) if getattr(slot, "ndim", 0) == 4 else slot
+        collector.collect_dense(name, head, mx.fast.rms_norm(hidden, norm_weight, eps))
+    return name in collector.entries
+
+
 def _stream_source_model_type(config: dict) -> str:
     return str(config.get("model_type", "")).lower()
 
@@ -9369,6 +9400,17 @@ def _collect_imatrix_streaming(
                     "active_memory_bytes": int(active),
                 },
             )
+
+        if is_glm5_next:
+            # ``working`` holds the last layer's output for every slot: the
+            # output head is measured here because the layer loop never
+            # visits it (it is not a layer). Until 02/09 the streamed
+            # imatrix had no lm_head entry at all.
+            if not _streamed_glm5_next_lm_head_pass(source, config, working, collector):
+                raise RuntimeError(
+                    "oQe imatrix streaming: the GLM-5.3 output head produced "
+                    "no entry after the last layer; refusing a partial imatrix"
+                )
 
         if round_index == 0:
             # Counter snapshot after the first full sweep. Later rounds
