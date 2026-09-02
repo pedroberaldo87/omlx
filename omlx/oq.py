@@ -8610,18 +8610,24 @@ def _streamed_text_args(model_path, *, trust_remote_code: bool = False):
     return args, layer_cls
 
 
-def _streamed_source_plan(model_path, config: dict) -> "_DiscoveredPlan":
+def _streamed_source_plan(
+    model_path, config: dict, *, preserve_mtp: bool = False
+) -> "_DiscoveredPlan":
     """Private lazy index plus discovered sanitize plan for one pass.
 
     _DiscoveredPlan.pop is destructive, so every streaming pass builds its
     own instance instead of sharing the quantize loop's. The rebuild is
-    header-only and costs seconds.
+    header-only and costs seconds. ``preserve_mtp`` keeps the MTP head's
+    tensors in the plan (the default sanitize drops them): the head pass of
+    the streamed collector sources its block from here.
     """
     weight_files = sorted(Path(model_path).glob("*.safetensors"))
     if not weight_files:
         raise FileNotFoundError(f"no safetensors shards under {model_path}")
     lazy_index = _LazyTensorIndex(weight_files)
-    sanitize_fn = _build_model_sanitizer(config)
+    sanitize_fn = _build_model_sanitizer(
+        config, model_path=model_path, preserve_mtp=preserve_mtp
+    )
     if sanitize_fn is None:
         raise RuntimeError(f"no sanitizer for model_type={config.get('model_type')!r}")
     plan = _discover_sanitize_plan(sanitize_fn, lazy_index)
@@ -8782,6 +8788,68 @@ def _streamed_glm5_next_lm_head_pass(source, config: dict, working, collector) -
         hidden = slot.mean(axis=2) if getattr(slot, "ndim", 0) == 4 else slot
         collector.collect_dense(name, head, mx.fast.rms_norm(hidden, norm_weight, eps))
     return name in collector.entries
+
+
+_STREAM_GLM5_NEXT_MTP_PREFIX = "language_model.mtp.0."
+
+
+def _streamed_glm5_next_mtp_head_pass(
+    source, config: dict, args, embed_weight, working, batches, collector
+) -> bool:
+    """Run the GLM-5.3 MTP head over every streamed slot and capture it.
+
+    The layer loop stops at layer 44; the head is layer 45 of the source and
+    its 15 quantized modules had no imatrix entry at all (the .npz of 31/08:
+    layers 0..44, ``mtp entries: []``), which also made the cache guard
+    reject the file on every run. The trunk's hidden at position t is fused
+    with the embedding of token t+1, as at decode time. The block is sourced from a
+    plan that keeps the head, filled like a streamed layer, and dropped after.
+    """
+    from omlx.patches.mlx_lm_mtp.glm5_next_model import (
+        _cache_para,
+        fabrica_bloco_da_cabeca,
+    )
+
+    dp = _streamed_source_plan(source, config, preserve_mtp=True)
+    keys = sorted(k for k in dp if k.startswith(_STREAM_GLM5_NEXT_MTP_PREFIX))
+    if not keys:
+        return False
+    items = [(k[len(_STREAM_GLM5_NEXT_MTP_PREFIX) :], dp.pop(k)) for k in keys]
+    del dp
+
+    n_main = int(args.num_hidden_layers)
+    block = fabrica_bloco_da_cabeca()(args, n_main)
+    block.eval()
+    # The head is the only layer without hyper-connection coefficients on
+    # disk; the reference implementation keeps the constructor's NEUTRAL
+    # values (see _completa_hiperconexao_da_cabeca). Strict load needs them.
+    present = {k for k, _ in items}
+    for name, value in tree_flatten(block.parameters()):
+        if "_hc." in name and name not in present:
+            items.append((name, value))
+    _load_streamed_block_weights(block, items, n_main)
+    del items
+    mx.eval(block.parameters())
+
+    embed = nn.Embedding(1, 1)
+    embed.weight = embed_weight
+    collector.install(block, name_prefix=_STREAM_GLM5_NEXT_MTP_PREFIX)
+    try:
+        for slot, batch in zip(working, batches):
+            # PRE-norm hidden, as serving delivers it (_tronco_ate_a_norma in
+            # the vision runtime): the head's own hnorm normalizes it. The
+            # resident pass feeds the post-norm hidden instead; the final
+            # norm's per-channel weights would skew the eh_proj statistics.
+            hidden = slot.mean(axis=2) if getattr(slot, "ndim", 0) == 4 else slot
+            h = hidden[:, :-1]
+            mask = create_attention_mask(h, None, return_array=True)
+            out = block(h, embed, batch[:, 1:], mask, _cache_para(block.block))
+            mx.eval(out)
+    finally:
+        collector.restore(block)
+    del block
+    mx.clear_cache()
+    return any(k.startswith(_STREAM_GLM5_NEXT_MTP_PREFIX) for k in collector.entries)
 
 
 def _stream_source_model_type(config: dict) -> str:
@@ -9238,6 +9306,9 @@ def _collect_imatrix_streaming(
         mx.eval(embedded)
         mask = None
         position_ids = {"kind": _GLM5_NEXT_LAYER_STATE_KIND}
+        # The head pass builds its block from these args (layer_types already
+        # extended past the trunk by the MTP runtime's config patch).
+        glm_args, _ = _streamed_text_args(source, trust_remote_code=trust_remote_code)
     else:
         # One causal mask and one position-id row serve every layer and every
         # micro-batch: both depend only on seq_length and the activation dtype.
@@ -9403,14 +9474,23 @@ def _collect_imatrix_streaming(
 
         if is_glm5_next:
             # ``working`` holds the last layer's output for every slot: the
-            # output head is measured here because the layer loop never
-            # visits it (it is not a layer). Until 02/09 the streamed
-            # imatrix had no lm_head entry at all.
+            # output head and the MTP head are measured here because the
+            # layer loop never visits them (neither is a trunk layer). Until
+            # 02/09 the streamed imatrix had no entry for either.
             if not _streamed_glm5_next_lm_head_pass(source, config, working, collector):
                 raise RuntimeError(
                     "oQe imatrix streaming: the GLM-5.3 output head produced "
                     "no entry after the last layer; refusing a partial imatrix"
                 )
+            if int(getattr(glm_args, "num_nextn_predict_layers", 0) or 0) > 0:
+                batches = [calib_data[lo:hi] for lo, hi in ranges]
+                if not _streamed_glm5_next_mtp_head_pass(
+                    source, config, glm_args, embed_weight, working, batches, collector
+                ):
+                    raise RuntimeError(
+                        "oQe imatrix streaming: the GLM-5.3 MTP head produced "
+                        "no entry after the last layer; refusing a partial imatrix"
+                    )
 
         if round_index == 0:
             # Counter snapshot after the first full sweep. Later rounds

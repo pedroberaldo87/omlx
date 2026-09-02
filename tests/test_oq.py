@@ -7161,6 +7161,66 @@ class TestGlm5NextLayerWalk:
         assert a.counts.tolist() == b.counts.tolist() == [12]
         np.testing.assert_allclose(b.in_sum2, a.in_sum2, rtol=1e-5)
 
+    def test_a_passagem_da_cabeca_por_camada_bate_com_o_bloco_residente(self, monkeypatch):
+        """O laço por camada para na 44; a cabeça é a 45 e os 15 módulos dela
+        ficavam sem medição (o .npz de 31/08: camadas 0..44, mtp entries []).
+        A passagem nova monta o bloco a partir do plano e roda o contrato do
+        serviço (hidden PRÉ-norma + embedding do token seguinte); tem que dar
+        a mesma estatística que o bloco residente sob o coletor."""
+        from mlx.utils import tree_flatten
+
+        import omlx.oq as oq
+        from omlx.oq import _STREAM_GLM5_NEXT_MTP_PREFIX, _streamed_glm5_next_mtp_head_pass
+        from mlx_lm.models.base import create_attention_mask
+
+        from omlx.patches.mlx_lm_mtp.glm5_next_model import _cache_para
+        from tests.test_mtp_glm5_next_vlm_runtime import _glm_com_runtime, _modelo_com_cabeca
+
+        glm_lang, _ = _glm_com_runtime()
+        modelo, args = _modelo_com_cabeca(glm_lang)
+        assert len(modelo.mtp) == 1
+        mx.eval(modelo.parameters())
+
+        ids = mx.array([[3, 9, 17, 42, 5, 8, 13, 21, 34, 55, 2, 7]])
+        saida = modelo(ids, return_hidden=True)
+        h_pre = saida.hidden_states[0]  # (B, L, D), pré-norma
+        mx.eval(h_pre)
+
+        # o residente: o bloco anexado, sob o coletor, no contrato do serviço
+        residente = OQImatrixCollector()
+        residente.install(modelo.mtp[0], name_prefix=_STREAM_GLM5_NEXT_MTP_PREFIX)
+        try:
+            mask = create_attention_mask(h_pre[:, :-1], None, return_array=True)
+            mx.eval(modelo.mtp[0](
+                h_pre[:, :-1], modelo.model.embed_tokens, ids[:, 1:], mask,
+                _cache_para(modelo.mtp[0].block),
+            ))
+        finally:
+            residente.restore(modelo.mtp[0])
+        assert residente.entries, "o bloco residente não produziu entrada"
+
+        # a por camada: o plano traz os pesos da cabeça, SEM os coeficientes
+        # de hiperconexão (a origem não os tem na camada 45)
+        plano = {
+            _STREAM_GLM5_NEXT_MTP_PREFIX + k: v
+            for k, v in tree_flatten(modelo.mtp[0].parameters())
+            if "_hc." not in k
+        }
+        monkeypatch.setattr(oq, "_streamed_source_plan", lambda s, c, **kw: dict(plano))
+        por_camada = OQImatrixCollector()
+        hc = int(args.hc_mult)
+        working = [mx.broadcast_to(h_pre[:, :, None, :], (*h_pre.shape[:2], hc, h_pre.shape[-1]))]
+        assert _streamed_glm5_next_mtp_head_pass(
+            "fonte", {}, args, modelo.model.embed_tokens.weight, working, [ids], por_camada
+        )
+
+        assert sorted(por_camada.entries) == sorted(residente.entries)
+        assert all(k.startswith(_STREAM_GLM5_NEXT_MTP_PREFIX) for k in por_camada.entries)
+        for k, a in residente.entries.items():
+            b = por_camada.entries[k]
+            assert a.counts.tolist() == b.counts.tolist(), k
+            np.testing.assert_allclose(b.in_sum2, a.in_sum2, rtol=1e-4, err_msg=k)
+
     def test_a_passagem_do_lm_head_sem_cabeca_devolve_false(self, monkeypatch):
         import omlx.oq as oq
         from omlx.oq import _streamed_glm5_next_lm_head_pass
