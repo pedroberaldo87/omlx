@@ -411,6 +411,59 @@ class SwiGLU(nn.Module):
         return swiglu(gate, x)
 
 
+# Opt-in POR INSTANCIA (glu._fuse_gate_up = True, posto por quem constroi o
+# modelo): o par concatenado leva o kernel a outra variante de tile e a soma
+# sai a 1 ulp de fp16 da referencia — os testes de paridade exata deste
+# arquivo (e outras familias que nao mediram o ganho) ficam no caminho
+# bit-identico. OMLX_MOE_FUSE_GATE_UP=0 desliga geral (kill switch).
+_FUSE_GATE_UP = os.environ.get("OMLX_MOE_FUSE_GATE_UP", "1") != "0"
+
+
+def _funde_gate_up(glu) -> bool:
+    """Concatena gate+up no eixo de saida e serve os dois com UMA projecao.
+
+    Em decode e na janela de verificacao (T<=8) cada camada MoE lancava um
+    gather para o gate e outro para o up com a MESMA entrada e os MESMOS
+    indices; o custo de um gather e latencia de lancamento, nao banda
+    (medido em 02/09: mover 21 ou 71 MB custa igual). O kernel-par nativo so
+    cobria o caminho de blocos (>=1024 rotas). Aqui a fusao e no
+    ARMAZENAMENTO: os arrays do up_proj viram o par concatenado, os do
+    gate_proj sao liberados (ficam com 0 linhas), e todos os caminhos de
+    kernel existentes da projecao passam a calcular os dois de uma vez —
+    um split devolve as metades. Bancada com os pesos reais do oQ2e
+    (2 bits g64): T=1 0,60 -> 0,53 ms, T=8 1,84 -> 1,61, dif 0,0.
+    """
+    up, gate = glu.up_proj, glu.gate_proj
+    if not (
+        isinstance(up, QuantizedSwitchLinear)
+        and isinstance(gate, QuantizedSwitchLinear)
+        and getattr(up, "mode", "affine") == "affine"
+        and getattr(gate, "mode", "affine") == "affine"
+        and "bias" not in up
+        and "bias" not in gate
+        and hasattr(up, "biases")
+        and hasattr(gate, "biases")
+        and up.group_size == gate.group_size
+        and up.bits == gate.bits
+        and up.weight.shape == gate.weight.shape
+        and up.weight.dtype == gate.weight.dtype
+    ):
+        return False
+    half = up.output_dims
+    up.weight = mx.contiguous(mx.concatenate([up.weight, gate.weight], axis=1))
+    up.scales = mx.contiguous(mx.concatenate([up.scales, gate.scales], axis=1))
+    up.biases = mx.contiguous(mx.concatenate([up.biases, gate.biases], axis=1))
+    mx.eval(up.weight, up.scales, up.biases)
+    # o gate perde os arrays (0 linhas de saida): a memoria dos originais
+    # volta, e qualquer caminho que ainda o chamasse falharia alto.
+    gate.weight = gate.weight[:, :0]
+    gate.scales = gate.scales[:, :0]
+    gate.biases = gate.biases[:, :0]
+    mx.eval(gate.weight, gate.scales, gate.biases)
+    glu._gate_up_half = half
+    return True
+
+
 class SwitchGLU(nn.Module):
     def __init__(
         self,
@@ -431,6 +484,15 @@ class SwitchGLU(nn.Module):
         x = mx.expand_dims(x, (-2, -3))
         original_dtype = x.dtype
 
+        if _FUSE_GATE_UP and not self.training and getattr(self, "_fuse_gate_up", False):
+            fused = getattr(self, "_gate_up_half", None)
+            if fused is None and not getattr(self, "_gate_up_fuse_tried", False):
+                self._gate_up_fuse_tried = True
+                if _funde_gate_up(self):
+                    fused = self._gate_up_half
+        else:
+            fused = None
+
         do_sort = indices.size >= _SORT_MIN_ROUTES
         idx = indices
         inv_order = None
@@ -441,7 +503,11 @@ class SwitchGLU(nn.Module):
 
         block_plan = None
         native_kinds = None
-        projections = (self.up_proj, self.gate_proj, self.down_proj)
+        projections = (
+            (self.up_proj, self.down_proj)
+            if fused is not None
+            else (self.up_proj, self.gate_proj, self.down_proj)
+        )
         use_f16_moe = original_dtype == mx.bfloat16 and all(
             isinstance(p, QuantizedSwitchLinear)
             and p._has_affine_metadata_dtype(mx.float16)
@@ -477,7 +543,8 @@ class SwitchGLU(nn.Module):
             x = x.astype(mx.float16)
 
         use_pair_proj = (
-            block_plan is not None
+            fused is None
+            and block_plan is not None
             and native_kinds is not None
             and native_kinds[0] == "mxfp4"
             and native_kinds[1] == "mxfp4"
@@ -486,7 +553,8 @@ class SwitchGLU(nn.Module):
             and self.up_proj.num_experts == self.gate_proj.num_experts
         )
         use_affine_pair_proj = (
-            block_plan is not None
+            fused is None
+            and block_plan is not None
             and native_kinds is not None
             and native_kinds[0] == "affine"
             and native_kinds[1] == "affine"
@@ -548,6 +616,12 @@ class SwitchGLU(nn.Module):
             hidden_dims = self.up_proj.output_dims
             x_up = x_pair[..., :hidden_dims]
             x_gate = x_pair[..., hidden_dims:]
+        elif fused is not None:
+            # A projecao fundida calcula gate e up de uma vez, por QUALQUER
+            # caminho de kernel que ela escolher (gather_qmm, bloco nativo).
+            x_pair = self.up_proj(x, idx, sorted_indices=do_sort, block_plan=block_plan)
+            x_up = x_pair[..., :fused]
+            x_gate = x_pair[..., fused:]
         else:
             x_up = self.up_proj(x, idx, sorted_indices=do_sort, block_plan=block_plan)
             x_gate = self.gate_proj(

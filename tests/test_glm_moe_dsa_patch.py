@@ -1379,3 +1379,45 @@ def test_deepseek_switchglu_keeps_small_windows_off_the_block_kernels(monkeypatc
     mx.eval(y)
     assert y.shape == (1, 8, 8, 128)
     assert calls == {"single": 0}
+
+
+def test_a_fusao_gate_up_da_o_mesmo_resultado_e_devolve_a_memoria():
+    """Com o opt-in da instância, gate+up saem de UMA projeção concatenada;
+    o resultado fica a 1 ulp de fp16 dos gathers separados e os arrays do
+    gate são liberados (0 linhas). Sem o opt-in, nada muda (bit-idêntico)."""
+    import mlx.core as mx
+
+    from omlx.patches.deepseek_v4.switch_layers import SwitchGLU
+
+    mx.random.seed(11)
+    def faz():
+        m = SwitchGLU(128, 64, 8)
+        for name in ("gate_proj", "up_proj", "down_proj"):
+            layer = getattr(m, name).to_quantized(group_size=64, bits=2, mode="affine")
+            layer.scales = layer.scales.astype(mx.float16)
+            layer.biases = layer.biases.astype(mx.float16)
+            setattr(m, name, layer)
+        m.eval()
+        return m
+
+    mx.random.seed(3)
+    ref = faz()
+    mx.random.seed(3)
+    fus = faz()
+    fus._fuse_gate_up = True
+
+    x = mx.random.normal((1, 2, 128)).astype(mx.float16)
+    idx = mx.random.randint(0, 8, (1, 2, 4))
+    a = ref(x, idx)
+    b = fus(x, idx)
+    mx.eval(a, b)
+    assert fus._gate_up_half == 64
+    assert fus.gate_proj.weight.shape[1] == 0, "os arrays do gate não foram liberados"
+    assert fus.up_proj.output_dims == 128, "o up não virou o par"
+    dif = float(mx.max(mx.abs(a - b)).item())
+    assert dif <= 2e-3, f"fusão diverge além de ruído de fp16: {dif:.2e}"
+
+    # a segunda chamada usa o par já construído e continua igual
+    c = fus(x, idx)
+    mx.eval(c)
+    assert float(mx.max(mx.abs(b - c)).item()) == 0.0
