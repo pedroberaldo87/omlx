@@ -188,3 +188,45 @@ def test_o_kv_volta_no_tamanho_certo(tmp_path):
     assert resultado is not None
     kv = list(resultado[0].caches)[0]
     assert kv.state[0].shape[2] == 3 * BLOCK_SIZE
+
+
+def _store_blocks_compactados(cache, num_blocks, request_id="req-glm-delta"):
+    """Como o servidor guarda de fato: cada retrato de fronteira passa pela
+    compactação e leva só as linhas de compressão que o bloco acrescentou
+    (``pooling_delta_ranges``), não o acumulado inteiro."""
+    from omlx.cache.pooling_delta import compact_pooling_cache_snapshot
+
+    tokens = list(range(num_blocks * BLOCK_SIZE))
+    snaps = {}
+    for i in range(num_blocks):
+        tc = BLOCK_SIZE * (i + 1)
+        snaps[tc] = compact_pooling_cache_snapshot(_cache_data(tc), tc, BLOCK_SIZE)
+        assert snaps[tc][0].get("pooling_delta_ranges"), "o arreio não compactou"
+    return cache.store_cache(request_id, tokens, _cache_data(len(tokens)),
+                             boundary_snapshots=snaps)
+
+
+def test_o_estado_de_compressao_volta_inteiro_com_retratos_compactados(tmp_path):
+    """Reprodução do defeito medido em 01/09 (cache_det2.py, turnos 6–11
+    DIFERENTES): com os retratos compactados, o modo por membro guardava só o
+    pedaço do bloco e, na volta, devolvia só o do ÚLTIMO bloco — a compressão
+    voltava com 1/3 das linhas, e o seletor de tokens lia o contexto errado."""
+    cache, _ = _make_cache(tmp_path)
+    seq = 3 * BLOCK_SIZE
+    esperado = _build_glm_cachelist(seq)
+    pool_esperado = list(esperado.caches)[1].pooled
+
+    tabela = _store_blocks_compactados(cache, num_blocks=3)
+    assert tabela is not None, "o cache recusou guardar o layout do GLM compactado"
+
+    resultado = cache.reconstruct_cache(tabela)
+    assert resultado is not None, "o cache não devolveu nada para o layout do GLM"
+    pool_restaurado = list(resultado[0].caches)[1].pooled
+
+    assert tuple(pool_restaurado.shape) == tuple(pool_esperado.shape), (
+        f"a compressão voltou com {pool_restaurado.shape[1]} linhas em vez de "
+        f"{pool_esperado.shape[1]}: só o pedaço do último bloco"
+    )
+    assert mx.max(mx.abs(pool_restaurado - pool_esperado)).item() == 0.0, (
+        "o estado de compressão voltou com CONTEÚDO diferente do guardado"
+    )
