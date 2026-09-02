@@ -6522,7 +6522,16 @@ def quantize_oq_streaming(
                     f"oQ{oq_level:g}: eager sanitize applied, {len(all_weights)} tensors"
                 )
             except Exception as e2:
-                logger.warning(f"Sanitize failed ({e2}), using original names")
+                # Gravar com os nomes crus do disco NAO e degradacao aceitavel:
+                # nenhuma regra de bits casa (elas leem nomes ja limpos), nenhuma
+                # entrada da matriz de importancia casa, e o resultado nao carrega
+                # no servidor. Era um WARNING; virou parada.
+                raise RuntimeError(
+                    f"oQ{oq_level:g}: a limpeza de nomes falhou nas duas vias "
+                    f"(streaming: {e}; direta: {e2}). Gravar com os nomes de "
+                    "origem produziria um checkpoint sem plano de bits, sem "
+                    "calibracao e que o servidor nao carrega"
+                ) from e2
 
     config["_oq_non_quantizable"] = _build_non_quantizable_set(config)
     config["_oq_sensitivity_map"] = {str(k): v for k, v in sensitivity_map.items()}

@@ -7215,3 +7215,75 @@ class TestEstimateBpwPostSanitizeNames:
         # Experts dominate the parameter count; a raw-name scan reports
         # ~15-16 bpw because none of them end in ".weight".
         assert est["effective_bpw"] < 8.0, est
+
+
+# =============================================================================
+# A limpeza de nomes que falha nas duas vias para a quantização (F1.3)
+# =============================================================================
+
+
+@pytest.mark.skipif(not HAS_MLX, reason="MLX not available")
+class TestSanitizeFalhaParaAQuantizacao:
+    def _fonte(self, tmp_path):
+        from safetensors.numpy import save_file as np_save
+
+        src = tmp_path / "src"
+        src.mkdir()
+        hidden = 64
+        np_save(
+            {
+                "model.layers.0.self_attn.q_proj.weight": np.ones(
+                    (hidden, hidden), dtype=np.float32
+                ),
+                "model.layers.0.input_layernorm.weight": np.ones(
+                    hidden, dtype=np.float32
+                ),
+            },
+            str(src / "model.safetensors"),
+        )
+        (src / "config.json").write_text(
+            json.dumps(
+                {
+                    "architectures": ["TestModelForCausalLM"],
+                    "model_type": "test_nomes_crus",
+                    "num_hidden_layers": 1,
+                    "hidden_size": hidden,
+                    "vocab_size": 256,
+                }
+            ),
+            encoding="utf-8",
+        )
+        # A medicao de sensibilidade roda ANTES da limpeza de nomes e abortaria
+        # neste modelo sintetico; o mapa pronto a pula, como nos outros testes
+        # de ponta a ponta deste arquivo.
+        (src / "oq_sensitivity_map.json").write_text(
+            json.dumps({"0": 0.1}), encoding="utf-8"
+        )
+        return src
+
+    def test_nomes_crus_param_a_quantizacao_em_vez_de_virar_aviso(
+        self, tmp_path, monkeypatch
+    ):
+        """Gravar com os nomes de origem não é degradação aceitável.
+
+        As regras de bits e as entradas da matriz de importância casam por
+        nome JÁ LIMPO; com os nomes crus nenhuma casa, e o servidor não
+        carrega o resultado. Era um WARNING ("Sanitize failed, using original
+        names") e a conversão seguia até o fim.
+        """
+        import omlx.oq as oq
+
+        def _limpeza_quebrada(weights):
+            raise RuntimeError("limpador sabotado no teste")
+
+        monkeypatch.setattr(
+            oq, "_build_model_sanitizer", lambda *a, **k: _limpeza_quebrada
+        )
+
+        src = self._fonte(tmp_path)
+        out = tmp_path / "out"
+        with pytest.raises(RuntimeError, match="a limpeza de nomes falhou"):
+            quantize_oq_streaming(str(src), str(out), oq_level=4, dtype="float16")
+        assert not list(out.glob("*.safetensors")), (
+            "nenhum arquivo de peso pode ter sido escrito"
+        )
