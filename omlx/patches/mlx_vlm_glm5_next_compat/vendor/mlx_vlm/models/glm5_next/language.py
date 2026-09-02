@@ -929,11 +929,14 @@ class Glm5NextDecoderLayer(nn.Module):
         xc, post, comb = self.attn_hc(x)
         r = self.self_attn(self.input_layernorm(xc), mask, cache)
         x = hc_expand(r, residual, post, comb)
-        # Compile the FFN block only for single-stream decode (B=1, S=1) -- the shape it
-        # was validated on and where its win lives. Compiling the 288-expert MoE at a
-        # batched or prefill shape spikes memory (it can OOM alongside the resident
-        # weights), so those shapes take the eager path.
-        if self.compile_ffn and x.shape[0] == 1 and x.shape[1] == 1:
+        # Compile the FFN block for single-stream decode AND the verify window of
+        # multi-token prediction (B=1, S<=8): the eager glue (hc, norms, router,
+        # weighted sum) costs ~0.12 ms per layer, ~5 ms per verify step over 42
+        # MoE layers. Peak memory is flat across S=1..8 (measured on the real
+        # oQ2e, +0 MB). Compiling the 288-expert MoE at a batched or prefill
+        # shape spikes memory (it can OOM alongside the resident weights), so
+        # those shapes take the eager path.
+        if self.compile_ffn and x.shape[0] == 1 and x.shape[1] <= 8:
             if self._ffn_c is None:
                 self._ffn_c = mx.compile(self._ffn_block)
             return self._ffn_c(x)

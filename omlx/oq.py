@@ -7772,6 +7772,17 @@ class OQImatrixCollector:
                 # unfused path so every input-channel statistic is observed.
                 self._saved_attributes.append((module, "fuse_in", module.fuse_in))
                 module.fuse_in = False
+            if type(module).__name__ == "Glm5NextDecoderLayer" and bool(
+                getattr(module, "compile_ffn", False)
+            ):
+                # The compiled FFN block (decode and the multi-token verify
+                # window, S<=8) traces the MoE once; the capture wrappers
+                # never see the per-call inputs. Calibration takes the
+                # eager path so the switch statistics are observed.
+                self._saved_attributes.append(
+                    (module, "compile_ffn", module.compile_ffn)
+                )
+                module.compile_ffn = False
             if not name or not self._is_capture_module(module):
                 continue
             cls = type(module).__name__
