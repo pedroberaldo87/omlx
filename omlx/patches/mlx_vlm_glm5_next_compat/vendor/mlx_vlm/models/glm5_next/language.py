@@ -263,26 +263,16 @@ class Glm5NextLinearAttention(nn.Module):
         has_right_padding = cache is not None and cache.lengths is not None
         if has_right_padding:
             mask = mx.arange(S)[None] < cache.lengths[:, None]
-        if self.fuse_in:
-            q_o, k_o, v_o, fa_o, ga_o, b_o = self._fused_in_proj(inputs)
-            mixed = mx.concatenate([q_o, k_o, v_o], axis=-1)
-        else:
-            mixed = mx.concatenate(
-                [self.q_proj(inputs), self.k_proj(inputs), self.v_proj(inputs)], axis=-1
-            )
-            fa_o = self.forget_gate.f_a_proj(inputs)
-            ga_o = self.g_a_proj(inputs)
-            b_o = self.b_proj(inputs)
-        if mask is not None and mask.dtype == mx.bool_:
-            mixed = mx.where(mask[..., None], mixed, 0)
-
         if cache is not None and cache[0] is not None:
             conv_state = cache[0]
         else:
             conv_state = mx.zeros(
                 (B, self.conv_kernel_size - 1, self.conv_dim), dtype=inputs.dtype
             )
-        conv_input = mx.concatenate([conv_state, mixed], axis=1)
+        state = cache[1] if cache is not None else None
+        out, conv_input, state_novo, (q, k, v, a, b_o) = self._nucleo(
+            inputs, mask, conv_state, state
+        )
         if cache is not None:
             state_size = self.conv_kernel_size - 1
             if has_right_padding:
@@ -297,20 +287,6 @@ class Glm5NextLinearAttention(nn.Module):
                 )
             else:
                 cache[0] = mx.contiguous(conv_input[:, -state_size:, :])
-        q, k, v = _qkv_da_conv(
-            self.conv1d(conv_input),
-            self.num_heads,
-            self.head_dim,
-            self.qkv_dim,
-            self.head_dim**-0.5,
-        )
-
-        fg = self.forget_gate
-        a = linear_forward(fg.f_b_proj, fa_o).reshape(
-            B, S, self.num_heads, self.head_dim
-        )
-
-        state = cache[1] if cache is not None else None
         if cache is not None and getattr(cache, "_omlx_captura_desfazer", False):
             # A verificacao da previsao multipla pode aceitar so PARTE das
             # posicoes deste bloco. O estado recorrente nao tem posicoes para
@@ -327,18 +303,7 @@ class Glm5NextLinearAttention(nn.Module):
                 q, k, v, a, b_o, conv_input, state,
                 mask if mask is not None and mask.dtype == mx.bool_ else None,
             )
-        out, state = gated_delta_update(
-            q,
-            k,
-            v,
-            a,
-            b_o,
-            fg.A_log.reshape(self.num_heads, 1),
-            fg.dt_bias.reshape(self.num_heads, self.head_dim),
-            state=state,
-            mask=mask if mask is not None and mask.dtype == mx.bool_ else None,
-            lower_bound=fg.safe_gate_lower_bound,
-        )
+        state = state_novo
         if cache is not None:
             cache[1] = state
             # A camada linear guarda DOIS estados que so fazem sentido juntos: o
@@ -353,12 +318,63 @@ class Glm5NextLinearAttention(nn.Module):
             if cache[0] is not None and isinstance(cache[0], mx.array):
                 cache[0] = mx.depends(cache[0], (state,))
             cache.advance(S)
+        return out
 
+    def _nucleo(self, inputs, mask, conv_state, state):
+        """A conta da camada, sem tocar no cache: da entrada normalizada ate a
+        saida projetada. Devolve tambem a entrada da convolucao e o estado
+        novo (quem chama grava os dois no cache) e os tensores que o replay
+        do desfazer parcial precisa.
+
+        E puro de proposito: a camada do decoder compila este caminho inteiro
+        no decode (T=1), e um grafo compilado nao pode escrever em objeto
+        Python. O caminho comum (`__call__`) usa o mesmo miolo.
+        """
+        B, S, _ = inputs.shape
+        if self.fuse_in:
+            q_o, k_o, v_o, fa_o, ga_o, b_o = self._fused_in_proj(inputs)
+            mixed = mx.concatenate([q_o, k_o, v_o], axis=-1)
+        else:
+            mixed = mx.concatenate(
+                [self.q_proj(inputs), self.k_proj(inputs), self.v_proj(inputs)], axis=-1
+            )
+            fa_o = self.forget_gate.f_a_proj(inputs)
+            ga_o = self.g_a_proj(inputs)
+            b_o = self.b_proj(inputs)
+        mask_bool = mask if mask is not None and mask.dtype == mx.bool_ else None
+        if mask_bool is not None:
+            mixed = mx.where(mask_bool[..., None], mixed, 0)
+
+        conv_input = mx.concatenate([conv_state, mixed], axis=1)
+        q, k, v = _qkv_da_conv(
+            self.conv1d(conv_input),
+            self.num_heads,
+            self.head_dim,
+            self.qkv_dim,
+            self.head_dim**-0.5,
+        )
+
+        fg = self.forget_gate
+        a = linear_forward(fg.f_b_proj, fa_o).reshape(
+            B, S, self.num_heads, self.head_dim
+        )
+        out, state = gated_delta_update(
+            q,
+            k,
+            v,
+            a,
+            b_o,
+            fg.A_log.reshape(self.num_heads, 1),
+            fg.dt_bias.reshape(self.num_heads, self.head_dim),
+            state=state,
+            mask=mask_bool,
+            lower_bound=fg.safe_gate_lower_bound,
+        )
         gate = linear_forward(self.g_b_proj, ga_o).reshape(
             B, S, self.num_heads, self.head_dim
         )
         out = self.o_norm(out, gate).reshape(B, S, -1)
-        return linear_forward(self.o_proj, out)
+        return linear_forward(self.o_proj, out), conv_input, state, (q, k, v, a, b_o)
 
     def _replay_desfazer(self, q, k, v, a, b, conv_input, state_anterior, mask=None):
         """Devolve a funcao que refaz o estado com as primeiras ``n_keep``
@@ -963,6 +979,27 @@ class Glm5NextDecoderLayer(nn.Module):
         self.ffn_hc = HyperConnection(config)
         self.compile_ffn = True
         self._ffn_c = None
+        self._attn_c = None
+
+    def _decode_compilavel(self, x, mask, cache) -> bool:
+        # A metade da atencao so compila na camada LINEAR em decode de uma
+        # sequencia (B=1, T=1): os dois estados dela tem forma fixa, entao o
+        # grafo tracado uma vez serve para todos os tokens. A camada esparsa
+        # cresce o KV a cada token e retracaria sempre. Sem mascara, sem
+        # preenchimento a direita, e sem a captura do desfazer (que escreve no
+        # cache dentro do forward, coisa que um grafo compilado nao faz).
+        return (
+            self.is_linear
+            and self.compile_ffn
+            and cache is not None
+            and mask is None
+            and x.shape[0] == 1
+            and x.shape[1] == 1
+            and cache[0] is not None
+            and cache[1] is not None
+            and getattr(cache, "lengths", None) is None
+            and not getattr(cache, "_omlx_captura_desfazer", False)
+        )
 
     def __call__(
         self,
@@ -970,10 +1007,24 @@ class Glm5NextDecoderLayer(nn.Module):
         mask: Optional[mx.array] = None,
         cache: Optional[Any] = None,
     ) -> mx.array:
-        residual = x
-        xc, post, comb = self.attn_hc(x)
-        r = self.self_attn(self.input_layernorm(xc), mask, cache)
-        x = hc_expand(r, residual, post, comb)
+        if self._decode_compilavel(x, mask, cache):
+            # Um grafo so para hiperconexao + norma + atencao + expansao: em
+            # T=1 a camada linear despachava ~45 kernels, e o passo inteiro
+            # (~2.700 kernels) gastava 33 dos 46 ms so em latencia de
+            # despacho (Metal System Trace, 02/09). Compilado, o MLX funde as
+            # ops elementares e nao reconstroi o grafo em Python a cada token.
+            if self._attn_c is None:
+                self._attn_c = mx.compile(self._attn_block)
+            x, conv_novo, estado_novo = self._attn_c(x, cache[0], cache[1])
+            cache[1] = estado_novo
+            # a mesma amarra entre os dois estados que o caminho comum faz
+            cache[0] = mx.depends(conv_novo, (estado_novo,))
+            cache.advance(1)
+        else:
+            residual = x
+            xc, post, comb = self.attn_hc(x)
+            r = self.self_attn(self.input_layernorm(xc), mask, cache)
+            x = hc_expand(r, residual, post, comb)
         # Compile the FFN block for single-stream decode AND the verify window of
         # multi-token prediction (B=1, S<=8): the eager glue (hc, norms, router,
         # weighted sum) costs ~0.12 ms per layer, ~5 ms per verify step over 42
@@ -986,6 +1037,19 @@ class Glm5NextDecoderLayer(nn.Module):
                 self._ffn_c = mx.compile(self._ffn_block)
             return self._ffn_c(x)
         return self._ffn_block(x)
+
+    def _attn_block(self, x, conv_state, state):
+        # A metade da atencao como funcao pura dos dois estados: quem chama
+        # grava o que volta no cache.
+        residual = x
+        xc, post, comb = self.attn_hc(x)
+        r, conv_input, estado_novo, _ = self.self_attn._nucleo(
+            self.input_layernorm(xc), None, conv_state, state
+        )
+        conv_novo = mx.contiguous(
+            conv_input[:, -(self.self_attn.conv_kernel_size - 1) :, :]
+        )
+        return hc_expand(r, residual, post, comb), conv_novo, estado_novo
 
     def _ffn_block(self, x: mx.array) -> mx.array:
         # Stateless FFN half (no cache) -> compiles cleanly at a fixed decode shape.

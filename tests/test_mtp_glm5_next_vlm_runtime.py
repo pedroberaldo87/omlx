@@ -627,3 +627,46 @@ def test_o_desfazer_da_cadeia_acha_o_metodo_atras_do_adaptador_de_visao():
 
     assert bg._chain_rollback(_Adaptador(), [], 1, 3, None) is True
     assert chamadas == [(1, 3)]
+
+
+def test_a_camada_linear_compilada_em_t1_da_o_mesmo_resultado_do_caminho_comum():
+    """No decode (T=1) a camada linear roda hiperconexão + norma + atenção +
+    expansão num grafo compilado, com os dois estados entrando e saindo como
+    arrays (o caminho comum escreve no cache dentro do forward). Os logits e os
+    estados têm que coincidir com o caminho comum, token a token.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+    camadas = modelo.model.layers
+    assert any(c.is_linear for c in camadas)
+
+    def roda(compilar):
+        for c in camadas:
+            c.compile_ffn = compilar
+            c._attn_c = None
+            c._ffn_c = None
+        cache = modelo.make_cache()
+        modelo(mx.array([[3, 9, 17, 42, 8]]), cache=cache)
+        saidas = []
+        for tok in (1, 55, 2):
+            s = modelo(mx.array([[tok]]), cache=cache)
+            s = getattr(s, "logits", s)
+            mx.eval(s)
+            saidas.append(s)
+        estados = [c.state for c in cache if isinstance(c, ArraysCache)]
+        return saidas, estados
+
+    ref, est_ref = roda(False)
+    obt, est_obt = roda(True)
+    assert all(c._attn_c is not None for c in camadas if c.is_linear), (
+        "o caminho compilado da atenção não foi usado"
+    )
+    for a, b in zip(ref, obt):
+        dif = float(mx.max(mx.abs(a - b)).item())
+        assert dif < 1e-2, f"logits divergem entre compilado e comum: {dif:.2e}"
+    for (c0, s0), (c1, s1) in zip(est_ref, est_obt):
+        assert float(mx.max(mx.abs(c0 - c1)).item()) < 1e-2
+        assert float(mx.max(mx.abs(s0 - s1)).item()) < 1e-2
