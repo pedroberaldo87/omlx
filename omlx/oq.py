@@ -454,8 +454,10 @@ def universal_quant_predicate(
     path = _normalize_quant_path(path)
     path_l = path.lower()
 
+    # A lista nasce da classe de texto (``model.layers.*``); no caminho de
+    # visao os nomes chegam com ``language_model.`` na frente.
     non_quantizable = config.get("_oq_non_quantizable", set())
-    if path in non_quantizable:
+    if path in non_quantizable or path.removeprefix("language_model.") in non_quantizable:
         return False
 
     glm_indexer_override = _glm_indexer_q8_override(path, config)
@@ -4510,6 +4512,10 @@ def _build_non_quantizable_set(config: dict) -> set:
     try:
         from mlx_lm.utils import _get_classes
 
+        # O mlx-lm so conhece a familia so-texto do GLM-5.x depois de ela ser
+        # registrada; sem isso _get_classes falhava sempre ("Model type
+        # glm5_next not supported") e a lista saia vazia, em DEBUG.
+        _registra_familia_so_texto_no_mlx_lm(str(config.get("model_type", "")))
         model_class, model_args_class = _get_classes(config)
         args = model_args_class.from_dict(config)
         model = model_class(args)
@@ -4529,7 +4535,7 @@ def _build_non_quantizable_set(config: dict) -> set:
             )
         return result
     except Exception as e:
-        logger.debug(f"Could not build non-quantizable set: {e}")
+        logger.warning(f"Could not build non-quantizable set: {e}")
         return set()
 
 

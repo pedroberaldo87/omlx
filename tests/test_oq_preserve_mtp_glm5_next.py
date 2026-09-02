@@ -432,3 +432,25 @@ def test_sem_preservar_a_cabeca_a_limpeza_sabotada_nao_atrapalha(monkeypatch):
     monkeypatch.setattr(glm5_next_vlm_runtime, "apply_sanitize", lambda: False)
     cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
     assert _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=False) is not None
+
+
+@precisa_do_config
+def test_a_lista_de_modulos_nao_quantizaveis_nao_sai_vazia_para_o_glm_5_3():
+    """O mlx-lm só conhece o GLM-5.x depois do registro; sem ele a lista saía
+    vazia com "Model type glm5_next not supported" em DEBUG, e o guarda não
+    guardava nada. A instanciação é preguiçosa: nenhum peso é materializado."""
+    from omlx.oq import _build_non_quantizable_set, universal_quant_predicate
+
+    cfg = _config()
+    lista = _build_non_quantizable_set(cfg)
+    conv = {p for p in lista if p.endswith("self_attn.conv1d")}
+    assert conv, "a lista não trouxe nenhum conv1d"
+    assert "model.layers.0.self_attn.conv1d" in conv
+
+    # No caminho de visão os nomes chegam com language_model. na frente; o
+    # predicado tem que recusar os dois.
+    cfg["_oq_non_quantizable"] = lista
+    assert universal_quant_predicate("model.layers.0.self_attn.conv1d.weight", None, cfg, 2) is False
+    assert universal_quant_predicate(
+        "language_model.model.layers.0.self_attn.conv1d.weight", None, cfg, 2
+    ) is False
