@@ -1420,6 +1420,31 @@ class TestStreamingHelpers:
         assert plan.effective_bpw <= 4.7
         assert plan.boost_map
 
+    def test_piso_recusado_pelo_teto_vira_linha_de_registro(self, caplog):
+        """Os três laços do plano descartavam o piso com um continue mudo: o
+        oQ2e de 31/08 só tem {2, 4, 8} bits e nada dizia se as regras de 5/6
+        nunca casaram ou foram recusadas pelo teto. Com o teto no próprio
+        bits base nenhum piso cabe, e cada recusa nomeia o tensor, os bits e
+        o tamanho médio que sairia."""
+        import logging
+
+        named_shapes = {
+            "lm_head": (4096, 4096),
+            "model.layers.0.self_attn.v_proj": (4096, 4096),
+            "model.layers.1.mlp.down_proj": (4096, 14336),
+        }
+        config = {"num_hidden_layers": 32, "_oq_use_budget_plan": True}
+        with caplog.at_level(logging.INFO, logger="omlx.oq"):
+            plan = _build_quant_plan(
+                named_shapes, config, 4, target_bpw=4.0, hard_cap_bpw=4.0
+            )
+        assert not plan.boost_map
+        linhas = [r.getMessage() for r in caplog.records if "refused" in r.getMessage()]
+        assert any("lm_head refused at 8 bits" in l and "cap 4.000" in l for l in linhas), linhas
+        assert any("v_proj refused at 6 bits" in l for l in linhas), linhas
+        for l in linhas:
+            assert "would reach" in l or "no candidate fits" in l, l
+
     def test_format_size(self):
         assert "GB" in _format_size(5 * 1024**3)
         assert "MB" in _format_size(500 * 1024**2)

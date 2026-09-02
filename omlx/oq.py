@@ -901,6 +901,26 @@ def _routed_expert_projection(path: str) -> str | None:
     return None
 
 
+def _log_piso_recusado(
+    path: str, bits: int, next_bpw: float | None, hard_cap_bpw: float, etapa: str
+) -> None:
+    """One INFO line per floor the bpw cap refused. Until 02/09 the three
+    budget loops dropped these with a bare ``continue``: the oQ2e of 31/08
+    came out with only {2, 4, 8} bits and nothing said whether the 5/6-bit
+    rules never matched or were refused by the cap."""
+    if next_bpw is None:
+        logger.info(
+            "oQ budget (%s): %s refused up to %d bits — no candidate fits under "
+            "the %.3f bpw cap",
+            etapa, path, bits, hard_cap_bpw,
+        )
+    else:
+        logger.info(
+            "oQ budget (%s): %s refused at %d bits — would reach %.3f bpw, cap %.3f",
+            etapa, path, bits, next_bpw, hard_cap_bpw,
+        )
+
+
 _MANDATORY_BOOST_PATTERNS = {
     "lm_head": {"bits": 8, "group_size": 64, "mode": "affine"},
     "embeddings": {"bits": 8, "group_size": 64, "mode": "affine"},
@@ -1110,6 +1130,8 @@ def _build_quant_plan(
                     boost_map[path] = dict(boost)
                     total_bits_f += delta
                     current_bpw = next_bpw
+                elif delta > 0:
+                    _log_piso_recusado(path, cand_bits, next_bpw, hard_cap_bpw, "obrigatorio")
                 break
 
     # Fractional levels with a blanket Super Weights floor: mandatory expert
@@ -1171,6 +1193,7 @@ def _build_quant_plan(
             continue
         next_bpw = (total_bits_f + delta) / total_params
         if next_bpw > hard_cap_bpw:
+            _log_piso_recusado(path, floor_bits, next_bpw, hard_cap_bpw, "protecao")
             continue
         boost_map[path] = {
             "bits": floor_bits,
@@ -1244,6 +1267,8 @@ def _build_quant_plan(
             total_bits_f += delta
             current_bpw = next_bpw
             break
+        else:
+            _log_piso_recusado(path, max_target, None, hard_cap_bpw, "sensibilidade")
 
     # Fallback: if still under target, boost non-expert tensors toward 8-bit
     # regardless of sensitivity tier. On large MoE models, non-expert weights
