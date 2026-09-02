@@ -2764,6 +2764,15 @@ class Scheduler:
     # e.g. a 4096-token block cannot serve a 3k-token prefix. A geometry change
     # also leaves old SSD blocks cold until normal eviction removes them.
     _ARRAYS_CACHE_BLOCK_SIZE = 2048
+    _GLM5_NEXT_BLOCK_SIZE = 512
+
+    def _model_type_name(self) -> str:
+        model_type = str(getattr(self.model, "model_type", "") or "")
+        if not model_type:
+            model_type = str(
+                getattr(getattr(self.model, "config", None), "model_type", "") or ""
+            )
+        return model_type
 
     def _enlarge_block_size_for_arrays_cache(self) -> None:
         """Enlarge block size for ArraysCache-only hybrid models.
@@ -2833,6 +2842,22 @@ class Scheduler:
                 target,
             )
             self.config.paged_cache_block_size = target
+            return
+        if self._model_type_name().startswith("glm5_next"):
+            # GLM-5.3 (medido 01/09, turnos.py, 20 turnos crescentes pela API):
+            # com bloco 2048 o acerto de cache fica preso em 2048 e cada turno
+            # reprocessa até 2047 tokens (15–21 s); com 512 o acerto acompanha
+            # a conversa (10–14 s, −21%). O tamanho do pedaço acima de 512 não
+            # move o prefill deste modelo (29k tokens: 186/181/186 s em
+            # 32/512/1024), então o passo segue o bloco.
+            target = self._GLM5_NEXT_BLOCK_SIZE
+            self.config.prefill_step_size = target
+            self.config.paged_cache_block_size = target
+            logger.info(
+                "GLM-5.x hybrid model: paged cache block_size and "
+                "prefill_step_size set to %s (agent-turn cache reuse)",
+                target,
+            )
             return
         if self.config.paged_cache_block_size >= target:
             return
