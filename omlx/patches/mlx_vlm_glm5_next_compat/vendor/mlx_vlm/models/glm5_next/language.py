@@ -44,6 +44,12 @@ _SPARSE_MLA_MIN_KV = int(os.environ.get("OMLX_GLM5_SPARSE_MLA_MIN_KV", "16384"))
 # Até quantas consultas a atenção esparsa atende na forma absorvida (latente);
 # acima disso é prefill, e projetar o contexto uma vez sai mais barato.
 _ABSORBED_MAX_L = 8
+# Os núcleos nativos do seletor (pontuação e top-k) são ladrilhados para o
+# preparo: a pontuação acolchoa as consultas até 64 linhas. Em decode e na
+# janela de verificação (1 a 8 consultas) o caminho de MLX é mais barato —
+# medido no oQ2e com 3000 tokens de contexto, por camada esparsa em T=1:
+# nativo 0,96 ms, MLX + argpartition 0,58 (−4 ms por passo nas 11 camadas).
+_NATIVE_INDEXER_MIN_QUERIES = 64
 _NATIVE_INDEXER_WARNED = False
 
 
@@ -429,7 +435,8 @@ class Glm5NextIndexer(nn.Module):
     def _native_scores(self, q, pool_keys, weights):
         global _NATIVE_INDEXER_WARNED
         if (
-            q.shape[2] != self.n_heads
+            q.shape[1] < _NATIVE_INDEXER_MIN_QUERIES
+            or q.shape[2] != self.n_heads
             or self.n_heads != 32
             or self.head_dim != 128
             or q.dtype not in (mx.float16, mx.bfloat16)
@@ -468,7 +475,7 @@ class Glm5NextIndexer(nn.Module):
 
     @staticmethod
     def _native_topk(scores, topk):
-        if topk != 512:
+        if topk != 512 or scores.shape[1] < _NATIVE_INDEXER_MIN_QUERIES:
             return None
         try:
             from omlx.custom_kernels.glm_moe_dsa import fast
