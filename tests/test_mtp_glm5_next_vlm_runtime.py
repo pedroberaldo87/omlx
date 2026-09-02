@@ -761,3 +761,50 @@ def test_o_desfazer_parcial_funciona_com_a_janela_compilada():
     a = modelo(mx.array([[2]]), cache=ref); b = modelo(mx.array([[2]]), cache=cache)
     a = getattr(a, "logits", a); b = getattr(b, "logits", b)
     assert float(mx.max(mx.abs(a - b)).item()) < 1e-2
+
+
+def test_a_mascara_toda_verdadeira_do_gerador_em_lote_nao_impede_o_caminho_compilado():
+    """O gerador em lote do servidor cria o ArraysCache com left_padding=[0]
+    e make_mask devolve uma máscara de uns. Para a camada vale o mesmo que
+    nenhuma, mas o caminho compilado exigia None: no servidor o grafo
+    compilado nunca entrava, nem em T=1. Com padding real a máscara fica.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+    camadas = modelo.model.layers
+    for c in camadas:
+        c.compile_ffn = True
+        c._attn_c = None
+
+    # o cache como o gerador em lote o cria: uma sequência, left_padding=[0]
+    cache = modelo.make_cache()
+    for i, c in enumerate(cache):
+        if isinstance(c, ArraysCache):
+            novo = ArraysCache(len(c.cache), left_padding=[0])
+            cache[i] = novo
+    assert cache[modelo.model.ssm_idx].left_padding is not None
+    modelo(mx.array([[3, 9, 17, 42, 8]]), cache=cache)
+    for c in camadas:
+        c._attn_c = None
+    modelo(mx.array([[1]]), cache=cache)
+    assert all(c._attn_c is not None for c in camadas if c.is_linear), (
+        "a máscara de uns do gerador em lote impediu o caminho compilado"
+    )
+    # e a janela de verificação também
+    for c in camadas:
+        c._attn_c = None
+    modelo(mx.array([[1, 2, 3]]), cache=cache)
+    assert all(c._attn_c is not None for c in camadas if c.is_linear)
+
+    # padding de verdade (duas sequências, uma mais curta) mantém a máscara
+    from mlx_vlm.models.glm5_next.language import _mascara_da_recorrente
+
+    h = mx.zeros((2, 3, 8))
+    com_padding = ArraysCache(2, left_padding=[2, 0])
+    assert _mascara_da_recorrente(h, com_padding) is not None
+    sem = ArraysCache(2, left_padding=[0, 0])
+    assert _mascara_da_recorrente(h, sem) is None
+    assert _mascara_da_recorrente(h, None) is None

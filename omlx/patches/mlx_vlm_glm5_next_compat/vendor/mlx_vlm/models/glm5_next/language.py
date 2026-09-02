@@ -1077,6 +1077,27 @@ class Glm5NextDecoderLayer(nn.Module):
         return hc_expand(m, residual, post, comb)
 
 
+def _mascara_da_recorrente(h, cache):
+    """A mascara das camadas lineares, ou None quando ela seria toda-verdadeira.
+
+    O gerador em lote do servidor cria o ArraysCache com left_padding=[0] —
+    mesmo para uma sequencia so — e make_mask devolve ``pos >= 0``: uma
+    mascara de uns. Para a camada ela vale o mesmo que nenhuma, mas nao para
+    o caminho compilado, que exige None: no servidor o grafo compilado da
+    atencao linear NUNCA entrava, nem em T=1 (medido em 02/09: verify de
+    66-74 ms por ciclo contra 58-62 na bancada, onde a mascara e None).
+    Decidido uma vez por passo, antes do laco de camadas: um item de um
+    array de tamanho B, nao um sync por camada.
+    """
+    if not cache or not hasattr(cache, "make_mask"):
+        return None
+    left = getattr(cache, "left_padding", None)
+    if left is not None and getattr(cache, "lengths", None) is None:
+        if bool(mx.all(left <= 0).item()):
+            return None
+    return cache.make_mask(h.shape[1])
+
+
 class Glm5NextModel(nn.Module):
     def __init__(self, config: TextConfig):
         super().__init__()
@@ -1106,7 +1127,7 @@ class Glm5NextModel(nn.Module):
         fa_mask = create_attention_mask(
             h, fa_cache[0] if fa_cache else None, return_array=True
         )
-        ssm_mask = create_ssm_mask(h, cache[self.ssm_idx])
+        ssm_mask = _mascara_da_recorrente(h, cache[self.ssm_idx])
 
         h = mx.broadcast_to(
             h[:, :, None, :], (h.shape[0], h.shape[1], self.hc_mult, h.shape[2])

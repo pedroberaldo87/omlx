@@ -338,7 +338,7 @@ def _tronco_ate_a_norma(modelo, inputs, cache, inputs_embeds):
     """
     import mlx.core as mx
     from mlx_lm.models.base import create_attention_mask
-    from mlx_vlm.models.glm5_next.language import create_ssm_mask
+    from mlx_vlm.models.glm5_next.language import _mascara_da_recorrente
 
     h = modelo.embed_tokens(inputs) if inputs_embeds is None else inputs_embeds
     if cache is None:
@@ -348,7 +348,7 @@ def _tronco_ate_a_norma(modelo, inputs, cache, inputs_embeds):
     fa_mask = create_attention_mask(
         h, fa_cache[0] if fa_cache else None, return_array=True
     )
-    ssm_mask = create_ssm_mask(h, cache[modelo.ssm_idx])
+    ssm_mask = _mascara_da_recorrente(h, cache[modelo.ssm_idx])
 
     h = mx.contiguous(
         mx.broadcast_to(
