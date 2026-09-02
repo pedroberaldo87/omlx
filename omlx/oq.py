@@ -5942,6 +5942,33 @@ def _resolve_stream_calibration(
     return model_exceeds_ram and supported
 
 
+def _cobra_faltantes_da_matriz(imatrix_report: dict, output_path) -> None:
+    """Recusa o resultado oQe que tem peso quantizado sem entrada da matriz.
+
+    O "e" de oQe e a matriz de importancia; peso que nao casou com entrada
+    nenhuma saiu como oQ comum, e nada avisava. O GLM-5.3-Flash-oQ2e de 31/08
+    saiu com 644 entradas coletadas e ZERO aplicadas (a limpeza de texto
+    renomeou os pesos e nenhum nome casou), e o relatorio registrou 682
+    faltando com a quantizacao seguindo calada. O guarda de 02/09 so pegava
+    esse caso extremo; perder 39 dos 683 modulos (a cabeca de previsao
+    multipla, lm_head, os embed_q) continuava passando. A tabela de tokens e
+    a unica isenta por desenho, e ela nem entra na lista de faltantes.
+    """
+    if not imatrix_report.get("enabled") or not imatrix_report["missing"]:
+        return
+    faltantes = imatrix_report["missing"]
+    amostra = ", ".join(repr(n) for n in faltantes[:20])
+    if len(faltantes) > 20:
+        amostra += f", … (+{len(faltantes) - 20})"
+    raise RuntimeError(
+        f"oQe: {len(faltantes)} peso(s) quantizado(s) sem entrada na matriz de "
+        f"importancia ({len(imatrix_report['applied'])} aplicadas de "
+        f"{imatrix_report.get('entry_count', '?')} coletadas): {amostra}. "
+        f"Cada um saiu como oQ comum, sem calibracao — a lista completa esta em "
+        f"oq_imatrix_report.json. Nao gravo: {output_path}"
+    )
+
+
 def quantize_oq_streaming(
     model_path: str,
     output_path: str,
@@ -6004,8 +6031,9 @@ def quantize_oq_streaming(
         imatrix_cache_path: oQe native imatrix cache path. Required when
             enhanced is True; the admin manager supplies an automatic path.
         imatrix_reuse_cache: Reuse a compatible imatrix cache if present.
-        imatrix_strict: Fail on missing or mismatched imatrix entries instead
-            of falling back to standard oQ quantization for those tensors.
+        imatrix_strict: Fail on the FIRST missing or mismatched imatrix entry.
+            Without it the conversion runs to the end and the result is still
+            refused when any tensor lacked an entry — with the full list.
         imatrix_num_samples: Calibration sample count for imatrix collection.
         imatrix_seq_length: Calibration sequence length for imatrix collection.
         sensitivity_map_override: Optional explicit positive layer-priority
@@ -6912,26 +6940,7 @@ def quantize_oq_streaming(
             imatrix_report[key] = sorted(set(imatrix_report[key]))
         with open(output / "oq_imatrix_report.json", "w") as f:
             json.dump(imatrix_report, f, indent=2, ensure_ascii=False)
-        # O "e" de oQe e a matriz de importancia. Se nenhuma entrada casou com
-        # nenhum peso, o resultado e um oQ comum com o nome errado — e nada
-        # avisava: o GLM-5.3-Flash-oQ2e de 31/08 saiu com 644 entradas
-        # coletadas (chaves `language_model.model.layers.*`, do carregador de
-        # visao) e ZERO aplicadas, porque a limpeza de texto renomeou os
-        # pesos para `model.layers.*`; o relatorio registrou 682 faltando e a
-        # quantizacao seguiu calada. So descoberto em 02/09.
-        if (
-            imatrix_report.get("enabled")
-            and not imatrix_report["applied"]
-            and imatrix_report["missing"]
-        ):
-            raise RuntimeError(
-                f"oQe: a matriz de importancia tem "
-                f"{imatrix_report.get('entry_count', '?')} entradas e NENHUMA "
-                f"casou com um peso ({len(imatrix_report['missing'])} faltando; "
-                f"ex.: {imatrix_report['missing'][0]!r}). Os nomes da limpeza e "
-                f"os da coleta divergem — o resultado seria um oQ comum com o "
-                f"sufixo 'e' no nome. Nao gravo: {output_path}"
-            )
+        _cobra_faltantes_da_matriz(imatrix_report, output_path)
 
     _copy_model_sidecars(source, output, text_only=text_only)
 

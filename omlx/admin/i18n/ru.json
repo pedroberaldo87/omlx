@@ -257,7 +257,7 @@
   "models.oq.imatrix_samples": "Калибровочные выборки",
   "models.oq.imatrix_seq_length": "Длина последовательности",
   "models.oq.imatrix_strict": "Строгое покрытие imatrix",
-  "models.oq.imatrix_strict_help": "Завершать с ошибкой, если у квантуемого тензора нет соответствующей записи imatrix, вместо использования стандартного oQ.",
+  "models.oq.imatrix_strict_help": "Ошибка на первом тензоре без соответствующей записи imatrix. Выключено: конвертация идёт до конца, но всё равно отклоняется, если у какого-то тензора записи не было — с полным списком.",
   "models.uploader.section_label": "Загрузка в Hub",
   "models.uploader.heading": "Загрузка oQ-моделей",
   "models.uploader.description": "Загружайте локально квантованные oQ-модели в HuggingFace Hub.",

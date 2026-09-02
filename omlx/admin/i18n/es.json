@@ -257,7 +257,7 @@
   "models.oq.imatrix_samples": "Calibration samples",
   "models.oq.imatrix_seq_length": "Sequence length",
   "models.oq.imatrix_strict": "Strict imatrix coverage",
-  "models.oq.imatrix_strict_help": "Fail when a quantized tensor has no matching imatrix entry instead of falling back to standard oQ.",
+  "models.oq.imatrix_strict_help": "Falla en el primer tensor sin entrada imatrix correspondiente. Desactivado: la conversión llega al final y aun así se rechaza si a algún tensor le faltó una, con la lista completa.",
   "models.uploader.section_label": "Subida al Hub",
   "models.uploader.heading": "Subir Modelos oQ",
   "models.uploader.description": "Sube tus modelos cuantizados oQ localmente al Hub de HuggingFace.",

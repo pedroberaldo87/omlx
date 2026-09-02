@@ -7287,3 +7287,58 @@ class TestSanitizeFalhaParaAQuantizacao:
         assert not list(out.glob("*.safetensors")), (
             "nenhum arquivo de peso pode ter sido escrito"
         )
+
+
+class TestGuardaDaMatrizDeImportancia:
+    """O guarda de 02/09 só recusava quando NENHUMA entrada casava; perder 39
+    dos 683 módulos passava calado. Agora qualquer faltante recusa o resultado."""
+
+    def _relatorio(self, aplicadas, faltantes):
+        return {
+            "enabled": True,
+            "entry_count": 644,
+            "applied": list(aplicadas),
+            "missing": list(faltantes),
+            "mismatched": [],
+        }
+
+    def test_faltante_fora_da_lista_isenta_recusa_o_resultado(self):
+        from omlx.oq import _cobra_faltantes_da_matriz
+
+        rel = self._relatorio(
+            aplicadas=[f"model.layers.{i}.mlp.down_proj" for i in range(40)],
+            faltantes=["lm_head", "model.layers.3.self_attn.embed_q"],
+        )
+        with pytest.raises(RuntimeError, match="2 peso\\(s\\).*'lm_head'.*embed_q"):
+            _cobra_faltantes_da_matriz(rel, "/tmp/saida")
+
+    def test_sem_faltante_grava(self):
+        from omlx.oq import _cobra_faltantes_da_matriz
+
+        _cobra_faltantes_da_matriz(
+            self._relatorio(aplicadas=["model.layers.0.mlp.down_proj"], faltantes=[]),
+            "/tmp/saida",
+        )
+
+    def test_desligado_nao_cobra(self):
+        from omlx.oq import _cobra_faltantes_da_matriz
+
+        _cobra_faltantes_da_matriz({"enabled": False, "applied": [], "missing": ["x"]}, "/tmp/s")
+
+    def test_a_tabela_de_tokens_nem_entra_na_lista(self, tmp_path):
+        """A isenção da tabela de tokens é por desenho: ela devolve antes de
+        registrar faltante, então nunca aparece em `missing`."""
+        from omlx.oq import _lookup_imatrix_importance
+
+        class _Vazia:
+            entries = {}
+
+        rel = self._relatorio([], [])
+        assert (
+            _lookup_imatrix_importance(
+                _Vazia(), "model.embed_tokens.weight", (256, 64),
+                config={}, strict=True, report=rel,
+            )
+            is None
+        )
+        assert rel["missing"] == []

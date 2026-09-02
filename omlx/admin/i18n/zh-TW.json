@@ -257,7 +257,7 @@
   "models.oq.imatrix_samples": "校準樣本",
   "models.oq.imatrix_seq_length": "序列長度",
   "models.oq.imatrix_strict": "嚴格 imatrix 覆蓋",
-  "models.oq.imatrix_strict_help": "當量化張量沒有相符的 imatrix 項目時失敗，而非退回至標準 oQ。",
+  "models.oq.imatrix_strict_help": "在第一個沒有相符 imatrix 項目的張量處失敗。關閉時：轉換會執行到最後，但只要有張量缺少項目仍會被拒絕，並附上完整清單。",
   "models.uploader.section_label": "Hub 上傳",
   "models.uploader.heading": "上傳 oQ 模型",
   "models.uploader.description": "將你本機量化的 oQ 模型上傳至 HuggingFace Hub。",
