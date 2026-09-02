@@ -807,23 +807,44 @@ class Glm5NextSparseAttention(nn.Module):
         selected = topk_indices[:, 0]
         topk = selected.shape[-1]
         clamped = mx.clip(selected, 0, Kv - 1)
-        gathered = mx.take_along_axis(
-            mx.broadcast_to(kv_latent[:, 0, None], (B, L, Kv, dim)),
-            mx.broadcast_to(clamped[..., None], (B, L, topk, dim)),
-            axis=2,
-        )
-        q_latent = self.embed_q(q).transpose(0, 2, 1, 3).reshape(B * L, H, 1, dim)
-        gathered = gathered.reshape(B * L, 1, topk, dim)
-        valid = (selected >= 0).reshape(B * L, 1, 1, topk)
-        output = scaled_dot_product_attention(
-            q_latent,
-            gathered,
-            gathered,
-            cache=None,
-            scale=self.scale,
-            mask=valid,
-        )
-        output = output.reshape(B, L, H, dim).transpose(0, 2, 1, 3)
+        q_latent = self.embed_q(q).transpose(0, 2, 1, 3)  # (B, L, H, dim)
+        # Uma chamada de atenção por consulta, não uma em lote: com B*L > 1 e
+        # uma consulta por elemento, o sdpa do MLX sai do núcleo de vetor e
+        # custa 2,6x mais (medido: 2 consultas 0,37 ms em lote contra 0,14
+        # separadas; 4 consultas 0,70 contra 0,27). O gather por indexação
+        # direta também é mais barato que take_along_axis sobre a difusão
+        # (0,15 -> 0,04 ms em 4 consultas).
+        if B * L == 1:
+            gathered = mx.take_along_axis(
+                kv_latent[:, 0], mx.broadcast_to(clamped[0][..., None], (1, topk, dim)), axis=1
+            )  # (1, topk, dim)
+            output = scaled_dot_product_attention(
+                q_latent.reshape(1, H, 1, dim),
+                gathered[:, None],
+                gathered[:, None],
+                cache=None,
+                scale=self.scale,
+                mask=(selected >= 0).reshape(1, 1, 1, topk),
+            )
+            output = output.reshape(B, L, H, dim).transpose(0, 2, 1, 3)
+            output = self.unembed_out(output).transpose(0, 2, 1, 3).reshape(B, L, -1)
+            return linear_forward(self.o_proj, output)
+        outs = []
+        for b in range(B):
+            gathered_b = kv_latent[b, 0][clamped[b]]  # (L, topk, dim)
+            valid_b = (selected[b] >= 0)[:, None, None, :]  # (L, 1, 1, topk)
+            for l in range(L):
+                outs.append(
+                    scaled_dot_product_attention(
+                        q_latent[b, l][None, :, None, :],
+                        gathered_b[l][None, None],
+                        gathered_b[l][None, None],
+                        cache=None,
+                        scale=self.scale,
+                        mask=valid_b[l][None],
+                    )
+                )
+        output = mx.concatenate(outs, axis=0).reshape(B, L, H, dim).transpose(0, 2, 1, 3)
         output = self.unembed_out(output).transpose(0, 2, 1, 3).reshape(B, L, -1)
         return linear_forward(self.o_proj, output)
 
