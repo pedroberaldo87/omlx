@@ -454,3 +454,32 @@ def test_a_lista_de_modulos_nao_quantizaveis_nao_sai_vazia_para_o_glm_5_3():
     assert universal_quant_predicate(
         "language_model.model.layers.0.self_attn.conv1d.weight", None, cfg, 2
     ) is False
+
+
+@precisa_do_config
+def test_a_regra_de_precisao_alta_vem_com_o_limpador_de_visao():
+    """Os 430 tensores sensíveis do oQ2e de 31/08 saíram em fp16 porque o
+    caminho de texto não expõe a regra de precisão alta (o desempate do
+    roteador caiu de 286 para 41 valores distintos). Com a cabeça preservada
+    o GLM-5.3 volta ao caminho de visão, e a regra tem que vir junto e recusar
+    a conversão dos seis nomes sensíveis, com os nomes já limpos."""
+    from omlx.oq import _build_model_sanitizer
+
+    san = _build_model_sanitizer(_config(), model_path=ORIGEM, preserve_mtp=True)
+    regra = getattr(san, "_omlx_cast_predicate", None)
+    assert callable(regra), "o limpador de visão veio sem a regra de precisão alta"
+
+    p = "language_model.model.layers.3."
+    sensiveis = [
+        p + "mlp.gate.e_score_correction_bias",
+        p + "attn_hc.fn",
+        p + "ffn_hc.scale",
+        p + "self_attn.forget_gate.A_log",
+        p + "self_attn.forget_gate.dt_bias",
+        p + "mlp.gate.weight",
+    ]
+    for nome in sensiveis:
+        assert regra(nome) is False, f"{nome} seria convertido para fp16"
+    # e o resto converte normalmente
+    assert regra(p + "self_attn.q_proj.weight") is True
+    assert regra(p + "mlp.experts.gate_up_proj.weight") is True
