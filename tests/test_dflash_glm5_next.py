@@ -139,17 +139,61 @@ def test_registration_keeps_the_stock_backends():
         target_ops.TARGET_BACKENDS[:] = original
 
 
-def test_speculative_linear_cache_is_declared_unavailable():
-    """The stock hooks key on `linear_attn`; GLM names it `self_attn`.
-
-    Rather than mis-installing a GQA hook on a sparse-attention module, this
-    backend turns the recurrent-rollback path off. Verification still works.
-    """
+def test_recurrent_rollback_is_declared_available():
+    """The stock hooks key on `linear_attn`; GLM names it `self_attn`, so the
+    tape is never installed — the backend undoes the linear layers itself
+    (arm_rollback / restore_after_acceptance below)."""
     ops = _ops()
     alvo = _Alvo("glm5_next")
     caps = ops.capabilities_for(alvo)
-    assert caps.supports_recurrent_rollback is False
+    assert caps.supports_recurrent_rollback is True
     assert caps.supports_dflash is True
+
+
+def test_restore_after_acceptance_undoes_the_rejected_drafts_in_the_linear_layers():
+    """Before: ``restore_after_acceptance`` walked rollback/trim/offset/crop and
+    a plain ``ArraysCache`` has none of them, so the recurrent state kept the
+    rejected drafts and the text degenerated ("Portuguieiro...", 02/09).
+
+    Proof: after a verify window of 1 + 3 drafts with 1 accepted, the next
+    logits must match a trunk that only ever saw the 2 committed positions.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+    from test_mtp_glm5_next_vlm_runtime import _glm_com_runtime, _modelo_com_cabeca
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+    ops = _ops()
+
+    def _logits(cache, proximo):
+        saida = modelo(mx.array([[proximo]]), cache=cache)
+        saida = getattr(saida, "logits", saida)
+        mx.eval(saida)
+        return saida
+
+    prefixo = mx.array([[3, 9, 17, 42, 8]])
+    janela = mx.array([[1, 55, 2, 7]])  # 1 confirmado + 3 rascunhos
+
+    ref = modelo.make_cache()
+    modelo(prefixo, cache=ref)
+    modelo(janela[:, :2], cache=ref)  # o confirmado + o único aceito
+    esperado = _logits(ref, 99)
+
+    cache = modelo.make_cache()
+    modelo(prefixo, cache=cache)
+    ops.arm_rollback(cache, prefix_len=5)
+    modelo(janela, cache=cache)
+    assert all(
+        c.rollback_replay is not None for c in cache if isinstance(c, ArraysCache)
+    ), "armar tem que fazer a camada guardar o replay da janela"
+    ns = ops.restore_after_acceptance(
+        cache, target_len=7, acceptance_length=1, drafted_tokens=3
+    )
+    assert ns >= 0
+    obtido = _logits(cache, 99)
+    dif = float(mx.max(mx.abs(obtido - esperado)).item())
+    assert dif < 1e-3, f"tronco desfeito diverge da referência em {dif:.2e}"
 
 
 def test_installing_hooks_is_a_no_op_that_does_not_repeat():

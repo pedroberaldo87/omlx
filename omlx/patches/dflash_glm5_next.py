@@ -25,12 +25,20 @@ base. Four things differ, and each is overridden below:
    sparse-attention module and no hook at all on the linear ones. Both are
    wrong here, so the hooks are declared unavailable rather than mis-installed.
 
-Consequence of (4): this backend runs DFlash without the speculative linear
-cache. Verification is still correct -- rejected drafts fall back to the
-model's own cache -- but the recurrent-rollback fast path is off until the
-GLM linear-attention module gets a hook of its own.
+Consequence of (4): the stock recurrent-rollback tape is not installed. The
+rollback still has to happen, though: ``restore_after_acceptance`` walks a
+``rollback`` / ``trim`` / ``offset`` / ``crop`` ladder and a plain
+``ArraysCache`` has none of the four, so rejected drafts stayed inside the
+recurrent state of the 34 linear layers and the output degenerated within a
+few sentences (measured 02/09: "Portuguieiro...", 8.9 tok/s). This backend
+therefore arms and undoes the linear layers with the same two helpers the
+MTP runtime uses (``_arma_desfazer`` / ``desfaz_parcial`` in
+``mlx_lm_mtp/glm5_next_model.py``): the vendored layer records a replay of
+the verify window when armed, and the undo re-runs only the accepted
+positions.
 """
 
+import time
 from typing import Any, Optional
 
 import mlx.core as mx
@@ -80,9 +88,37 @@ class Glm5NextTargetOps(_Base):  # type: ignore[misc,valid-type]
                     field: getattr(caps, field)
                     for field in getattr(caps, "__dataclass_fields__", {})
                 },
-                "supports_recurrent_rollback": False,
+                "supports_recurrent_rollback": True,
             }
         )
+
+    def arm_rollback(self, cache_entries: list[Any], *, prefix_len: int) -> None:
+        # Before the verify forward: keep the (conv, state) pair of every
+        # linear layer and ask the layer to record the replay of this window.
+        from .mlx_lm_mtp.glm5_next_model import _arma_desfazer
+
+        _arma_desfazer(cache_entries)
+
+    def restore_after_acceptance(
+        self,
+        cache_entries: list[Any],
+        *,
+        target_len: int,
+        acceptance_length: int,
+        drafted_tokens: int = 0,
+    ) -> int:
+        # Keep ``acceptance_length + 1`` positions of the verify window: the
+        # sparse layers are trimmed, the linear ones replay the kept prefix
+        # from the pair saved by ``arm_rollback``.
+        from .mlx_lm_mtp.glm5_next_model import desfaz_parcial
+
+        replay_start_ns = time.perf_counter_ns()
+        if not desfaz_parcial(cache_entries, acceptance_length, drafted_tokens):
+            raise RuntimeError(
+                "GLM-5.x DFlash: the linear layers could not undo the rejected "
+                f"drafts (accepted={acceptance_length}, drafted={drafted_tokens})"
+            )
+        return time.perf_counter_ns() - replay_start_ns
 
     def install_speculative_hooks(self, target_model: Any) -> None:
         # Deliberately a no-op: the stock installer keys on `linear_attn` and
