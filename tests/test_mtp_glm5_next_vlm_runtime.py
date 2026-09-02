@@ -670,3 +670,94 @@ def test_a_camada_linear_compilada_em_t1_da_o_mesmo_resultado_do_caminho_comum()
     for (c0, s0), (c1, s1) in zip(est_ref, est_obt):
         assert float(mx.max(mx.abs(c0 - c1)).item()) < 1e-2
         assert float(mx.max(mx.abs(s0 - s1)).item()) < 1e-2
+
+
+def test_a_camada_linear_compilada_na_janela_de_verificacao_bate_com_o_comum():
+    """A janela de verificação da previsão múltipla passa T=1+rascunhos pelo
+    tronco. Antes só T=1 compilava, e cada linha extra custava 0,47 ms por
+    camada linear só de despacho (T=2: 60,8 ms contra 44,9 em T=1 no oQ2e,
+    16 dos 16 ms nas 34 lineares). Agora T≤8 compila; logits e estados têm
+    que bater com o caminho comum em T=2, 3 e 8.
+    """
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+    camadas = modelo.model.layers
+
+    def roda(compilar, T):
+        for c in camadas:
+            c.compile_ffn = compilar
+            c._attn_c = None
+            c._ffn_c = None
+        cache = modelo.make_cache()
+        modelo(mx.array([[3, 9, 17, 42, 8]]), cache=cache)
+        janela = mx.arange(1, T + 1, dtype=mx.int32)[None] * 7
+        s = modelo(janela, cache=cache)
+        s = getattr(s, "logits", s)
+        mx.eval(s)
+        return s, [c.state for c in cache if isinstance(c, ArraysCache)]
+
+    for T in (2, 3, 8):
+        ref, est_ref = roda(False, T)
+        obt, est_obt = roda(True, T)
+        assert all(c._attn_c is not None for c in camadas if c.is_linear), (
+            f"T={T}: o caminho compilado da atenção não foi usado"
+        )
+        assert ref.shape == obt.shape == (1, T, ref.shape[-1])
+        dif = float(mx.max(mx.abs(ref - obt)).item())
+        assert dif < 1e-2, f"T={T}: logits divergem: {dif:.2e}"
+        for (c0, s0), (c1, s1) in zip(est_ref, est_obt):
+            assert float(mx.max(mx.abs(c0 - c1)).item()) < 1e-2, f"T={T}: conv"
+            assert float(mx.max(mx.abs(s0 - s1)).item()) < 1e-2, f"T={T}: estado"
+
+
+def test_o_desfazer_parcial_funciona_com_a_janela_compilada():
+    """Com o cache armado para o desfazer, o caminho compilado tem que
+    produzir a captura do replay (fora do grafo) e o desfazer parcial tem
+    que deixar o estado igual ao de um tronco que só viu as posições
+    aceitas — o mesmo contrato do caminho comum."""
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    from omlx.patches.mlx_lm_mtp.glm5_next_model import _arma_desfazer, desfaz_parcial
+
+    glm_lang, _ = _glm_com_runtime()
+    modelo, _args = _modelo_com_cabeca(glm_lang)
+    camadas = modelo.model.layers
+    for c in camadas:
+        c.compile_ffn = True
+        c._attn_c = None
+        c._ffn_c = None
+
+    prefixo = mx.array([[3, 9, 17, 42, 8]])
+    janela = mx.array([[5, 11, 13, 21]])  # 1 confirmado + 3 rascunhos
+    aceitos = 1  # fica [5, 11]; 13 e 21 são desfeitos
+
+    # referência: um tronco que só viu prefixo + as posições aceitas
+    ref = modelo.make_cache()
+    modelo(prefixo, cache=ref)
+    modelo(janela[:, : aceitos + 1], cache=ref)
+    est_ref = [c.state for c in ref if isinstance(c, ArraysCache)]
+
+    # o caminho compilado, armado, vê a janela inteira e desfaz
+    cache = modelo.make_cache()
+    modelo(prefixo, cache=cache)
+    _arma_desfazer(cache)
+    modelo(janela, cache=cache)
+    assert all(c._attn_c is not None for c in camadas if c.is_linear)
+    lineares = [c for c in cache if isinstance(c, ArraysCache)]
+    assert lineares and all(c.rollback_replay is not None for c in lineares), (
+        "o caminho compilado não montou a captura do replay"
+    )
+    assert desfaz_parcial(cache, accepted=aceitos, num_drafts=3)
+    est_obt = [c.state for c in cache if isinstance(c, ArraysCache)]
+    for (c0, s0), (c1, s1) in zip(est_ref, est_obt):
+        assert float(mx.max(mx.abs(c0 - c1)).item()) < 1e-2, "conv"
+        assert float(mx.max(mx.abs(s0 - s1)).item()) < 1e-2, "estado recorrente"
+
+    # e o próximo token depois do desfazer bate com a referência
+    a = modelo(mx.array([[2]]), cache=ref); b = modelo(mx.array([[2]]), cache=cache)
+    a = getattr(a, "logits", a); b = getattr(b, "logits", b)
+    assert float(mx.max(mx.abs(a - b)).item()) < 1e-2

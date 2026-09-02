@@ -982,23 +982,26 @@ class Glm5NextDecoderLayer(nn.Module):
         self._attn_c = None
 
     def _decode_compilavel(self, x, mask, cache) -> bool:
-        # A metade da atencao so compila na camada LINEAR em decode de uma
-        # sequencia (B=1, T=1): os dois estados dela tem forma fixa, entao o
-        # grafo tracado uma vez serve para todos os tokens. A camada esparsa
-        # cresce o KV a cada token e retracaria sempre. Sem mascara, sem
-        # preenchimento a direita, e sem a captura do desfazer (que escreve no
-        # cache dentro do forward, coisa que um grafo compilado nao faz).
+        # A metade da atencao so compila na camada LINEAR de uma sequencia
+        # (B=1) em decode e na janela de verificacao da previsao multipla
+        # (T<=8): os dois estados dela tem forma fixa, entao o grafo tracado
+        # serve para todos os tokens (um traco por T). A camada esparsa cresce
+        # o KV a cada token e retracaria sempre. Sem mascara e sem
+        # preenchimento a direita. A captura do desfazer nao impede mais: o
+        # bloco compilado devolve os tensores do replay e quem chama monta a
+        # captura FORA do grafo, como ja grava os dois estados. Medido no
+        # oQ2e (02/09): T=2 custava 60,8 ms contra 44,9 em T=1, e 16 dos
+        # 16 ms eram estas 34 camadas fora do grafo compilado.
         return (
             self.is_linear
             and self.compile_ffn
             and cache is not None
             and mask is None
             and x.shape[0] == 1
-            and x.shape[1] == 1
+            and x.shape[1] <= _COMPILE_FFN_MAX_S
             and cache[0] is not None
             and cache[1] is not None
             and getattr(cache, "lengths", None) is None
-            and not getattr(cache, "_omlx_captura_desfazer", False)
         )
 
     def __call__(
@@ -1015,11 +1018,21 @@ class Glm5NextDecoderLayer(nn.Module):
             # ops elementares e nao reconstroi o grafo em Python a cada token.
             if self._attn_c is None:
                 self._attn_c = mx.compile(self._attn_block)
-            x, conv_novo, estado_novo = self._attn_c(x, cache[0], cache[1])
+            estado_anterior = cache[1]
+            x, conv_novo, estado_novo, conv_input, q, k, v, a, b_o = self._attn_c(
+                x, cache[0], estado_anterior
+            )
+            if getattr(cache, "_omlx_captura_desfazer", False):
+                # A mesma captura que o caminho comum faz, so que fora do
+                # grafo (ver o comentario no __call__ da atencao linear).
+                cache._omlx_captura_desfazer = False
+                cache.rollback_replay = self.self_attn._replay_desfazer(
+                    q, k, v, a, b_o, conv_input, estado_anterior, None
+                )
             cache[1] = estado_novo
             # a mesma amarra entre os dois estados que o caminho comum faz
             cache[0] = mx.depends(conv_novo, (estado_novo,))
-            cache.advance(1)
+            cache.advance(x.shape[1])
         else:
             residual = x
             xc, post, comb = self.attn_hc(x)
@@ -1043,13 +1056,18 @@ class Glm5NextDecoderLayer(nn.Module):
         # grava o que volta no cache.
         residual = x
         xc, post, comb = self.attn_hc(x)
-        r, conv_input, estado_novo, _ = self.self_attn._nucleo(
+        r, conv_input, estado_novo, (q, k, v, a, b_o) = self.self_attn._nucleo(
             self.input_layernorm(xc), None, conv_state, state
         )
         conv_novo = mx.contiguous(
             conv_input[:, -(self.self_attn.conv_kernel_size - 1) :, :]
         )
-        return hc_expand(r, residual, post, comb), conv_novo, estado_novo
+        # Os tensores do replay saem junto: o desfazer parcial da janela de
+        # verificacao os consome, e um grafo compilado nao grava em objeto.
+        return (
+            hc_expand(r, residual, post, comb), conv_novo, estado_novo,
+            conv_input, q, k, v, a, b_o,
+        )
 
     def _ffn_block(self, x: mx.array) -> mx.array:
         # Stateless FFN half (no cache) -> compiles cleanly at a fixed decode shape.
