@@ -30,7 +30,8 @@ _LOCK = threading.Lock()
 # threshold for every real flip. An unknown flip is an error, never a silent
 # fallback to "enabled" — that ran a whole benchmark measuring the wrong knob.
 _FLIPS = ("enabled", "none", "freq_rule", "match_len", "draft_max",
-          "draft_min", "chain", "hysteresis", "patient", "margin")
+          "draft_min", "chain", "hysteresis", "patient", "margin",
+          "block_verify")
 
 _CODE = '''def process_orders(orders):
     total = 0
@@ -166,9 +167,11 @@ def _arm_summary(samples: list[dict]) -> dict:
 def _worker(run: dict, port: int, api_key: str) -> None:
     from ..patches.mlx_lm_mtp import (
         get_ngram_spec_params,
+        is_mtp_block_verify,
         is_mtp_hysteresis,
         is_ngram_spec_enabled,
         reset_ngram_pool,
+        set_mtp_block_verify,
         set_mtp_hysteresis,
         set_ngram_spec,
     )
@@ -176,6 +179,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     flip = run.get("flip", "enabled")
     original = is_ngram_spec_enabled()
     original_hyst = is_mtp_hysteresis()
+    original_block = is_mtp_block_verify()
     (original_match, original_max, original_min, original_freq,
      original_chain, original_patient, original_margin) = get_ngram_spec_params()
     if flip == "freq_rule":
@@ -197,6 +201,9 @@ def _worker(run: dict, port: int, api_key: str) -> None:
     elif flip == "hysteresis":
         # v5 F2: acceptance-ladder depth vs the measured controller
         arms = (("hyst_on", True), ("hyst_off", False))
+    elif flip == "block_verify":
+        # bloco (arXiv 2403.10444) vs a aceitacao token a token
+        arms = (("block_on", True), ("block_off", False))
     elif flip == "patient":
         # v5 F3: patient index reset vs the per-key freeze
         arms = (("patient_on", True), ("patient_off", False))
@@ -231,6 +238,9 @@ def _worker(run: dict, port: int, api_key: str) -> None:
         elif flip == "hysteresis":
             # drafter config untouched; only the depth-controller mode flips
             set_mtp_hysteresis(enabled)
+        elif flip == "block_verify":
+            # so a regra de aceitacao da janela vira; o resto fica igual
+            set_mtp_block_verify(enabled)
         elif flip == "patient":
             set_ngram_spec(True, patient=enabled)
         elif flip == "margin":
@@ -287,6 +297,7 @@ def _worker(run: dict, port: int, api_key: str) -> None:
                        freq_rule=original_freq, chain=original_chain,
                        patient=original_patient, margin=original_margin)
         set_mtp_hysteresis(original_hyst)
+        set_mtp_block_verify(original_block)
 
 
 def start(model_id: str, port: int, api_key: str, repeats: int = 5,
