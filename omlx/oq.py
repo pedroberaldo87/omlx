@@ -5407,7 +5407,9 @@ def _source_imatrix_signature(
     elif str(config.get("model_type", "")).lower() == "glm5_next":
         # GLM-5.3 needs its mHC-expanded layer walk plus the untied output-head
         # capture. Older caches completed without either and must not be reused.
-        signature["layer_walk"] = "glm5_next_hc_moe_lm_head_v4"
+        # v5: the streamed walk now also measures embed_q, lm_head and the MTP
+        # head; a v4 cache (0..44 only) would be reused with those missing.
+        signature["layer_walk"] = "glm5_next_hc_moe_lm_head_v5"
     return signature
 
 

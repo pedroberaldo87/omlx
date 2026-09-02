@@ -6998,7 +6998,34 @@ class TestGlm5NextLayerWalk:
             calib_dataset="test",
         )
 
-        assert signature["layer_walk"] == "glm5_next_hc_moe_lm_head_v4"
+        assert signature["layer_walk"] == "glm5_next_hc_moe_lm_head_v5"
+
+    def test_o_guarda_do_cache_aceita_as_entradas_da_cabeca_por_camada(self, tmp_path):
+        """As chaves que a passagem por camada produz (language_model.mtp.0.*)
+        satisfazem o guarda que antes rejeitava o cache a cada execução."""
+        from omlx.oq import (
+            _STREAM_GLM5_NEXT_MTP_PREFIX,
+            OQImatrixData,
+            _oqe_cache_missing_mtp_entries,
+        )
+
+        (tmp_path / "model.safetensors.index.json").write_text(
+            json.dumps({"weight_map": {"mtp.0.eh_proj.weight": "model.safetensors"}})
+        )
+        config = {
+            "model_type": "glm5_next",
+            "text_config": {"model_type": "glm5_next_text", "num_nextn_predict_layers": 1},
+        }
+        sem = OQImatrixData(
+            path="x", reused=True, metadata={},
+            entries={"language_model.model.layers.0.self_attn.q_proj": object()},
+        )
+        com = OQImatrixData(
+            path="x", reused=True, metadata={},
+            entries={**sem.entries, _STREAM_GLM5_NEXT_MTP_PREFIX + "eh_proj": object()},
+        )
+        assert _oqe_cache_missing_mtp_entries(sem, config, str(tmp_path))
+        assert not _oqe_cache_missing_mtp_entries(com, config, str(tmp_path))
 
     def test_hyper_connections_and_moe_imatrix_hooks_execute(self):
         from omlx.patches import mlx_vlm_glm5_next_compat
