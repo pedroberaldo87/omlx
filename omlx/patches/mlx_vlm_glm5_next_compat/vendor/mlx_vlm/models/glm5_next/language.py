@@ -43,13 +43,15 @@ logger = logging.getLogger(__name__)
 _SPARSE_MLA_MIN_KV = int(os.environ.get("OMLX_GLM5_SPARSE_MLA_MIN_KV", "16384"))
 # Até quantas consultas a atenção esparsa atende na forma absorvida (latente);
 # acima disso é prefill, e projetar o contexto uma vez sai mais barato.
-_ABSORBED_MAX_L = 8
+_ABSORBED_MAX_L = int(os.environ.get("OMLX_GLM5_ABSORBED_MAX_L", "8"))
 # Os núcleos nativos do seletor (pontuação e top-k) são ladrilhados para o
 # preparo: a pontuação acolchoa as consultas até 64 linhas. Em decode e na
 # janela de verificação (1 a 8 consultas) o caminho de MLX é mais barato —
 # medido no oQ2e com 3000 tokens de contexto, por camada esparsa em T=1:
 # nativo 0,96 ms, MLX + argpartition 0,58 (−4 ms por passo nas 11 camadas).
-_NATIVE_INDEXER_MIN_QUERIES = 64
+_NATIVE_INDEXER_MIN_QUERIES = int(os.environ.get("OMLX_GLM5_NATIVE_INDEXER_MIN_QUERIES", "64"))
+# Até quantas posições o bloco FFN roda compilado (decode e janela de verificação).
+_COMPILE_FFN_MAX_S = int(os.environ.get("OMLX_GLM5_COMPILE_FFN_MAX_S", "8"))
 _NATIVE_INDEXER_WARNED = False
 
 
@@ -975,7 +977,7 @@ class Glm5NextDecoderLayer(nn.Module):
         # oQ2e, +0 MB). Compiling the 288-expert MoE at a batched or prefill
         # shape spikes memory (it can OOM alongside the resident weights), so
         # those shapes take the eager path.
-        if self.compile_ffn and x.shape[0] == 1 and x.shape[1] <= 8:
+        if self.compile_ffn and x.shape[0] == 1 and x.shape[1] <= _COMPILE_FFN_MAX_S:
             if self._ffn_c is None:
                 self._ffn_c = mx.compile(self._ffn_block)
             return self._ffn_c(x)
