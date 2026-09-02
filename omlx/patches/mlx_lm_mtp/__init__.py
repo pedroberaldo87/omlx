@@ -146,6 +146,22 @@ def is_mtp_hysteresis() -> bool:
     return _MTP_HYSTERESIS
 
 
+# Block verification (arXiv 2403.10444, ICLR 2025): aceita o MAIOR prefixo da
+# janela pela razao conjunta acumulada, em vez de parar na primeira recusa.
+# Provadamente nunca pior em tokens esperados por ciclo; identico ao token a
+# token em profundidade 1. Mesmo padrao de knob da histerese.
+_MTP_BLOCK_VERIFY = _os.environ.get("OMLX_MTP_BLOCK_VERIFY", "") == "1"
+
+
+def set_mtp_block_verify(enabled: bool) -> None:
+    global _MTP_BLOCK_VERIFY
+    _MTP_BLOCK_VERIFY = bool(enabled)
+
+
+def is_mtp_block_verify() -> bool:
+    return _MTP_BLOCK_VERIFY
+
+
 # Shared-pool reset hook (plan v5, F0.5). The A/B preset zeroes the
 # cross-request pool between arms so arm B never serves copies drafted
 # from arm A's history; the batch generator registers the actual reset

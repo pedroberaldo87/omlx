@@ -3351,22 +3351,29 @@ def _run_verify_cycle_chain(gen_batch: Any, state: _MtpState) -> None:
             q_rows = None
             ratio = p_at
         u = mx.random.uniform(shape=(k,))
-        acc = mx.logical_or(ratio >= 0, mx.log(u) < ratio)
-        m_arr = mx.cumprod(acc.astype(mx.int32)).sum().reshape(1)
-        # Residual distributions max(p - q, 0) per draft position. Only the
-        # reject position's sample is used; computing all k keeps the cycle
-        # single-sync and costs a few elementwise vocab ops on GPU.
-        p_all = mx.exp(accept_rows[:k])
-        if q_rows is not None:
-            res = mx.maximum(p_all - mx.exp(q_rows), 0.0)
-        else:
-            # Residual of a point-mass q: p with the drafted column removed.
-            res = mx.put_along_axis(
-                p_all, idx, mx.zeros((k, 1), dtype=p_all.dtype), axis=-1
+        from . import is_mtp_block_verify
+
+        if is_mtp_block_verify() and k > 1:
+            m_arr, res_samples = _block_verify_accept(
+                accept_rows, q_rows, idx, ratio, u, k
             )
-        z = res.sum(axis=-1, keepdims=True)
-        res_dist = mx.where(z > 0, res, p_all)
-        res_samples = mx.random.categorical(mx.log(res_dist))  # (k,)
+        else:
+            acc = mx.logical_or(ratio >= 0, mx.log(u) < ratio)
+            m_arr = mx.cumprod(acc.astype(mx.int32)).sum().reshape(1)
+            # Residual distributions max(p - q, 0) per draft position. Only
+            # the reject position's sample is used; computing all k keeps the
+            # cycle single-sync and costs a few elementwise vocab ops on GPU.
+            p_all = mx.exp(accept_rows[:k])
+            if q_rows is not None:
+                res = mx.maximum(p_all - mx.exp(q_rows), 0.0)
+            else:
+                # Residual of a point-mass q: p with the drafted column removed.
+                res = mx.put_along_axis(
+                    p_all, idx, mx.zeros((k, 1), dtype=p_all.dtype), axis=-1
+                )
+            z = res.sum(axis=-1, keepdims=True)
+            res_dist = mx.where(z > 0, res, p_all)
+            res_samples = mx.random.categorical(mx.log(res_dist))  # (k,)
         bonus_tok = sampler(combined_lp[k : k + 1]).reshape(1)
         host = mx.concatenate(
             [
@@ -3855,6 +3862,54 @@ def _step_mtp(
     if stats is not None:
         stats.mtp_head_ms += (time.perf_counter() - t0) * 1000
     return _ensure_uint32(new_tok), new_lp.squeeze(0)
+
+
+def _block_verify_accept(accept_rows, q_rows, idx, ratio, u, k):
+    """Block verification (arXiv 2403.10444, Alg. 2), in-graph.
+
+    Accepts the LONGEST prefix i (1..k) with u_i <= h_i, where the running
+    joint ratio is rho_i = min(rho_{i-1} * p_i/q_i, 1); for i < k,
+    h_i = s_i / (s_i + 1 - rho_i) with s_i = sum_x max(rho_i*P_i(x)-Q_i(x), 0)
+    over the NEXT position's rows, and h_k = rho_k. The correction after a
+    prefix of length i is drawn from max(rho_i * P_i - Q_i, 0) — at rho_i = 1
+    that is exactly the token-level residual. Never worse than token-level
+    verification in expected tokens per cycle (identical at k=1); the emitted
+    sequence stays distributed as the target. Degenerate s_i + 1 - rho_i = 0
+    means rho_i = 1 and P_i == Q_i — the prefix is already target-distributed,
+    so accepting (h = 1) is the correct limit. Same single host sync as the
+    token-level path: everything here stays lazy until the caller's tolist().
+
+    Returns (m_arr, res_samples): the accepted length as a (1,) int32 array
+    and one residual draw per position (only position m is consumed).
+    """
+    import mlx.core as mx
+
+    log_rho = mx.minimum(mx.cumsum(ratio), 0.0)  # (k,) log rho_1..k
+    rho_prev = mx.concatenate(  # rho after i accepted drafts, i=0..k-1
+        [mx.ones((1,)), mx.exp(log_rho[:-1])]
+    )
+    p_all = mx.exp(accept_rows[:k])  # P_i rows, i=0..k-1
+    q_all = (
+        mx.exp(q_rows)
+        if q_rows is not None
+        else mx.put_along_axis(
+            mx.zeros_like(p_all), idx,
+            mx.ones((k, 1), dtype=p_all.dtype), axis=-1,
+        )
+    )
+    res = mx.maximum(rho_prev[:, None] * p_all - q_all, 0.0)
+    z = res.sum(axis=-1, keepdims=True)
+    res_dist = mx.where(z > 0, res, p_all)
+    res_samples = mx.random.categorical(mx.log(res_dist))  # (k,)
+    rho = mx.exp(log_rho)  # (k,) rho_1..rho_k
+    s = res[1:].sum(axis=-1)  # s_i for i=1..k-1 (rho_prev[i] == rho_i)
+    den = s + 1.0 - rho[:-1]
+    h = mx.concatenate(
+        [mx.where(den > 0, s / mx.maximum(den, 1e-20), 1.0), rho[-1:]]
+    )  # (k,) h_1..h_k
+    hit = (u <= h).astype(mx.int32)
+    m_arr = (mx.arange(1, k + 1, dtype=mx.int32) * hit).max().reshape(1)
+    return m_arr, res_samples
 
 
 def _residual_sample(verify_lp_2d: Any, draft_lp_1d: Any) -> Tuple[int, Any]:

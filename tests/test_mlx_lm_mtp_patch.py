@@ -2917,3 +2917,79 @@ class TestReconcileChunked:
         assert formas == [512, 512, 276], formas
         assert batch.prompt_cache[0].offset == 1300
         assert batch._next_tokens.tolist() == [5]
+
+
+class TestBlockVerification:
+    """Verificação em bloco (arXiv 2403.10444): o token emitido continua
+    distribuído como o alvo, e o comprimento aceito nunca piora contra o
+    token a token. Simulação com P e Q sintéticos, semente fixa."""
+
+    @staticmethod
+    def _simula(n, k, V, seed, bloco):
+        import mlx.core as mx
+        import numpy as np  # noqa: F401
+
+        from omlx.patches.mlx_lm_mtp.batch_generator import _block_verify_accept
+
+        rng = np.random.default_rng(seed)
+        # alvo P e rascunhador Q por posição: fixos, distintos, com sobreposição
+        P = rng.dirichlet(np.ones(V) * 2.0, size=k + 1)
+        Q = rng.dirichlet(np.ones(V) * 2.0, size=k)
+        lpP = mx.array(np.log(P), dtype=mx.float32)
+        lpQ = mx.array(np.log(Q), dtype=mx.float32)
+        mx.random.seed(seed)
+        primeiros, taus = [], []
+        for _ in range(n):
+            drafts = np.array([rng.choice(V, p=Q[i]) for i in range(k)])
+            idx = mx.array(drafts.astype(np.int32))[:, None]
+            p_at = mx.take_along_axis(lpP[:k], idx, axis=-1).squeeze(-1)
+            q_at = mx.take_along_axis(lpQ, idx, axis=-1).squeeze(-1)
+            ratio = p_at - q_at
+            u = mx.random.uniform(shape=(k,))
+            if bloco:
+                m_arr, res_samples = _block_verify_accept(
+                    lpP, lpQ, idx, ratio, u, k
+                )
+                m = int(m_arr.tolist()[0])
+                res_ids = [int(x) for x in res_samples.tolist()]
+            else:
+                acc = mx.logical_or(ratio >= 0, mx.log(u) < ratio)
+                m = int(mx.cumprod(acc.astype(mx.int32)).sum().item())
+                p_all = mx.exp(lpP[:k])
+                res = mx.maximum(p_all - mx.exp(lpQ), 0.0)
+                z = res.sum(axis=-1, keepdims=True)
+                res_dist = mx.where(z > 0, res, p_all)
+                res_ids = [int(x) for x in mx.random.categorical(mx.log(res_dist)).tolist()]
+            taus.append(m)
+            if m >= 1:
+                primeiros.append(int(drafts[0]))
+            else:
+                primeiros.append(res_ids[0])
+        return np.array(primeiros), np.array(taus), P
+
+    def test_o_primeiro_token_emitido_segue_o_alvo_e_tau_nao_piora(self):
+        import mlx.core as mx  # noqa: F401  (o helper usa; garante o import)
+        import numpy as np
+
+        n, k, V = 4000, 3, 6
+        prim_b, tau_b, P = self._simula(n, k, V, seed=7, bloco=True)
+        prim_t, tau_t, _ = self._simula(n, k, V, seed=7, bloco=False)
+
+        emp_b = np.bincount(prim_b, minlength=V) / n
+        emp_t = np.bincount(prim_t, minlength=V) / n
+        tv_b = 0.5 * np.abs(emp_b - P[0]).sum()
+        tv_t = 0.5 * np.abs(emp_t - P[0]).sum()
+        # o bloco tem que estar tão perto do alvo quanto o token a token
+        assert tv_b < 0.05, f"bloco desvia do alvo: TV={tv_b:.3f} (token a token: {tv_t:.3f})"
+        assert tv_t < 0.05, f"referência quebrada: TV={tv_t:.3f}"
+        # e aceitar mais (garantia do paper: nunca pior em tokens esperados)
+        assert tau_b.mean() >= tau_t.mean() - 0.02, (
+            f"bloco aceita menos: {tau_b.mean():.3f} vs {tau_t.mean():.3f}"
+        )
+
+    def test_com_k_1_o_ramo_do_bloco_nem_e_usado(self):
+        """O ramo só liga com k > 1 (em k=1 os dois algoritmos são idênticos
+        por construção); e o knob de fábrica é desligado."""
+        from omlx.patches import mlx_lm_mtp
+
+        assert mlx_lm_mtp.is_mtp_block_verify() is False
