@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 # The previous value (4096) enabled the kernel exactly where it is 3x slower.
 # Re-measure if #3251 lands: its M=1 indexer specialization moves the crossover.
 _SPARSE_MLA_MIN_KV = int(os.environ.get("OMLX_GLM5_SPARSE_MLA_MIN_KV", "16384"))
+# Até quantas consultas a atenção esparsa atende na forma absorvida (latente);
+# acima disso é prefill, e projetar o contexto uma vez sai mais barato.
+_ABSORBED_MAX_L = 8
 _NATIVE_INDEXER_WARNED = False
 
 
@@ -766,7 +769,15 @@ class Glm5NextSparseAttention(nn.Module):
                     sparse_mask = sparse_mask & mask
                 attn_mask = sparse_mask
 
-        if L == 1:
+        # Poucas consultas (decode e a janela de verificação da previsão
+        # múltipla): absorver as projeções nas consultas e atender no espaço
+        # latente. Projetar o contexto inteiro (k = W·kv, v = U·kv) custa
+        # O(contexto) por passo — medido no oQ2e com 1500 tokens de contexto
+        # (abaixo do limiar do seletor): 5,9 ms contra 1,05 ms por camada
+        # esparsa em 2 posições, ~53 ms a mais por passo de verificação. A
+        # conta é a mesma: q·(W·k) = (Wᵀ·q)·k e Σp·(U·k) = U·Σp·k.
+        absorvida = L <= _ABSORBED_MAX_L
+        if absorvida:
             q = self.embed_q(q)
             k = v = kv_latent
         else:
@@ -776,7 +787,7 @@ class Glm5NextSparseAttention(nn.Module):
         output = scaled_dot_product_attention(
             q, k, v, cache=cache, scale=self.scale, mask=attn_mask
         )
-        if L == 1:
+        if absorvida:
             output = self.unembed_out(output)
 
         output = output.transpose(0, 2, 1, 3).reshape(B, L, -1)
