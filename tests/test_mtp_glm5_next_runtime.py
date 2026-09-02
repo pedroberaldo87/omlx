@@ -723,3 +723,51 @@ def test_o_desfazer_parcial_sem_replay_e_recusado_e_com_replay_errado_diverge():
         f"restaurar sem reprocessar deu diferença {dif:.2e}: o teste de "
         f"identidade não estaria medindo nada"
     )
+
+
+def test_o_desfazer_parcial_funciona_com_o_cache_em_lote_do_gerador():
+    """O servidor não usa ``modelo.make_cache()``: o BatchGenerator do mlx-lm
+    monta o cache com ``left_padding=[0]`` (a API em lote, mesmo para uma
+    sequência só), e a camada recorrente então recebe uma MÁSCARA toda
+    verdadeira em vez de ``None``. A captura do replay exigia ``mask is None``
+    e nunca acontecia: cada rascunho recusado caía no passo comum, que
+    RE-PREFILLAVA o contexto inteiro num único forward (`_reconcile_mtp_to_
+    standard`) — medido em 01/09 no oQ2e: a cada 3 tokens, um forward de 2600
+    posições; e esse prefill de um golpe diverge do prefill em pedaços (KV da
+    camada 7 já difere em 38 posições), o que num agente com 30 mil tokens de
+    contexto terminou em lixo ("NoNo", "DEDEDE").
+    """
+    import sys
+
+    import mlx.core as mx
+    from mlx_lm.models.cache import ArraysCache
+
+    glm, _ = _glm_com_remendo()
+    modelo, _args = _modelo_com_cabeca(glm)
+    make_cache = sys.modules["mlx_lm.generate"]._make_cache
+
+    prefixo = mx.array([[3, 9, 17, 42, 8]])
+    bloco = mx.array([[1, 55, 2, 7]])
+    aceitos = 1
+
+    ref = make_cache(modelo, [0], None)
+    modelo(prefixo, cache=ref)
+    modelo(bloco[:, : aceitos + 1], cache=ref)
+    esperado = _logits_seguintes(modelo, ref, 99)
+
+    cache = make_cache(modelo, [0], None)
+    modelo(prefixo, cache=cache)
+    lineares = [c for c in cache if isinstance(c, ArraysCache)]
+    assert lineares and all(c.make_mask(4) is not None for c in lineares), (
+        "o arreio tem que reproduzir o cache em lote: máscara não-None"
+    )
+    modelo(bloco, cache=cache, return_hidden=True)
+    for c in lineares:
+        assert c.rollback_replay is not None, (
+            "com o cache em lote (máscara toda verdadeira) a recorrente não "
+            "guardou o replay — é o que derruba o ciclo para o re-prefill"
+        )
+    assert modelo.mtp_partial_rollback(cache, aceitos, 3) is True
+    obtido = _logits_seguintes(modelo, cache, 99)
+    dif = float(mx.max(mx.abs(obtido - esperado)).item())
+    assert dif < 1e-3, dif
