@@ -483,3 +483,34 @@ def test_a_regra_de_precisao_alta_vem_com_o_limpador_de_visao():
     # e o resto converte normalmente
     assert regra(p + "self_attn.q_proj.weight") is True
     assert regra(p + "mlp.experts.gate_up_proj.weight") is True
+
+
+@precisa_do_config
+def test_a_saida_da_atencao_linear_tem_piso_de_8_bits_por_regra():
+    """No oQ2e de 31/08 o o_proj das 34 camadas lineares saiu em 8 bits por
+    sobra de orçamento (o piso de proteção devolvia True = bits base), não por
+    regra escrita — com um teto mais apertado cairia para 2 bits. A origem
+    deixa a atenção linear inteira em bf16; o estudo de KLD citado no próprio
+    predicado aponta o o_proj como o pior tensor para quantizar."""
+    from omlx.oq import universal_quant_predicate
+
+    cfg = _config()
+    cfg["_oq_use_budget_plan"] = False
+    cfg["_oq_boost_map"] = {}
+    tipos = cfg["text_config"]["layer_types"]
+    linear = tipos.index("linear_attention")
+    esparsa = tipos.index("deepseek_sparse_attention")
+
+    r = universal_quant_predicate(f"model.layers.{linear}.self_attn.o_proj.weight", None, cfg, 2)
+    assert isinstance(r, dict) and r["bits"] == 8, r
+    r = universal_quant_predicate(
+        f"language_model.model.layers.{linear}.self_attn.o_proj.weight", None, cfg, 2
+    )
+    assert isinstance(r, dict) and r["bits"] == 8, r
+    # a esparsa e a cabeça não entram nesta regra
+    assert universal_quant_predicate(
+        f"model.layers.{esparsa}.self_attn.o_proj.weight", None, cfg, 2
+    ) is True
+    assert universal_quant_predicate(
+        "language_model.mtp.0.block.self_attn.o_proj.weight", None, cfg, 2
+    ) is True

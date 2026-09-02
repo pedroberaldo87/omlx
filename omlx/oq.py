@@ -423,6 +423,24 @@ def _is_token_embedding_tensor(path: str) -> bool:
     )
 
 
+def _is_glm5_next_linear_attention_o_proj(path_l: str, text_config: dict) -> bool:
+    """``self_attn.o_proj`` of a LINEAR-attention layer of glm5_next.
+
+    GLM-5.3 names both attention kinds ``self_attn``; ``layer_types`` says
+    which layer is the recurrent KDA one. The MTP head carries no layer index
+    and is sparse attention, so it never matches.
+    """
+    if not path_l.endswith("self_attn.o_proj"):
+        return False
+    layer_types = text_config.get("layer_types") if isinstance(text_config, dict) else None
+    if not layer_types:
+        return False
+    layer_idx = _extract_layer_index(path_l)
+    if layer_idx < 0 or layer_idx >= len(layer_types):
+        return False
+    return layer_types[layer_idx] == "linear_attention"
+
+
 def universal_quant_predicate(
     path: str, module, config: dict, oq_level: int = 4
 ) -> bool | dict:
@@ -541,6 +559,13 @@ def universal_quant_predicate(
         return bits(8)
     if "linear_attn.out_proj" in path_l:
         return bits(5)
+    if _is_glm5_next_linear_attention_o_proj(path_l, tc):
+        # The GLM-5.3 source keeps its whole linear (KDA) attention in bf16
+        # (modules_to_not_convert); the output projection is the tensor the
+        # KLD study above ranks worst to quantize. Without a written floor
+        # the oQ2e of 31/08 got it at 8 bits only because the sensitivity
+        # boost had budget left — a tighter cap would drop it to 2 bits.
+        return bits(8)
 
     # Inkling short-conv weights (k/v/attn/mlp_sconv.conv.weight; the
     # .weight suffix is stripped by _normalize_quant_path) are tiny
