@@ -1145,5 +1145,9 @@
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
   "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
   "modal.model_settings.ngram_spec_chain": "Parcours chaîné du brouillon",
-  "modal.model_settings.ngram_spec_chain_hint": "Au lieu d'une copie de bloc par cycle, le brouillon grandit token par token, en reconsultant l'index et en cousant les occurrences en brouillons plus longs (le parcours ngram-mod de llama.cpp). Les chaînes plus courtes que le seuil ne proposent rien."
+  "modal.model_settings.ngram_spec_chain_hint": "Au lieu d'une copie de bloc par cycle, le brouillon grandit token par token, en reconsultant l'index et en cousant les occurrences en brouillons plus longs (le parcours ngram-mod de llama.cpp). Les chaînes plus courtes que le seuil ne proposent rien.",
+  "settings.advanced.metal_command_buffers": "Command buffers Metal",
+  "settings.advanced.metal_command_buffers_hint": "Combien d'opérations et combien de Mo de données MLX regroupe dans un seul command buffer GPU avant de l'envoyer (0 = valeur par défaut de MLX : 10 ops / 40 Mo). Des buffers plus grands accélèrent la génération de tokens (+24 % mesuré sur GLM-5.3) mais ralentissent la lecture du prompt et augmentent le pic mémoire. Pris en compte au prochain démarrage du serveur.",
+  "settings.advanced.metal_mb_per_buffer": "Mo",
+  "settings.advanced.metal_ops_per_buffer": "ops"
 }

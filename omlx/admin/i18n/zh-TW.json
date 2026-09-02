@@ -1145,5 +1145,9 @@
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
   "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
   "modal.model_settings.ngram_spec_chain": "鏈式草稿遊走",
-  "modal.model_settings.ngram_spec_chain_hint": "不再每週期整塊複製，草稿逐 token 成長,反覆查詢索引並把多處出現縫合成更長的草稿（llama.cpp 的 ngram-mod 遊走）。短於門檻的鏈不提交任何草稿。"
+  "modal.model_settings.ngram_spec_chain_hint": "不再每週期整塊複製，草稿逐 token 成長,反覆查詢索引並把多處出現縫合成更長的草稿（llama.cpp 的 ngram-mod 遊走）。短於門檻的鏈不提交任何草稿。",
+  "settings.advanced.metal_command_buffers": "Metal 命令緩衝區",
+  "settings.advanced.metal_command_buffers_hint": "MLX 在送出前，將多少個運算和多少 MB 資料打包進單一 GPU 命令緩衝區（0 = MLX 預設：10 ops / 40 MB）。較大的緩衝區可加快 token 生成（在 GLM-5.3 上測得 +24%），但會拖慢提示詞讀取並提高記憶體峰值。下次伺服器啟動時生效。",
+  "settings.advanced.metal_mb_per_buffer": "MB",
+  "settings.advanced.metal_ops_per_buffer": "ops"
 }

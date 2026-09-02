@@ -1145,5 +1145,9 @@
   "modal.model_settings.ngram_spec_freq_rule": "Palpite proporcional à repetição",
   "modal.model_settings.ngram_spec_freq_rule_hint": "O tamanho da cópia segue quantas vezes o trecho se repetiu: visto 3+ vezes libera o palpite cheio, visto uma vez copia a metade. Desligado mantém a regra fixa por janela.",
   "modal.model_settings.ngram_spec_chain": "Caminhada encadeada do palpite",
-  "modal.model_settings.ngram_spec_chain_hint": "Em vez de uma cópia de bloco por ciclo, o palpite cresce token a token, reconsultando o índice e costurando ocorrências em palpites mais longos (a caminhada ngram-mod do llama.cpp). Cadeias mais curtas que o portão não palpitam nada."
+  "modal.model_settings.ngram_spec_chain_hint": "Em vez de uma cópia de bloco por ciclo, o palpite cresce token a token, reconsultando o índice e costurando ocorrências em palpites mais longos (a caminhada ngram-mod do llama.cpp). Cadeias mais curtas que o portão não palpitam nada.",
+  "settings.advanced.metal_command_buffers": "Command buffers do Metal",
+  "settings.advanced.metal_command_buffers_hint": "Quantas operações e quantos MB de dados o MLX empacota num único command buffer da GPU antes de enviá-lo (0 = padrão do MLX: 10 ops / 40 MB). Buffers maiores aceleram a geração de tokens (medido +24% no GLM-5.3), mas deixam a leitura do prompt mais lenta e sobem o pico de memória. Vale a partir da próxima subida do servidor.",
+  "settings.advanced.metal_mb_per_buffer": "MB",
+  "settings.advanced.metal_ops_per_buffer": "ops"
 }
