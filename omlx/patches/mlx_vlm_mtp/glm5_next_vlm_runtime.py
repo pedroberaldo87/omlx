@@ -71,6 +71,25 @@ def apply() -> bool:
     return True
 
 
+def apply_sanitize() -> bool:
+    """Só a limpeza de nomes que preserva a cabeça (e o TextConfig que a
+    sustenta), sem o runtime de decodificação.
+
+    É o que a QUANTIZAÇÃO precisa: o oQ limpa os nomes pelo caminho de visão
+    para manter a torre de visão, e a limpeza de fábrica desse caminho
+    descarta a cabeça. Aplicar o runtime inteiro ali embrulharia ``__init__``
+    e ``__call__`` de uma classe que a quantização nunca instancia.
+    """
+    try:
+        glm_lang = _vendored()
+        _patch_text_config(glm_lang)
+        _patch_vlm_sanitize(glm_lang)
+    except Exception as e:
+        logger.debug("GLM-5.3 VLM MTP sanitize patch skipped: %s", e)
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # TextConfig — as listas de tipo têm que cobrir a camada da cabeça.
 # ---------------------------------------------------------------------------
@@ -414,11 +433,19 @@ def _patch_vlm_sanitize(glm_lang: Any) -> None:
     original_sanitize = cls.sanitize
 
     def sanitize(self, weights):
-        cabeca = {k: v for k, v in weights.items() if "mtp." in k}
-        corpo = {k: v for k, v in weights.items() if "mtp." not in k}
-
         n_main = int(self.args.num_hidden_layers)
         n_mtp = len(getattr(self, "mtp", ()) or ())
+        if not n_mtp:
+            # Sem bloco anexado nao ha onde pendurar a cabeca: as chaves dela
+            # ficariam sem parametro e a carga estrita recusaria o modelo
+            # inteiro. Cai na limpeza de fabrica, que as descarta. E o
+            # remendo e de CLASSE: quem quantiza sem preservar a cabeca no
+            # mesmo processo em que outro pedido preservou tem que continuar
+            # vendo a limpeza de fabrica.
+            return original_sanitize(self, weights)
+
+        cabeca = {k: v for k, v in weights.items() if "mtp." in k}
+        corpo = {k: v for k, v in weights.items() if "mtp." not in k}
 
         # O checkpoint guarda a cabeça como `...layers.<n_main + i>.*`, e a
         # limpeza de fábrica descarta camadas a partir de `num_hidden_layers`.

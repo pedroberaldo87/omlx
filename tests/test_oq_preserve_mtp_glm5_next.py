@@ -263,16 +263,17 @@ def _amostra_com_a_cabeca(n_camadas):
 
 @precisa_do_config
 def test_com_a_opcao_ligada_a_cabeca_atravessa_a_limpeza():
-    """O conserto de 31/08: rotear para a limpeza que preserva.
+    """Com a opcao ligada a cabeca atravessa a limpeza — a de VISAO.
 
-    A limpeza de visao descarta a cabeca — esta escrito na propria descricao de
-    ``_build_model_sanitizer``. O GLM-5.x e uma familia SO TEXTO implementada em
-    mlx-vlm, entao cai nela sem ter peso de visao a proteger. Com a opcao ligada,
-    passa a usar a limpeza de texto, que preserva.
+    O conserto de 31/08 desviava o GLM-5.x para a limpeza de texto, sob a
+    premissa de que a familia nao tinha peso de visao a proteger. Tinha: 347
+    tensores `model.visual.*`, que a limpeza de texto jogava fora (o oQ2e saiu
+    so-texto). Desde 02/09 o modelo fica na limpeza de visao e e ela que
+    preserva a cabeca, sob `language_model.mtp.<i>.*`.
     """
     import json
 
-    from omlx.oq import _build_model_sanitizer
+    from omlx.oq import _build_model_sanitizer, _is_mtp_tensor
 
     cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
     n = (cfg.get("text_config") or {}).get("num_hidden_layers")
@@ -287,7 +288,7 @@ def test_com_a_opcao_ligada_a_cabeca_atravessa_a_limpeza():
     # que o detector de pesos reconhece (_MTP_WEIGHT_PREFIXES inclui "mtp.").
     # Quem renomeia e o runtime de previsao multipla, quando ele esta aplicado
     # no processo; sem ele os nomes de origem seguem intactos.
-    sobrou = [k for k in saida if f"layers.{n}." in k or k.startswith("mtp.")]
+    sobrou = [k for k in saida if f"layers.{n}." in k or _is_mtp_tensor(k)]
     # Os tres que ENTRARAM tem que sair. Podem sair mais: desde 01/09 a limpeza
     # PREENCHE os seis coeficientes de hiperconexao que o checkpoint nao traz na
     # camada da cabeca, com o valor de fabrica que a referencia usa — sem isso a
@@ -305,6 +306,43 @@ def test_com_a_opcao_ligada_a_cabeca_atravessa_a_limpeza():
         f"sobrou coisa que nao e nem o trio da cabeca nem hiperconexao: "
         f"{sorted(extras)}"
     )
+
+
+@precisa_do_config
+def test_com_a_opcao_ligada_a_torre_de_visao_tambem_atravessa():
+    """Preservar a cabeca nao pode custar a visao.
+
+    O oQ2e de 31/08 saiu com 2716 pesos e nenhum `model.visual.*` (a origem
+    tem 347), com o config ainda anunciando `vision_config`: o servidor
+    tentava o motor de visao, falhava ("2713 parameters not in model") e caia
+    no de texto. Agora a torre sai sob `vision_model.*`, com os nomes que o
+    carregador de visao espera, ao lado da cabeca.
+    """
+    import json
+
+    import mlx.core as _mx
+
+    from omlx.oq import _build_model_sanitizer, _is_mtp_tensor
+
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    n = (cfg.get("text_config") or {}).get("num_hidden_layers")
+    limpeza = _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=True)
+    assert limpeza is not None
+
+    pesos = _amostra_com_a_cabeca(n)
+    pesos["model.visual.blocks.0.attn.proj.weight"] = _mx.zeros((2, 2), dtype=_mx.float16)
+    pesos["model.visual.merger.proj.weight"] = _mx.zeros((2, 2), dtype=_mx.float16)
+    pesos["lm_head.weight"] = _mx.zeros((2, 2), dtype=_mx.float16)
+    saida = limpeza(dict(pesos))
+
+    visao = sorted(k for k in saida if k.startswith("vision_model."))
+    assert visao == [
+        "vision_model.blocks.0.attn.proj.weight",
+        "vision_model.merger.proj.weight",
+    ], f"a torre de visao nao atravessou com os nomes do carregador: {sorted(saida)}"
+    assert any(_is_mtp_tensor(k) for k in saida), "e a cabeca tem que seguir junto"
+    assert "language_model.lm_head.weight" in saida
+    assert "language_model.model.layers.%d.input_layernorm.weight" % (n - 1) in saida
 
 
 @precisa_do_config

@@ -3979,16 +3979,29 @@ def _build_model_sanitizer(
     model_type = str(config.get("model_type", "")).lower().replace("-", "_")
     mlx_lm_text_only = model_type in MLX_LM_TEXT_ONLY_MODEL_TYPES
 
-    # Preservar a cabeca de previsao multipla e INCOMPATIVEL com o caminho VLM:
-    # a limpeza dele descarta a cabeca (ver a docstring desta funcao). Para as
-    # familias SO TEXTO implementadas em mlx-vlm (VLM_NATIVE_TEXT_MODEL_TYPES)
-    # isso nao custa nada, porque elas nao tem peso de visao a proteger — e o
-    # caminho de texto preserva. Medido no GLM-5.3-Flash em 31/08/2026: pelo
-    # caminho VLM entram 4 pesos e sai 1, com a cabeca inteira descartada; pelo
-    # caminho de texto entram 4 e saem 4, com os tres da cabeca de pe.
-    # Sem isto, a quantizacao grava um modelo com o sufixo "-mtp" no nome e sem
-    # a cabeca dentro — foi assim que 1760 pesos se perderam calados.
-    if preserve_mtp and model_type in VLM_NATIVE_TEXT_MODEL_TYPES and not text_only:
+    # A limpeza de fabrica do caminho de visao descarta a cabeca de previsao
+    # multipla (ver a docstring desta funcao). Em 31/08/2026 o conserto foi
+    # desviar o glm5_next para a limpeza de TEXTO quando preserve_mtp esta
+    # ligado, sob a premissa de que as familias em VLM_NATIVE_TEXT_MODEL_TYPES
+    # "nao tem peso de visao a proteger". A premissa era falsa para o
+    # GLM-5.3-Flash: o checkpoint traz 347 tensores `model.visual.*` (1,13 GB,
+    # bf16), e a limpeza de texto os jogou fora — o oQ2e saiu so-texto, com o
+    # config ainda anunciando visao, e o servidor caia do motor de visao para o
+    # de texto a cada carga ("2713 parameters not in model"). Medido em 02/09.
+    #
+    # Agora o glm5_next fica no caminho de visao, e e a limpeza da lingua desse
+    # caminho que passa a preservar a cabeca (apply_sanitize, abaixo): entram
+    # a torre de visao E a cabeca, e o resultado carrega direto pelo motor de
+    # visao com os nomes que ele espera (language_model.*, vision_model.*).
+    preserva_cabeca_na_visao = (
+        preserve_mtp and model_type == "glm5_next" and not text_only
+    )
+    if (
+        preserve_mtp
+        and model_type in VLM_NATIVE_TEXT_MODEL_TYPES
+        and not text_only
+        and not preserva_cabeca_na_visao
+    ):
         if _registra_familia_so_texto_no_mlx_lm(model_type):
             logger.info(
                 "preserve_mtp: %s roteado para a limpeza de texto — a de visao "
@@ -4065,6 +4078,14 @@ def _build_model_sanitizer(
                     )
 
                     apply_mlx_vlm_glm5_next_compat_patch()
+                    if preserva_cabeca_na_visao:
+                        from omlx.patches.mlx_vlm_mtp import glm5_next_vlm_runtime
+
+                        if not glm5_next_vlm_runtime.apply_sanitize():
+                            raise RuntimeError(
+                                "a limpeza de visao do glm5_next nao pode "
+                                "preservar a cabeca de previsao multipla"
+                            )
             except Exception as patch_err:
                 logger.debug(f"mlx-vlm compatibility patch not applied: {patch_err}")
 
@@ -4165,16 +4186,37 @@ def _build_model_sanitizer(
                         (),
                         {"self_attn": attention_proxy()},
                     )
+                    # A limpeza que preserva a cabeca levanta num_hidden_layers
+                    # durante a chamada e percorre TODAS as camadas, a da
+                    # cabeca inclusive: a lista de dubles tem que cobri-la.
+                    n_cabeca = (
+                        int(getattr(text_config, "num_nextn_predict_layers", 0) or 0)
+                        if preserva_cabeca_na_visao
+                        else 0
+                    )
                     _lm_proxy.model = type(
                         "_ModelProxy",
                         (),
                         {
                             "layers": [
                                 layer_proxy()
-                                for _ in range(text_config.num_hidden_layers)
+                                for _ in range(
+                                    text_config.num_hidden_layers + n_cabeca
+                                )
                             ]
                         },
                     )()
+                    if n_cabeca:
+                        # Um duble por bloco da cabeca: a limpeza conta
+                        # ``len(self.mtp)`` para saber quantas camadas extras
+                        # renomear, e o completador de hiperconexao le
+                        # ``bloco.parameters()`` — vazio aqui, de proposito:
+                        # a quantizacao nao inventa peso; quem completa os
+                        # seis coeficientes e o carregador.
+                        bloco_proxy = type(
+                            "_BlocoProxy", (), {"parameters": lambda self: {}}
+                        )
+                        _lm_proxy.mtp = [bloco_proxy() for _ in range(n_cabeca)]
                     _lm_proxy.sanitize = lambda weights: model_module.LanguageModel.sanitize(
                         _lm_proxy, weights
                     )
@@ -6811,6 +6853,26 @@ def quantize_oq_streaming(
             imatrix_report[key] = sorted(set(imatrix_report[key]))
         with open(output / "oq_imatrix_report.json", "w") as f:
             json.dump(imatrix_report, f, indent=2, ensure_ascii=False)
+        # O "e" de oQe e a matriz de importancia. Se nenhuma entrada casou com
+        # nenhum peso, o resultado e um oQ comum com o nome errado — e nada
+        # avisava: o GLM-5.3-Flash-oQ2e de 31/08 saiu com 644 entradas
+        # coletadas (chaves `language_model.model.layers.*`, do carregador de
+        # visao) e ZERO aplicadas, porque a limpeza de texto renomeou os
+        # pesos para `model.layers.*`; o relatorio registrou 682 faltando e a
+        # quantizacao seguiu calada. So descoberto em 02/09.
+        if (
+            imatrix_report.get("enabled")
+            and not imatrix_report["applied"]
+            and imatrix_report["missing"]
+        ):
+            raise RuntimeError(
+                f"oQe: a matriz de importancia tem "
+                f"{imatrix_report.get('entry_count', '?')} entradas e NENHUMA "
+                f"casou com um peso ({len(imatrix_report['missing'])} faltando; "
+                f"ex.: {imatrix_report['missing'][0]!r}). Os nomes da limpeza e "
+                f"os da coleta divergem — o resultado seria um oQ comum com o "
+                f"sufixo 'e' no nome. Nao gravo: {output_path}"
+            )
 
     _copy_model_sidecars(source, output, text_only=text_only)
 
