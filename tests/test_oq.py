@@ -7655,3 +7655,108 @@ class TestConferenciaDePrecisaoEValores:
         }
         # sem regra exposta (família sem predicado) só o NaN/inf vale
         assert _verifica_precisao_e_valores(out, wm, None)["checked_float_tensors"] == 2
+
+
+class TestPreVooDaQuantizacao:
+    """Um desvio de rota só aparecia depois de ~50 minutos, com o resultado
+    já torto. Com a origem trazendo imagem e a rota de texto escolhida, a
+    quantização para em segundos, antes da calibração."""
+
+    def _fonte(self, tmp_path, com_visao, com_cabeca=False):
+        from safetensors.numpy import save_file as np_save
+
+        src = tmp_path / "src"
+        src.mkdir(parents=True)
+        hidden = 64
+        pesos = {
+            "model.layers.0.self_attn.q_proj.weight": np.ones((hidden, hidden), dtype=np.float32),
+            "model.layers.0.input_layernorm.weight": np.ones(hidden, dtype=np.float32),
+        }
+        if com_visao:
+            pesos["visual.blocks.0.attn.qkv.weight"] = np.ones((hidden, hidden), dtype=np.float32)
+        if com_cabeca:
+            pesos["mtp.0.eh_proj.weight"] = np.ones((hidden, 2 * hidden), dtype=np.float32)
+        np_save(pesos, str(src / "model.safetensors"))
+        (src / "model.safetensors.index.json").write_text(
+            json.dumps({"weight_map": {k: "model.safetensors" for k in pesos}})
+        )
+        (src / "config.json").write_text(json.dumps({
+            "architectures": ["TestModelForCausalLM"], "model_type": "test_pre_voo",
+            "num_hidden_layers": 1, "hidden_size": hidden, "vocab_size": 256,
+        }))
+        (src / "oq_sensitivity_map.json").write_text(json.dumps({"0": 0.1}))
+        return src
+
+    def test_pre_voo_para_em_segundos_quando_a_rota_de_texto_descartaria_a_visao(
+        self, tmp_path, monkeypatch
+    ):
+        import omlx.oq as oq
+
+        def _limpeza_de_texto(weights):
+            return {k: v for k, v in weights.items() if not oq._is_vision_tensor(k)}
+
+        monkeypatch.setattr(oq, "_build_model_sanitizer", lambda *a, **k: _limpeza_de_texto)
+        # a calibração longa nunca pode ser alcançada
+        monkeypatch.setattr(
+            oq, "_load_or_collect_imatrix",
+            lambda *a, **k: (_ for _ in ()).throw(AssertionError("chegou na calibracao")),
+        )
+        src = self._fonte(tmp_path, com_visao=True)
+        out = tmp_path / "out"
+        with pytest.raises(RuntimeError, match="pre-voo.*descartaria TODOS"):
+            quantize_oq_streaming(
+                str(src), str(out), oq_level=4, dtype="float16",
+                enhanced=True, imatrix_cache_path=str(tmp_path / "im.npz"),
+            )
+        assert not out.exists() or not list(out.glob("*.safetensors"))
+
+    def test_pre_voo_para_quando_a_cabeca_pedida_nao_fica_no_plano(self, tmp_path, monkeypatch):
+        import omlx.oq as oq
+
+        def _limpeza_que_perde_a_cabeca(weights):
+            return {k: v for k, v in weights.items() if not oq._is_mtp_tensor(k)}
+
+        monkeypatch.setattr(oq, "_build_model_sanitizer", lambda *a, **k: _limpeza_que_perde_a_cabeca)
+        src = self._fonte(tmp_path, com_visao=False, com_cabeca=True)
+        with pytest.raises(RuntimeError, match="pre-voo.*preserve_mtp"):
+            quantize_oq_streaming(
+                str(src), str(tmp_path / "out"), oq_level=4, dtype="float16", preserve_mtp=True
+            )
+
+    def test_sem_limpador_nenhum_e_origem_que_exige_limpeza_para(self, tmp_path, monkeypatch):
+        """Na rota de texto o glm5_next não tem limpador (None) e o laço
+        seguiria com nomes crus — só o qwen4_exp tinha guarda para isso."""
+        import omlx.oq as oq
+
+        from safetensors.numpy import save_file as np_save
+
+        monkeypatch.setattr(oq, "_build_model_sanitizer", lambda *a, **k: None)
+        src = self._fonte(tmp_path, com_visao=False)
+        # especialistas por índice: o runtime os quer empilhados
+        np_save(
+            {"model.layers.0.mlp.experts.0.down_proj.weight": np.ones((8, 8), dtype=np.float32)},
+            str(src / "experts.safetensors"),
+        )
+        idx = json.loads((src / "model.safetensors.index.json").read_text())
+        idx["weight_map"]["model.layers.0.mlp.experts.0.down_proj.weight"] = "experts.safetensors"
+        (src / "model.safetensors.index.json").write_text(json.dumps(idx))
+        with pytest.raises(RuntimeError, match="nao ha limpador.*especialistas por indice"):
+            quantize_oq_streaming(str(src), str(tmp_path / "out"), oq_level=4, dtype="float16")
+
+        # origem simples (só nomes lineares) segue sem limpador, como sempre
+        src2 = self._fonte(tmp_path / "b", com_visao=False)
+        out = tmp_path / "b" / "out"
+        quantize_oq_streaming(str(src2), str(out), oq_level=4, dtype="float16")
+        assert list(out.glob("*.safetensors"))
+
+    def test_com_text_only_a_visao_descartada_e_de_proposito(self, tmp_path, monkeypatch):
+        import omlx.oq as oq
+
+        def _limpeza_de_texto(weights):
+            return {k: v for k, v in weights.items() if not oq._is_vision_tensor(k)}
+
+        monkeypatch.setattr(oq, "_build_model_sanitizer", lambda *a, **k: _limpeza_de_texto)
+        src = self._fonte(tmp_path, com_visao=True)
+        out = tmp_path / "out"
+        quantize_oq_streaming(str(src), str(out), oq_level=4, dtype="float16", text_only=True)
+        assert list(out.glob("*.safetensors"))

@@ -4684,6 +4684,89 @@ def _verifica_precisao_e_valores(output: Path, weight_map: dict, cast_predicate)
     return veredito
 
 
+_RE_EXPERT_POR_INDICE = re.compile(r"\.experts\.\d+\.")
+
+
+def _fonte_exige_limpeza(source: Path, config: dict) -> list[str]:
+    """Why raw keys from this source would not load, from the index only.
+
+    Only what is PROVEN to need a family-specific cleaner: experts stored
+    one tensor per index (the runtime wants them stacked) and a head stored
+    as extra decoder layers (the runtime wants ``mtp.*``). fp8 scales are
+    unpacked by the lazy index itself, and a raw vision tower passes
+    through as-is on the layouts whose HF names match the runtime's.
+    """
+    try:
+        chaves = list(_shard_key_map(Path(source)))
+    except Exception:
+        return []
+    motivos = []
+    if any(_RE_EXPERT_POR_INDICE.search(k) for k in chaves):
+        motivos.append("especialistas por indice")
+    if _source_has_nextn_tensors(chaves, config):
+        motivos.append("cabeca de previsao multipla em camadas extras")
+    return motivos
+
+
+def _pre_voo_da_quantizacao(
+    source: Path, config: dict, *, text_only: bool, preserve_mtp: bool
+) -> None:
+    """Cheap check BEFORE the long run: what the cleaning plan will keep.
+
+    Discovers the sanitize plan from the headers (seconds) and refuses when
+    the source has vision tensors, ``text_only`` is off and the plan drops
+    them all, or when the head was asked for and the plan has no ``mtp.*``.
+    Until 02/09 either fault only surfaced after ~50 minutes, when the
+    result was already written wrong (the oQ2e of 31/08 lost both).
+    """
+    sanitize_fn = _build_model_sanitizer(
+        config, text_only=text_only, model_path=source, preserve_mtp=preserve_mtp
+    )
+    if sanitize_fn is None:
+        # Raw checkpoint keys only load for plain layouts. A source that
+        # needs family-specific cleaning (per-index experts, a head in extra
+        # layers) written raw is a checkpoint the server never loads — and
+        # until 02/09 only qwen4_exp had a guard for this.
+        exige = _fonte_exige_limpeza(source, config)
+        if exige:
+            raise RuntimeError(
+                f"oQ pre-voo: nao ha limpador de nomes para model_type="
+                f"{config.get('model_type')!r} nesta rota (text_only={text_only}), "
+                f"e a origem exige limpeza ({', '.join(exige)}). Gravar com os "
+                "nomes crus produziria um checkpoint que o servidor nao carrega. "
+                "Parando antes da quantizacao longa."
+            )
+        return
+    try:
+        dp = _streamed_source_plan(
+            source, config, preserve_mtp=preserve_mtp, text_only=text_only
+        )
+    except Exception as e:
+        # The quant loop below builds the same plan and has its own fallback
+        # and error path; the post-quant checks still catch every hole.
+        logger.info("oQ pre-voo: plano de limpeza indisponivel aqui (%s); sigo", e)
+        return
+    chaves = list(dp.keys())
+    problemas = []
+    if not text_only and _fonte_tem_pesos_de_visao(source):
+        if not any(_is_vision_tensor(k) for k in chaves):
+            problemas.append(
+                "a origem traz pesos de visao, text_only esta desligado e a "
+                "limpeza de nomes descartaria TODOS eles"
+            )
+    if preserve_mtp and not any(_is_mtp_tensor(k) for k in chaves):
+        problemas.append(
+            "preserve_mtp esta ligado e a limpeza de nomes nao deixa nenhum "
+            "mtp.* no plano"
+        )
+    if problemas:
+        raise RuntimeError(
+            "oQ pre-voo: a rota escolhida produziria um resultado torto — "
+            + "; ".join(problemas)
+            + ". Parando antes da quantizacao longa."
+        )
+
+
 def _copy_model_sidecars(
     source: Path, output: Path, *, text_only: bool = False
 ) -> None:
@@ -6468,6 +6551,9 @@ def quantize_oq_streaming(
         _ram_safe_proxy_dir = None
 
     cb("loading", 12.0, "Preparing quantization inputs")
+    _pre_voo_da_quantizacao(
+        source, config, text_only=text_only, preserve_mtp=preserve_mtp
+    )
 
     imatrix_data: OQImatrixData | None = None
     imatrix_report: dict[str, Any] | None = None
@@ -8827,7 +8913,7 @@ def _streamed_text_args(model_path, *, trust_remote_code: bool = False):
 
 
 def _streamed_source_plan(
-    model_path, config: dict, *, preserve_mtp: bool = False
+    model_path, config: dict, *, preserve_mtp: bool = False, text_only: bool = False
 ) -> "_DiscoveredPlan":
     """Private lazy index plus discovered sanitize plan for one pass.
 
@@ -8842,7 +8928,7 @@ def _streamed_source_plan(
         raise FileNotFoundError(f"no safetensors shards under {model_path}")
     lazy_index = _LazyTensorIndex(weight_files)
     sanitize_fn = _build_model_sanitizer(
-        config, model_path=model_path, preserve_mtp=preserve_mtp
+        config, text_only=text_only, model_path=model_path, preserve_mtp=preserve_mtp
     )
     if sanitize_fn is None:
         raise RuntimeError(f"no sanitizer for model_type={config.get('model_type')!r}")
