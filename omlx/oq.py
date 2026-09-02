@@ -4526,6 +4526,55 @@ def _holds_chat_template(path: Path) -> bool:
         return True
 
 
+def _familia_do_tensor(name: str) -> str:
+    """``model.layers.7.mlp.experts.31.down_proj.weight`` → ``model.layers.N.mlp.experts.N.down_proj.weight``."""
+    return re.sub(r"\.\d+\.", ".N.", name)
+
+
+def _verifica_familias_contra_indice(
+    esperados, weight_map: dict, output: Path
+) -> dict:
+    """Every tensor the sanitize plan promised must be in the written index.
+
+    ``esperados`` are the plan names the quant loop did NOT skip on purpose
+    (text_only vision/audio, an unpreserved head); the index carries them
+    as ``.weight`` plus ``.scales``/``.biases`` siblings when quantized.
+    Counted per family (indices collapsed to ``N``) so the message names the
+    family and the difference instead of 12k expert rows. The known renames
+    (conv1d fused, kv_b_proj split, experts stacked) are already inside the
+    plan — whatever still differs here is a hole.
+    """
+    saida = {k for k in weight_map if not k.endswith((".scales", ".biases"))}
+    esperados = set(esperados)
+    esp_fam: dict[str, int] = {}
+    for k in esperados:
+        esp_fam[_familia_do_tensor(k)] = esp_fam.get(_familia_do_tensor(k), 0) + 1
+    out_fam: dict[str, int] = {}
+    for k in saida:
+        out_fam[_familia_do_tensor(k)] = out_fam.get(_familia_do_tensor(k), 0) + 1
+    diferencas = {
+        fam: (esp_fam.get(fam, 0), out_fam.get(fam, 0))
+        for fam in sorted(set(esp_fam) | set(out_fam))
+        if esp_fam.get(fam, 0) != out_fam.get(fam, 0)
+    }
+    veredito = {
+        "expected_tensors": len(esperados),
+        "written_tensors": len(saida),
+        "families": len(esp_fam),
+        "family_mismatches": {f: {"expected": a, "written": b} for f, (a, b) in diferencas.items()},
+    }
+    if diferencas:
+        linhas = ", ".join(
+            f"{fam}: esperados {a}, gravados {b}" for fam, (a, b) in diferencas.items()
+        )
+        raise RuntimeError(
+            f"oQ: {len(diferencas)} familia(s) de tensores nao batem entre o plano "
+            f"de limpeza e o indice gravado ({len(esperados)} esperados, "
+            f"{len(saida)} gravados): {linhas}. Nao gravo: {output}"
+        )
+    return veredito
+
+
 def _verifica_config_contra_pesos(output: Path, output_config: dict) -> dict:
     """The output config announces what the output weights must carry.
 
@@ -6734,6 +6783,7 @@ def quantize_oq_streaming(
     cb("loading", 20.0, "Starting tensor quantization")
 
     tensor_names = list(all_weights.keys())
+    pulados_de_proposito: set[str] = set()
     out_shard_data = {}
     out_shard_idx = 0
     weight_map = {}
@@ -6801,6 +6851,7 @@ def quantize_oq_streaming(
             ):
                 del w_mx
                 processed_bytes += tensor_bytes
+                pulados_de_proposito.add(tensor_name)
                 continue
 
             if not preserve_mtp and _is_mtp_tensor(tensor_name):
@@ -6809,6 +6860,7 @@ def quantize_oq_streaming(
                 # the output config so the result stays self-consistent.
                 del w_mx
                 processed_bytes += tensor_bytes
+                pulados_de_proposito.add(tensor_name)
                 continue
 
             if _stream_source_model_type(config) == "qwen4_exp" and tensor_name.endswith(
@@ -6821,6 +6873,7 @@ def quantize_oq_streaming(
                 # carrying a parameter the model does not define.
                 del w_mx
                 processed_bytes += tensor_bytes
+                pulados_de_proposito.add(tensor_name)
                 continue
 
             if _should_quantize_tensor(tensor_name, shape) and not (
@@ -7043,6 +7096,9 @@ def quantize_oq_streaming(
     # saiu com zero dos dois, e o defeito so apareceu semanas depois, quando o
     # dono foi ligar a previsao multipla e ela nao existia.
     _verifica_config_contra_pesos(output, output_config)
+    _verifica_familias_contra_indice(
+        set(tensor_names) - pulados_de_proposito, weight_map, output
+    )
 
     _copy_model_sidecars(source, output, text_only=text_only)
 

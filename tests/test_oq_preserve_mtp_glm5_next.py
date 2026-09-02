@@ -538,3 +538,32 @@ def test_a_saida_da_atencao_linear_tem_piso_de_8_bits_por_regra():
     assert universal_quant_predicate(
         "language_model.mtp.0.block.self_attn.o_proj.weight", None, cfg, 2
     ) is True
+
+
+def test_contagem_por_familia_nomeia_a_familia_e_a_diferenca(tmp_path):
+    """Retirar do índice um tensor de uma família → a conferência nomeia a
+    família (índices colapsados em N) e a diferença; índice completo passa."""
+    from omlx.oq import _verifica_familias_contra_indice
+
+    esperados = [
+        f"model.layers.{i}.self_attn.q_proj.weight" for i in range(3)
+    ] + [f"model.layers.{i}.mlp.experts.{e}.down_proj.weight" for i in range(3) for e in range(4)]
+    indice = {k: "a" for k in esperados}
+    # quantizado: .weight + .scales + .biases contam como UM tensor
+    indice["model.layers.0.self_attn.q_proj.scales"] = "a"
+    indice["model.layers.0.self_attn.q_proj.biases"] = "a"
+
+    veredito = _verifica_familias_contra_indice(esperados, indice, tmp_path)
+    assert veredito == {
+        "expected_tensors": 15, "written_tensors": 15, "families": 2, "family_mismatches": {},
+    }
+
+    del indice["model.layers.2.mlp.experts.3.down_proj.weight"]
+    with pytest.raises(RuntimeError, match=r"model\.layers\.N\.mlp\.experts\.N\.down_proj\.weight: esperados 12, gravados 11"):
+        _verifica_familias_contra_indice(esperados, indice, tmp_path)
+
+    # tensor a mais também é diferença
+    indice["model.layers.2.mlp.experts.3.down_proj.weight"] = "a"
+    indice["model.layers.0.visual.blocks.0.attn.qkv.weight"] = "a"
+    with pytest.raises(RuntimeError, match=r"visual\.blocks\.N\.attn\.qkv\.weight: esperados 0, gravados 1"):
+        _verifica_familias_contra_indice(esperados, indice, tmp_path)
