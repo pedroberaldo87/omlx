@@ -16,6 +16,11 @@ import mlx.core as mx
 
 from mlx_lm.models.cache import _BaseCache
 
+# Largest verify window whose raw inputs are stashed for trim(): 1 confirmed +
+# up to 64 drafts covers the chained head (<= 8) and the n-gram copier
+# (ngram_spec_draft_max, default 16, 48 in the Qwen config) with margin.
+_UNDO_MAX_ROWS = 65
+
 
 class PoolingCache(_BaseCache):
     """Cache for pooled (compressed) KV tokens with a remainder buffer.
@@ -115,11 +120,15 @@ class PoolingCache(_BaseCache):
         # One-update undo log for MTP draft rejection: trim() needs the
         # pre-update state plus this update's raw inputs to undo the last
         # token when it completed a pool window. Only decode / MTP-verify
-        # sized updates (L <= 8 covers depth-k chain verify windows) are
-        # ever trimmed; skipping the stash for prompt chunks avoids pinning
-        # large prefill projections. Buffer slices are taken before any
-        # mutation, so they reference the pre-update array node.
-        if L <= 8:
+        # sized updates are ever trimmed; skipping the stash for prompt
+        # chunks avoids pinning large prefill projections. The verify window
+        # is 1 + drafts: up to 8 chained head drafts, or up to
+        # ngram_spec_draft_max copied n-gram drafts (default 16) -- with the
+        # old cap of 8 every rejected n-gram cycle could not be undone
+        # ("desfazer parcial não aparou tudo"), fell back to the standard
+        # step and re-prefilled the context. Buffer slices are taken before
+        # any mutation, so they reference the pre-update array node.
+        if L <= _UNDO_MAX_ROWS:
             try:
                 from omlx.patches.mlx_lm_mtp import cache_rollback
 
@@ -491,7 +500,7 @@ class BatchPoolingCache(_BaseCache):
         # tensor needs no snapshot: update_and_fetch only writes beyond the
         # old _pool_lengths.  trim() drops that speculative physical tail
         # after restoring the logical lengths.
-        if L <= 8:
+        if L <= _UNDO_MAX_ROWS:
             try:
                 from omlx.patches.mlx_lm_mtp import cache_rollback
 
