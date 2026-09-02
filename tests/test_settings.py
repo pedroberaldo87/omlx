@@ -85,6 +85,8 @@ class TestServerSettings:
             "preserve_mid_system_cache": True,
             "distributed_inference_enabled": False,
             "max_audio_upload_size": "100MB",
+            "metal_ops_per_buffer": 0,
+            "metal_mb_per_buffer": 0,
         }
 
     def test_from_dict_distributed_inference_is_opt_in(self):
@@ -125,6 +127,19 @@ class TestServerSettings:
         """Missing preserve_mid_system_cache keeps the cache-friendly default."""
         settings = ServerSettings.from_dict({})
         assert settings.preserve_mid_system_cache is True
+
+    def test_from_dict_metal_command_buffer_limits(self):
+        """metal_ops_per_buffer / metal_mb_per_buffer round-trip; missing = 0 (MLX default)."""
+        settings = ServerSettings.from_dict(
+            {"metal_ops_per_buffer": 100, "metal_mb_per_buffer": 500}
+        )
+        assert settings.metal_ops_per_buffer == 100
+        assert settings.metal_mb_per_buffer == 500
+        assert settings.to_dict()["metal_ops_per_buffer"] == 100
+        assert settings.to_dict()["metal_mb_per_buffer"] == 500
+        default = ServerSettings.from_dict({})
+        assert default.metal_ops_per_buffer == 0
+        assert default.metal_mb_per_buffer == 0
 
     def test_from_dict_auto_start_on_launch(self):
         """auto_start_on_launch round-trips through from_dict / to_dict."""

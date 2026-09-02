@@ -859,6 +859,20 @@
                                         </div>
                                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-4">
                                             <div class="flex-1">
+                                                <label class="text-sm text-neutral-700">{{ t('settings.advanced.metal_command_buffers') }}</label>
+                                                <p class="text-xs text-neutral-400 mt-0.5">{{ t('settings.advanced.metal_command_buffers_hint') }}</p>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <label class="text-xs text-neutral-500">{{ t('settings.advanced.metal_ops_per_buffer') }}</label>
+                                                <input type="number" min="0" step="1" x-model.number="globalSettings.server.metal_ops_per_buffer"
+                                                       class="w-24 px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all">
+                                                <label class="text-xs text-neutral-500">{{ t('settings.advanced.metal_mb_per_buffer') }}</label>
+                                                <input type="number" min="0" step="1" x-model.number="globalSettings.server.metal_mb_per_buffer"
+                                                       class="w-24 px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all">
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-4">
+                                            <div class="flex-1">
                                                 <label class="text-sm text-neutral-700">{{ t('settings.advanced.preserve_mid_system_cache') }}</label>
                                                 <p class="text-xs text-neutral-400 mt-0.5">{{ t('settings.advanced.preserve_mid_system_cache_hint') }}</p>
                                             </div>

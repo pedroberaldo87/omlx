@@ -117,6 +117,17 @@ def serve_command(args):
     if settings.cache.ane_compile_cache:
         os.environ.setdefault("OMLX_QWEN35_ANE_COMPILE_CACHE", "1")
 
+    # MLX reads the Metal command-buffer limits once, at device creation, so
+    # they must be exported before the first engine loads. 0 = MLX default.
+    # setdefault keeps an explicit env override authoritative.
+    for _attr, _env in (
+        ("metal_ops_per_buffer", "MLX_MAX_OPS_PER_BUFFER"),
+        ("metal_mb_per_buffer", "MLX_MAX_MB_PER_BUFFER"),
+    ):
+        _limit = int(getattr(settings.server, _attr, 0) or 0)
+        if _limit > 0:
+            os.environ.setdefault(_env, str(_limit))
+
     # Register TRACE level (5) — includes full message content
     TRACE = 5
     logging.addLevelName(TRACE, "TRACE")

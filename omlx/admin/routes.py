@@ -265,6 +265,8 @@ class GlobalSettingsRequest(BaseModel):
     sse_keepalive_mode: str | None = None
     auto_start_on_launch: bool | None = None
     burst_decode_mode: str | None = None  # "off" / "light" / "balanced" / "aggressive"
+    metal_ops_per_buffer: int | None = None  # 0 = MLX default; applies on restart
+    metal_mb_per_buffer: int | None = None  # 0 = MLX default; applies on restart
     preserve_mid_system_cache: bool | None = None
     distributed_inference_enabled: bool | None = None
     max_audio_upload_size: str | None = None
@@ -3629,6 +3631,8 @@ async def get_global_settings(is_admin: bool = Depends(require_admin)):
             "sse_keepalive_mode": global_settings.server.sse_keepalive_mode,
             "auto_start_on_launch": global_settings.server.auto_start_on_launch,
             "burst_decode_mode": global_settings.server.burst_decode_mode,
+            "metal_ops_per_buffer": global_settings.server.metal_ops_per_buffer,
+            "metal_mb_per_buffer": global_settings.server.metal_mb_per_buffer,
             "preserve_mid_system_cache": getattr(
                 global_settings.server,
                 "preserve_mid_system_cache",
@@ -3880,6 +3884,16 @@ async def update_global_settings(
                     cfg.decode_burst_budget_single_s = single_s
         runtime_applied.append("burst_decode_mode")
         logger.info(f"Burst Decode mode set to '{mode}'")
+    # No runtime_applied: MLX reads the command-buffer limits once, when the
+    # Metal device is created, so these only take effect on the next start.
+    for _field in ("metal_ops_per_buffer", "metal_mb_per_buffer"):
+        _value = getattr(request, _field)
+        if _value is not None:
+            if _value < 0:
+                raise HTTPException(
+                    status_code=400, detail=f"{_field} must be 0 or a positive integer"
+                )
+            setattr(global_settings.server, _field, int(_value))
     if request.auto_start_on_launch is not None:
         global_settings.server.auto_start_on_launch = request.auto_start_on_launch
         runtime_applied.append("auto_start_on_launch")

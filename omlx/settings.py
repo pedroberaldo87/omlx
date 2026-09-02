@@ -178,6 +178,15 @@ class ServerSettings:
     distributed_inference_enabled: bool = False
     # Human-readable size, same grammar as cache limits ("100MB", "1GB").
     max_audio_upload_size: str = "100MB"
+    # How many ops / how many MB of arrays MLX packs into one Metal command
+    # buffer before committing it (MLX_MAX_OPS_PER_BUFFER /
+    # MLX_MAX_MB_PER_BUFFER). 0 keeps MLX's own defaults (10 ops / 40 MB).
+    # MLX reads both once, when the Metal device is created, so a change
+    # applies on the next server start. Measured on M1 Ultra with GLM-5.3
+    # oQ2e (02/09): 100 ops / 500 MB took decode from 22.5 to 27.8 tok/s and
+    # made a 41k-token prefill 44% slower with +5.4 GB of peak memory.
+    metal_ops_per_buffer: int = 0
+    metal_mb_per_buffer: int = 0
 
     def max_audio_upload_bytes(self) -> int:
         """Configured audio upload limit in bytes. Non-positive sizes raise ValueError."""
@@ -209,6 +218,8 @@ class ServerSettings:
                 False,
             ),
             max_audio_upload_size=data.get("max_audio_upload_size", "100MB"),
+            metal_ops_per_buffer=int(data.get("metal_ops_per_buffer", 0) or 0),
+            metal_mb_per_buffer=int(data.get("metal_mb_per_buffer", 0) or 0),
         )
 
 
