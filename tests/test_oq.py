@@ -7563,3 +7563,57 @@ class TestGuardaDaMatrizDeImportancia:
             is None
         )
         assert rel["missing"] == []
+
+
+class TestConferenciaDePrecisaoEValores:
+    """O oQ2e de 31/08 saiu com os 430 tensores sensíveis em fp16 (o desempate
+    do roteador caiu de 286 para 41 valores distintos) e nada conferia NaN."""
+
+    def _saida(self, tmp_path, tensores):
+        from safetensors.numpy import save_file as np_save
+
+        out = tmp_path / "out"
+        out.mkdir()
+        np_save(tensores, str(out / "model.safetensors"))
+        return out, {k: "model.safetensors" for k in tensores}
+
+    @staticmethod
+    def _regra(key):
+        return "e_score_correction_bias" not in key
+
+    def test_peso_de_desempate_em_meia_precisao_recusa(self, tmp_path):
+        from omlx.oq import _verifica_precisao_e_valores
+
+        out, wm = self._saida(tmp_path, {
+            "model.layers.0.mlp.gate.e_score_correction_bias": np.ones(8, dtype=np.float16),
+            "model.layers.0.self_attn.q_proj.scales": np.ones((4, 2), dtype=np.float16),
+        })
+        with pytest.raises(RuntimeError, match=r"sensivel.*e_score_correction_bias \(F16\)"):
+            _verifica_precisao_e_valores(out, wm, self._regra)
+
+    def test_valor_invalido_recusa(self, tmp_path):
+        from omlx.oq import _verifica_precisao_e_valores
+
+        escalas = np.ones((4, 2), dtype=np.float16)
+        escalas[1, 0] = np.nan
+        out, wm = self._saida(tmp_path, {
+            "model.layers.0.mlp.gate.e_score_correction_bias": np.ones(8, dtype=np.float32),
+            "model.layers.0.self_attn.q_proj.scales": escalas,
+            "model.layers.0.self_attn.q_proj.weight": np.zeros((4, 1), dtype=np.uint32),
+        })
+        with pytest.raises(RuntimeError, match=r"NaN/inf.*q_proj\.scales"):
+            _verifica_precisao_e_valores(out, wm, self._regra)
+
+    def test_resultado_sao_passa_e_relata(self, tmp_path):
+        from omlx.oq import _verifica_precisao_e_valores
+
+        out, wm = self._saida(tmp_path, {
+            "model.layers.0.mlp.gate.e_score_correction_bias": np.ones(8, dtype=np.float32),
+            "model.layers.0.self_attn.q_proj.scales": np.ones((4, 2), dtype=np.float16),
+            "model.layers.0.self_attn.q_proj.weight": np.zeros((4, 1), dtype=np.uint32),
+        })
+        assert _verifica_precisao_e_valores(out, wm, self._regra) == {
+            "checked_float_tensors": 2, "downcast_sensitive": [], "non_finite": [],
+        }
+        # sem regra exposta (família sem predicado) só o NaN/inf vale
+        assert _verifica_precisao_e_valores(out, wm, None)["checked_float_tensors"] == 2

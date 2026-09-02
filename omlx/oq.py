@@ -4618,6 +4618,72 @@ def _verifica_config_contra_pesos(output: Path, output_config: dict) -> dict:
     return veredito
 
 
+_DTYPES_DE_PRECISAO_ALTA = {"F32", "BF16", "F64"}
+
+
+def _verifica_precisao_e_valores(output: Path, weight_map: dict, cast_predicate) -> dict:
+    """Sensitive tensors kept in high precision, and no NaN/inf anywhere.
+
+    Dtype comes from the shard headers only. ``cast_predicate`` is the rule
+    the sanitizer exposes (False = keep the source dtype); every tensor it
+    protects must be F32/BF16 in the output. The oQ2e of 31/08 had all 430
+    of them in F16 and the router's tie-break bias went from 286 distinct
+    values to 41. NaN/inf is scanned per shard over every non-packed tensor
+    (scales, biases and passthrough floats) — one shard resident at a time.
+    """
+    rebaixados = []
+    invalidos = []
+    conferidos = 0
+    for shard in sorted(set(weight_map.values())):
+        caminho = output / shard
+        with open(caminho, "rb") as f:
+            n = int.from_bytes(f.read(8), "little")
+            header = json.loads(f.read(n))
+        if cast_predicate is not None:
+            for key, info in header.items():
+                if key == "__metadata__":
+                    continue
+                if not cast_predicate(key) and info["dtype"] not in _DTYPES_DE_PRECISAO_ALTA:
+                    rebaixados.append(f"{key} ({info['dtype']})")
+        tensores = mx.load(str(caminho))
+        flags = []
+        nomes = []
+        for key, info in header.items():
+            if key == "__metadata__" or info["dtype"].startswith(("U", "I")):
+                continue
+            x = tensores[key]
+            flags.append(mx.any(mx.isnan(x)) | mx.any(mx.isinf(x)))
+            nomes.append(key)
+        if flags:
+            mx.eval(*flags)
+            invalidos.extend(k for k, fl in zip(nomes, flags) if bool(fl.item()))
+            conferidos += len(flags)
+        del tensores, flags
+        mx.clear_cache()
+    veredito = {
+        "checked_float_tensors": conferidos,
+        "downcast_sensitive": rebaixados,
+        "non_finite": invalidos,
+    }
+    problemas = []
+    if rebaixados:
+        problemas.append(
+            f"{len(rebaixados)} tensor(es) sensivel(is) sairam em precisao baixa "
+            f"(ex.: {', '.join(rebaixados[:5])})"
+        )
+    if invalidos:
+        problemas.append(
+            f"{len(invalidos)} tensor(es) com NaN/inf (ex.: {', '.join(invalidos[:5])})"
+        )
+    if problemas:
+        raise RuntimeError(
+            "oQ: o resultado tem valores que o servidor nao pode servir: "
+            + "; ".join(problemas)
+            + f". Nao gravo: {output}"
+        )
+    return veredito
+
+
 def _copy_model_sidecars(
     source: Path, output: Path, *, text_only: bool = False
 ) -> None:
@@ -7099,6 +7165,7 @@ def quantize_oq_streaming(
     _verifica_familias_contra_indice(
         set(tensor_names) - pulados_de_proposito, weight_map, output
     )
+    _verifica_precisao_e_valores(output, weight_map, cast_predicate)
 
     _copy_model_sidecars(source, output, text_only=text_only)
 
