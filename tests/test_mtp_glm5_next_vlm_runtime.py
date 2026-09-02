@@ -603,3 +603,27 @@ def test_o_desfazer_parcial_de_visao_reprocessa_as_posicoes_aceitas():
     obtido = _logits(cache, 99)
     dif = float(mx.max(mx.abs(obtido - esperado)).item())
     assert dif < 1e-3, f"tronco de visão desfeito diverge da referência em {dif:.2e}"
+
+
+def test_o_desfazer_da_cadeia_acha_o_metodo_atras_do_adaptador_de_visao():
+    """No servidor o lote não vê o modelo de língua: vê o ``VLMModelAdapter``,
+    que não repassa ``mtp_partial_rollback``. O desfazer da cadeia procurava só
+    no embrulho, não achava, e TODA recusa caía em "cache layer rejects chain
+    rollback" + reconcile — medido no Vontra pela visão: 2 tok/s, MTP com
+    cycles=0. Agora ele olha também o modelo interno.
+    """
+    from omlx.patches.mlx_lm_mtp import batch_generator as bg
+
+    chamadas = []
+
+    class _Lingua:
+        def mtp_partial_rollback(self, cache, accepted, num_drafts):
+            chamadas.append((accepted, num_drafts))
+            return True
+
+    class _Adaptador:
+        def __init__(self):
+            self._language_model = _Lingua()
+
+    assert bg._chain_rollback(_Adaptador(), [], 1, 3, None) is True
+    assert chamadas == [(1, 3)]
