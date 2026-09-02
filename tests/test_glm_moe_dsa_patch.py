@@ -1421,3 +1421,14 @@ def test_a_fusao_gate_up_da_o_mesmo_resultado_e_devolve_a_memoria():
     c = fus(x, idx)
     mx.eval(c)
     assert float(mx.max(mx.abs(b - c)).item()) == 0.0
+
+    # e o caminho ORDENADO/blocos (prefill: >=1024 rotas) também funciona
+    # fundido — foi onde o servidor estourou em 02/09 (native_kinds[2] com o
+    # trio encolhido para dois).
+    xg = mx.random.normal((1, 200, 128)).astype(mx.float16)
+    ig = mx.random.randint(0, 8, (1, 200, 8))
+    a2 = ref(xg, ig)
+    b2 = fus(xg, ig)
+    mx.eval(a2, b2)
+    dif2 = float(mx.max(mx.abs(a2 - b2)).item())
+    assert dif2 <= 2e-3, f"caminho ordenado diverge: {dif2:.2e}"

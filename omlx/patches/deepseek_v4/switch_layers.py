@@ -503,8 +503,10 @@ class SwitchGLU(nn.Module):
 
         block_plan = None
         native_kinds = None
+        # Com a fusao o par responde pelo gate tambem: o trio mantem a forma
+        # (o caminho de blocos le native_kinds[2] para o down_proj).
         projections = (
-            (self.up_proj, self.down_proj)
+            (self.up_proj, self.up_proj, self.down_proj)
             if fused is not None
             else (self.up_proj, self.gate_proj, self.down_proj)
         )
