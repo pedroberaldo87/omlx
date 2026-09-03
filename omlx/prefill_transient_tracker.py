@@ -126,22 +126,14 @@ class PrefillTransientTracker:
 
         self._recent_reclaim_bytes = 0
 
-        # The very first sample after a model load carries weight page-fault
-        # and load-residue noise, so it seeds the EWMA but is excluded from
-        # the running max.
-        if floor_sample and self._samples > 0:
-            if transient_bytes <= self._OBSERVED_MAX_CLAMP_BYTES:
-                if transient_bytes > self._observed_max_bytes:
-                    self._observed_max_bytes = transient_bytes
-            else:
-                logger.debug(
-                    "PrefillTransientTracker(%s): rejected %d-byte outlier "
-                    "from observed max (clamp %d)",
-                    self._model_id,
-                    transient_bytes,
-                    self._OBSERVED_MAX_CLAMP_BYTES,
-                )
-
+        # The sanity bound gates the running max too, so it runs FIRST. The
+        # clamp below is on TOTAL bytes, which a small chunk passes at an
+        # impossible rate: measured 03/09 on GLM-5.3-Flash oQ2e, a 32-token
+        # floor chunk read 3.54GB (110MB/token), cleared the 4GB clamp, and
+        # pinned observed_max_bytes for the rest of the process. Admission
+        # charges that max as a flat floor with no multiplier, so it priced
+        # 3.54GB where the analytic estimate for the same chunk is 0.27GB and
+        # refused a 159K-token prompt by 250MB.
         per_token = transient_bytes / n_tokens
         if per_token > self._PER_TOKEN_SANITY_BYTES:
             # Physically impossible as a per-token cost (KV + SDPA transient
@@ -166,6 +158,23 @@ class PrefillTransientTracker:
             # EWMA (an EWMA of 0 would reject every later sample as an
             # outlier against 0 × ratio).
             return
+
+        # The very first sample after a model load carries weight page-fault
+        # and load-residue noise, so it seeds the EWMA but is excluded from
+        # the running max.
+        if floor_sample and self._samples > 0:
+            if transient_bytes <= self._OBSERVED_MAX_CLAMP_BYTES:
+                if transient_bytes > self._observed_max_bytes:
+                    self._observed_max_bytes = transient_bytes
+            else:
+                logger.debug(
+                    "PrefillTransientTracker(%s): rejected %d-byte outlier "
+                    "from observed max (clamp %d)",
+                    self._model_id,
+                    transient_bytes,
+                    self._OBSERVED_MAX_CLAMP_BYTES,
+                )
+
         if self._samples == 0:
             # The seeding sample carries the same load-residue noise the
             # running max is already protected from, and until now it entered
