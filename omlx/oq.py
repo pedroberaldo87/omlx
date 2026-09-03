@@ -9786,9 +9786,19 @@ def _collect_imatrix_streaming(
                 )
             if int(getattr(glm_args, "num_nextn_predict_layers", 0) or 0) > 0:
                 batches = [calib_data[lo:hi] for lo, hi in ranges]
-                if not _streamed_glm5_next_mtp_head_pass(
-                    source, config, glm_args, embed_weight, working, batches, collector
-                ):
+                # The stage-0 table was released before the layer loop to keep
+                # it out of the 69 GB peak; the head fuses token t+1 through
+                # it, so source it again for this one pass (02/09: 23 min of
+                # collection died here on an unbound name).
+                embed_weight = _streamed_embed_weight(source, config)
+                try:
+                    mtp_ok = _streamed_glm5_next_mtp_head_pass(
+                        source, config, glm_args, embed_weight, working, batches, collector
+                    )
+                finally:
+                    del embed_weight
+                    mx.clear_cache()
+                if not mtp_ok:
                     raise RuntimeError(
                         "oQe imatrix streaming: the GLM-5.3 MTP head produced "
                         "no entry after the last layer; refusing a partial imatrix"

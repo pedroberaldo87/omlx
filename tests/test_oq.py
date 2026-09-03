@@ -7760,3 +7760,43 @@ class TestPreVooDaQuantizacao:
         out = tmp_path / "out"
         quantize_oq_streaming(str(src), str(out), oq_level=4, dtype="float16", text_only=True)
         assert list(out.glob("*.safetensors"))
+
+
+def test_streamed_collector_never_reads_a_name_it_already_released():
+    """02/09: 23 min of GLM-5.3 imatrix collection died at the MTP head pass
+    on ``UnboundLocalError: embed_weight`` — the stage-0 table is ``del``eted
+    before the layer loop and was read again after it. No fixture reaches
+    that branch, so guard the shape of the bug: inside the streamed
+    collector, a name released with ``del`` must be rebound before any
+    later read. Nested defs/lambdas own their scope and are skipped."""
+    import ast
+    import inspect
+    import textwrap
+
+    from omlx import oq
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(oq._collect_imatrix_streaming)))
+    fn = tree.body[0]
+    released: dict[str, int] = {}
+    leaks: list[str] = []
+
+    def walk(node):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if isinstance(child, ast.Delete):
+                for t in child.targets:
+                    if isinstance(t, ast.Name):
+                        released[t.id] = child.lineno
+            elif isinstance(child, ast.Name):
+                if isinstance(child.ctx, ast.Store):
+                    released.pop(child.id, None)
+                elif isinstance(child.ctx, ast.Load) and child.id in released:
+                    leaks.append(
+                        f"{child.id}: del at line {released[child.id]}, "
+                        f"read at line {child.lineno}"
+                    )
+            walk(child)
+
+    walk(fn)
+    assert not leaks, leaks
