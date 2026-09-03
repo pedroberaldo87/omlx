@@ -636,6 +636,10 @@ class EnginePool:
             add("ngram_spec_draft_min", data.get("ngram_spec_draft_min"))
             add("ngram_spec_freq_rule", data.get("ngram_spec_freq_rule"))
             add("ngram_spec_chain", data.get("ngram_spec_chain"))
+        # lidos na carga (set_mtp_* e globais de processo): mudar exige reload
+        if mtp_active:
+            add("mtp_hysteresis", bool(data.get("mtp_hysteresis", False)))
+            add("mtp_block_verify", bool(data.get("mtp_block_verify", False)))
         if entry is not None:
             qwen4_offload, _, _ = self._qwen4_ple_offload_status(entry, settings)
             add("qwen4_ple_ssd_offload", qwen4_offload)

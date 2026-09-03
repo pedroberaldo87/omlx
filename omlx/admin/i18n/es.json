@@ -1149,5 +1149,9 @@
   "settings.advanced.metal_command_buffers": "Command buffers de Metal",
   "settings.advanced.metal_command_buffers_hint": "Cuántas operaciones y cuántos MB de datos empaqueta MLX en un único command buffer de la GPU antes de enviarlo (0 = valor por defecto de MLX: 10 ops / 40 MB). Buffers mayores aceleran la generación de tokens (medido +24% en GLM-5.3), pero ralentizan la lectura del prompt y elevan el pico de memoria. Se aplica en el próximo arranque del servidor.",
   "settings.advanced.metal_mb_per_buffer": "MB",
-  "settings.advanced.metal_ops_per_buffer": "ops"
+  "settings.advanced.metal_ops_per_buffer": "ops",
+  "modal.model_settings.mtp_hysteresis": "Escalera de profundidad del MTP",
+  "modal.model_settings.mtp_hysteresis_hint": "La profundidad del borrador sube con rachas de aceptación completa y baja con cada rechazo; la cabeza nunca se aparca. Medido en GLM-5.3: cobertura de la cabeza 100% frente a 25–59%, tok/s igual.",
+  "modal.model_settings.mtp_block_verify": "Verificación por bloque",
+  "modal.model_settings.mtp_block_verify_hint": "Acepta el prefijo más largo por la razón conjunta (arXiv 2403.10444) en vez de parar en el primer rechazo. Nunca peor en tokens por ciclo; solo actúa con 2+ borradores en la ventana."
 }

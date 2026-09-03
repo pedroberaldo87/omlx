@@ -1149,5 +1149,9 @@
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
   "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
   "modal.model_settings.ngram_spec_chain": "链式草稿游走",
-  "modal.model_settings.ngram_spec_chain_hint": "不再每周期整块复制，草稿逐 token 增长，反复查询索引并把多处出现缝合成更长的草稿（llama.cpp 的 ngram-mod 游走）。短于门槛的链不提交任何草稿。"
+  "modal.model_settings.ngram_spec_chain_hint": "不再每周期整块复制，草稿逐 token 增长，反复查询索引并把多处出现缝合成更长的草稿（llama.cpp 的 ngram-mod 游走）。短于门槛的链不提交任何草稿。",
+  "modal.model_settings.mtp_hysteresis": "MTP 深度阶梯",
+  "modal.model_settings.mtp_hysteresis_hint": "草稿深度在连续全部接受时上升，任一拒绝时下降；头部从不停车。GLM-5.3 实测：头部覆盖率 100%（原 25–59%），tok/s 不变。",
+  "modal.model_settings.mtp_block_verify": "块验证",
+  "modal.model_settings.mtp_block_verify_hint": "按联合接受比（arXiv 2403.10444）接受最长的草稿前缀，而不是在第一次拒绝时停止。每周期 token 数不会更差；仅在窗口内有 2 个以上草稿时生效。"
 }

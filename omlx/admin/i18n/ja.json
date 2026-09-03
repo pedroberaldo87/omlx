@@ -1149,5 +1149,9 @@
   "settings.advanced.metal_command_buffers": "Metal コマンドバッファ",
   "settings.advanced.metal_command_buffers_hint": "MLX が 1 つの GPU コマンドバッファに何個の演算と何 MB のデータを詰めてから送信するか（0 = MLX の既定値: 10 ops / 40 MB）。バッファを大きくするとトークン生成は速くなります（GLM-5.3 で +24% を計測）が、プロンプトの読み込みは遅くなり、ピークメモリが増えます。次回のサーバー起動から有効。",
   "settings.advanced.metal_mb_per_buffer": "MB",
-  "settings.advanced.metal_ops_per_buffer": "ops"
+  "settings.advanced.metal_ops_per_buffer": "ops",
+  "modal.model_settings.mtp_hysteresis": "MTP 深さラダー",
+  "modal.model_settings.mtp_hysteresis_hint": "ドラフトの深さは全受理の連続で上がり、拒否のたびに下がります。ヘッドは停止しません。GLM-5.3 での計測: ヘッドのカバー率 100%（従来 25–59%）、tok/s は同等。",
+  "modal.model_settings.mtp_block_verify": "ブロック検証",
+  "modal.model_settings.mtp_block_verify_hint": "最初の拒否で止めず、結合受理比（arXiv 2403.10444）で最長のドラフト接頭辞を受理します。サイクルあたりトークン数で劣ることはなく、ウィンドウに 2 つ以上のドラフトがある時のみ作用します。"
 }

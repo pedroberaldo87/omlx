@@ -1181,7 +1181,18 @@ def _configure_ngram_spec(model_settings: Any | None) -> None:
         getattr(model_settings, "ngram_spec_freq_rule", None),
         getattr(model_settings, "ngram_spec_chain", None),
     )
-    from ..patches.mlx_lm_mtp import get_ngram_spec_params, is_ngram_spec_enabled
+    from ..patches.mlx_lm_mtp import (
+        get_ngram_spec_params,
+        is_ngram_spec_enabled,
+        set_mtp_block_verify,
+        set_mtp_hysteresis,
+    )
+
+    # Os dois knobs do ciclo seguem a mesma regra do n-gram: o ajuste por
+    # modelo manda; o env (OMLX_MTP_HYSTERESIS / OMLX_MTP_BLOCK_VERIFY) so
+    # vale sem objeto de ajustes.
+    set_mtp_hysteresis(bool(getattr(model_settings, "mtp_hysteresis", False)))
+    set_mtp_block_verify(bool(getattr(model_settings, "mtp_block_verify", False)))
 
     params = get_ngram_spec_params()
     # tests stub the mtp module with MagicMock; only log over the real tuple

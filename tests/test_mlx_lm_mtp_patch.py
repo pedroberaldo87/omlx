@@ -2993,3 +2993,38 @@ class TestBlockVerification:
         from omlx.patches import mlx_lm_mtp
 
         assert mlx_lm_mtp.is_mtp_block_verify() is False
+
+
+class TestKnobsDoCicloComoAjustePorModelo:
+    """Escada de aceitação e verificação em bloco viram ajuste por modelo:
+    exigem a cabeça ligada, e a carga do modelo arma os dois a partir do
+    ajuste (o env só vale sem objeto de ajustes)."""
+
+    def test_os_dois_exigem_mtp_enabled(self):
+        import pytest
+
+        from omlx.model_settings import ModelSettings
+
+        with pytest.raises(ValueError, match="mtp_hysteresis and mtp_block_verify require mtp_enabled"):
+            ModelSettings(mtp_hysteresis=True)
+        with pytest.raises(ValueError, match="require mtp_enabled"):
+            ModelSettings(mtp_block_verify=True)
+        s = ModelSettings(mtp_enabled=True, mtp_hysteresis=True, mtp_block_verify=True)
+        assert s.mtp_hysteresis and s.mtp_block_verify
+
+    def test_a_carga_arma_os_knobs_a_partir_do_ajuste(self):
+        from omlx.model_settings import ModelSettings
+        from omlx.patches import mlx_lm_mtp
+        from omlx.utils.model_loading import _configure_ngram_spec
+
+        antes = (mlx_lm_mtp.is_mtp_hysteresis(), mlx_lm_mtp.is_mtp_block_verify())
+        try:
+            _configure_ngram_spec(ModelSettings(mtp_enabled=True, mtp_hysteresis=True, mtp_block_verify=True))
+            assert mlx_lm_mtp.is_mtp_hysteresis() is True
+            assert mlx_lm_mtp.is_mtp_block_verify() is True
+            _configure_ngram_spec(ModelSettings(mtp_enabled=True))
+            assert mlx_lm_mtp.is_mtp_hysteresis() is False
+            assert mlx_lm_mtp.is_mtp_block_verify() is False
+        finally:
+            mlx_lm_mtp.set_mtp_hysteresis(antes[0])
+            mlx_lm_mtp.set_mtp_block_verify(antes[1])

@@ -1149,5 +1149,9 @@
   "settings.advanced.metal_command_buffers": "Metal 命令緩衝區",
   "settings.advanced.metal_command_buffers_hint": "MLX 在送出前，將多少個運算和多少 MB 資料打包進單一 GPU 命令緩衝區（0 = MLX 預設：10 ops / 40 MB）。較大的緩衝區可加快 token 生成（在 GLM-5.3 上測得 +24%），但會拖慢提示詞讀取並提高記憶體峰值。下次伺服器啟動時生效。",
   "settings.advanced.metal_mb_per_buffer": "MB",
-  "settings.advanced.metal_ops_per_buffer": "ops"
+  "settings.advanced.metal_ops_per_buffer": "ops",
+  "modal.model_settings.mtp_hysteresis": "MTP 深度階梯",
+  "modal.model_settings.mtp_hysteresis_hint": "草稿深度在連續全部接受時上升，任一拒絕時下降；頭部從不停車。GLM-5.3 實測：頭部覆蓋率 100%（原 25–59%），tok/s 不變。",
+  "modal.model_settings.mtp_block_verify": "區塊驗證",
+  "modal.model_settings.mtp_block_verify_hint": "依聯合接受比（arXiv 2403.10444）接受最長的草稿前綴，而非在第一次拒絕時停止。每週期 token 數不會更差；僅在視窗內有 2 個以上草稿時生效。"
 }

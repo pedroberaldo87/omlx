@@ -1149,5 +1149,9 @@
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
   "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
   "modal.model_settings.ngram_spec_chain": "Цепной обход черновика",
-  "modal.model_settings.ngram_spec_chain_hint": "Вместо одной блочной копии за цикл черновик растёт токен за токеном, повторно сверяясь с индексом и сшивая вхождения в более длинные черновики (обход ngram-mod из llama.cpp). Цепочки короче порога ничего не предлагают."
+  "modal.model_settings.ngram_spec_chain_hint": "Вместо одной блочной копии за цикл черновик растёт токен за токеном, повторно сверяясь с индексом и сшивая вхождения в более длинные черновики (обход ngram-mod из llama.cpp). Цепочки короче порога ничего не предлагают.",
+  "modal.model_settings.mtp_hysteresis": "Лестница глубины MTP",
+  "modal.model_settings.mtp_hysteresis_hint": "Глубина черновика растёт на сериях полного принятия и падает при любом отказе; голова никогда не паркуется. Измерено на GLM-5.3: покрытие головы 100% против 25–59%, tok/s без изменений.",
+  "modal.model_settings.mtp_block_verify": "Блочная верификация",
+  "modal.model_settings.mtp_block_verify_hint": "Принимает самый длинный префикс черновиков по совместному коэффициенту (arXiv 2403.10444) вместо остановки на первом отказе. Никогда не хуже по токенам за цикл; действует только при 2+ черновиках в окне."
 }

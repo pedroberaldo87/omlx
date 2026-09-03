@@ -1149,5 +1149,9 @@
   "modal.model_settings.ngram_spec_freq_rule": "Frequency-scaled copy length",
   "modal.model_settings.ngram_spec_freq_rule_hint": "Copy length follows how often the recent tokens repeated: suffixes seen 3+ times buy the full draft, ones seen once are halved. Off keeps the fixed per-window rule.",
   "modal.model_settings.ngram_spec_chain": "체인 드래프트 탐색",
-  "modal.model_settings.ngram_spec_chain_hint": "사이클마다 블록 복사를 하는 대신, 드래프트가 토큰 단위로 자라며 인덱스를 다시 조회해 출현 구간을 이어 붙여 더 긴 드래프트를 만듭니다(llama.cpp의 ngram-mod 워크). 게이트보다 짧은 체인은 아무것도 제안하지 않습니다."
+  "modal.model_settings.ngram_spec_chain_hint": "사이클마다 블록 복사를 하는 대신, 드래프트가 토큰 단위로 자라며 인덱스를 다시 조회해 출현 구간을 이어 붙여 더 긴 드래프트를 만듭니다(llama.cpp의 ngram-mod 워크). 게이트보다 짧은 체인은 아무것도 제안하지 않습니다.",
+  "modal.model_settings.mtp_hysteresis": "MTP 깊이 사다리",
+  "modal.model_settings.mtp_hysteresis_hint": "draft 깊이가 전부 수락된 연속 구간에서 올라가고 거부마다 내려갑니다. head는 멈추지 않습니다. GLM-5.3 측정: head 커버리지 100% (기존 25–59%), tok/s 동일.",
+  "modal.model_settings.mtp_block_verify": "블록 검증",
+  "modal.model_settings.mtp_block_verify_hint": "첫 거부에서 멈추지 않고 결합 수락비(arXiv 2403.10444)로 가장 긴 draft 접두사를 수락합니다. 사이클당 토큰 수가 나빠지지 않으며 window에 draft가 2개 이상일 때만 작동합니다."
 }

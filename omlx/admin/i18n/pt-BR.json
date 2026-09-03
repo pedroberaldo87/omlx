@@ -1149,5 +1149,9 @@
   "settings.advanced.metal_command_buffers": "Command buffers do Metal",
   "settings.advanced.metal_command_buffers_hint": "Quantas operações e quantos MB de dados o MLX empacota num único command buffer da GPU antes de enviá-lo (0 = padrão do MLX: 10 ops / 40 MB). Buffers maiores aceleram a geração de tokens (medido +24% no GLM-5.3), mas deixam a leitura do prompt mais lenta e sobem o pico de memória. Vale a partir da próxima subida do servidor.",
   "settings.advanced.metal_mb_per_buffer": "MB",
-  "settings.advanced.metal_ops_per_buffer": "ops"
+  "settings.advanced.metal_ops_per_buffer": "ops",
+  "modal.model_settings.mtp_hysteresis": "Escada de profundidade do MTP",
+  "modal.model_settings.mtp_hysteresis_hint": "A profundidade do rascunho sobe em sequências de aceite cheio e desce a cada recusa; a cabeça nunca estaciona. Medido no GLM-5.3: cobertura da cabeça 100% contra 25–59%, tok/s igual.",
+  "modal.model_settings.mtp_block_verify": "Verificação em bloco",
+  "modal.model_settings.mtp_block_verify_hint": "Aceita o maior prefixo de rascunhos pela razão conjunta (arXiv 2403.10444) em vez de parar na primeira recusa. Nunca pior em tokens por ciclo; só age com 2+ rascunhos na janela."
 }

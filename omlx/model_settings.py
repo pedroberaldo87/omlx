@@ -325,6 +325,14 @@ class ModelSettings:
     ngram_spec_draft_min: Optional[int] = None  # None = default 4
     ngram_spec_freq_rule: bool = False  # copy length follows occurrence count
     ngram_spec_chain: bool = False  # chained walk stitching occurrences (v5 F1)
+    # Escada de aceitacao no lugar do controlador medido: a profundidade sobe
+    # por sequencias de aceite cheio e desce a cada recusa, e a cabeca nunca
+    # estaciona (medido no GLM-5.3, 02/09: cobertura 100% contra 25-59%,
+    # tok/s empatado). Verificacao em bloco (arXiv 2403.10444): aceita o maior
+    # prefixo pela razao conjunta — nunca pior em tokens por ciclo, so age com
+    # 2+ rascunhos na janela. Os dois exigem mtp_enabled.
+    mtp_hysteresis: bool = False
+    mtp_block_verify: bool = False
 
     # VLM MTP speculative decoding via external MTP drafter (mlx-vlm f96138e+).
     # Supported drafter types: gemma4_assistant (for Gemma 4 VLMs), qwen3_5_mtp
@@ -367,6 +375,11 @@ class ModelSettings:
             raise ValueError(
                 "ngram_spec_enabled requires mtp_enabled; the n-gram drafter "
                 "rides the Lightning MTP verify cycle"
+            )
+        if (self.mtp_hysteresis or self.mtp_block_verify) and not self.mtp_enabled:
+            raise ValueError(
+                "mtp_hysteresis and mtp_block_verify require mtp_enabled; both "
+                "shape the Lightning MTP draft+verify cycle"
             )
         if self.mtp_enabled and self.dflash_enabled:
             raise ValueError(
