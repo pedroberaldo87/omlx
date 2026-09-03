@@ -1537,6 +1537,7 @@
                                                                   'bg-red-100 text-red-700': task.status === 'failed',
                                                                   'bg-neutral-100 text-neutral-600': task.status === 'pending',
                                                                   'bg-orange-100 text-orange-700': task.status === 'cancelled',
+                                                                  'bg-amber-100 text-amber-700 animate-pulse': task.status === 'cancelling',
                                                               }"
                                                               x-text="task.status"></span>
                                                         <span class="text-xs text-neutral-400" x-text="formatOQElapsed(task)"></span>
@@ -1548,7 +1549,7 @@
                                                     <p x-show="task.error"
                                                        class="text-xs text-red-500 mt-1.5 break-all" x-text="task.error"></p>
                                                     <!-- Progress bar -->
-                                                    <template x-if="['loading','quantizing','saving'].includes(task.status)">
+                                                    <template x-if="['loading','quantizing','saving','cancelling'].includes(task.status)">
                                                         <div class="mt-2.5">
                                                             <div class="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                                                                 <div class="h-full bg-neutral-900 rounded-full transition-all duration-500"

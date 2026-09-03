@@ -43,6 +43,7 @@ class QuantStatus(str, enum.Enum):
     SAVING = "saving"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLING = "cancelling"
     CANCELLED = "cancelled"
 
 
@@ -51,6 +52,10 @@ _ACTIVE_STATUSES = {
     QuantStatus.LOADING,
     QuantStatus.QUANTIZING,
     QuantStatus.SAVING,
+    # Pedido de cancelamento aceito, trabalho ainda vivo no thread. Ate 03/09
+    # a tarefa virava CANCELLED aqui, saia da lista de ativas, e o clique
+    # seguinte em "remover" apagava a bandeira que a faria parar.
+    QuantStatus.CANCELLING,
 }
 
 
@@ -487,7 +492,10 @@ class OQManager:
             return False
 
         self._cancelled.add(task_id)
-        task.status = QuantStatus.CANCELLED
+        # CANCELLING, nao CANCELLED: o thread ainda esta rodando e so para no
+        # proximo ponto de progresso. Enquanto isso a tarefa continua ATIVA,
+        # o que impede remove_task de apagar a bandeira.
+        task.status = QuantStatus.CANCELLING
 
         progress_task = self._progress_tasks.pop(task_id, None)
         if progress_task and not progress_task.done():
@@ -517,18 +525,23 @@ class OQManager:
                     timeout=30.0,
                 )
             except asyncio.TimeoutError:
-                # Thread didn't exit cooperatively (e.g. stuck in long GPTQ
-                # block). Force-cancel as last resort and wait a bit for
-                # Metal to settle.
+                # O thread nao saiu na janela de espera (uma camada da coleta
+                # leva ~30 s). NAO cancelar a casca assincrona: ela e quem
+                # segura o semaforo, e mata-la libera a vaga com o trabalho
+                # ainda residente — em 03/09 isso fez duas coletas de 35 GB
+                # coexistirem e a guarda de memoria derrubar a segunda.
+                # A casca fica viva; ela mesma marca CANCELLED ao sair.
                 logger.warning(
-                    "oQ cancel: cooperative exit timed out, force-cancelling"
+                    "oQ cancel: o trabalho ainda nao parou; a vaga segue "
+                    "ocupada ate ele sair (nenhuma outra quantizacao comeca "
+                    "enquanto isso)"
                 )
-                active_task.cancel()
-                try:
-                    await active_task
-                except (asyncio.CancelledError, Exception):
-                    pass
-                await asyncio.sleep(2.0)
+                self._active_tasks[task_id] = active_task
+                logger.info(
+                    f"oQ quantization cancelling: {task.model_name} "
+                    f"(task_id={task_id})"
+                )
+                return True
             except (asyncio.CancelledError, Exception):
                 pass
 
@@ -542,6 +555,7 @@ class OQManager:
                 except Exception:
                     await asyncio.sleep(1.0)
 
+        task.status = QuantStatus.CANCELLED
         logger.info(f"oQ quantization cancelled: {task.model_name} (task_id={task_id})")
         return True
 
@@ -553,7 +567,12 @@ class OQManager:
         if task.status in _ACTIVE_STATUSES:
             return False
         del self._tasks[task_id]
-        self._cancelled.discard(task_id)
+        # A bandeira NAO e apagada aqui. Ela e a unica coisa que faz o thread
+        # parar, e ate 03/09 este discard a apagava com o trabalho ainda vivo:
+        # a quantizacao seguia por 12 minutos depois de "cancelada". O
+        # conjunto guarda identificadores curtos e some quando o servidor
+        # reinicia; deixa-lo crescer e barato perto de um trabalho de 100 GB
+        # que ninguem consegue mais parar.
         return True
 
     def get_tasks(self) -> list[dict]:
@@ -688,8 +707,8 @@ class OQManager:
             if task.status not in (QuantStatus.CANCELLED, QuantStatus.FAILED):
                 task.status = QuantStatus.CANCELLED
         except _QuantCancelled:
-            if task.status != QuantStatus.CANCELLED:
-                task.status = QuantStatus.CANCELLED
+            # O thread saiu de verdade: so agora a tarefa deixa de ser ativa.
+            task.status = QuantStatus.CANCELLED
         except Exception as e:
             if task_id not in self._cancelled:
                 task.status = QuantStatus.FAILED

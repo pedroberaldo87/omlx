@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for the OQManager admin component."""
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -843,3 +844,112 @@ class TestRelatoriosSobrevivemAoRmtree:
         assert (rejeitado / "oq_imatrix_report.json").exists()
         assert not Path(task.output_path).exists()
         assert str(rejeitado) in task.error
+
+
+class TestCancelarParaDeVerdade:
+    """03/09: o dono disparou uma oQ4e por engano, cancelou e tirou da lista.
+    Ela seguiu rodando por 12 minutos, e ao 'cancelar' liberou a vaga para a
+    oQ2e da fila: duas coletas de 35 GB juntas, memoria estourada, e a guarda
+    derrubou justamente a que ele queria."""
+
+    def _gerente_com_trabalho_vivo(self, tmp_path):
+        """Um gerente com trabalho num thread real, com portao controlado pelo
+        teste: o thread so consulta a bandeira quando o teste deixa."""
+        import threading
+
+        from omlx.admin.oq_manager import QuantTask, _QuantCancelled
+
+        manager = OQManager(model_dirs=[str(tmp_path)])
+        task_id = "tarefa-viva"
+        task = QuantTask(
+            task_id=task_id, model_name="fake", model_path=str(tmp_path / "src"),
+            output_path=str(tmp_path / "out"), output_name="out",
+            oq_level=4, group_size=64,
+        )
+        manager._tasks[task_id] = task
+        e = {
+            "voltas": 0,
+            "parou": False,
+            "pode_seguir": threading.Event(),
+            "fim": threading.Event(),
+        }
+
+        def trabalho(callback):
+            for _ in range(40):
+                # espera o teste liberar a proxima "camada"
+                e["pode_seguir"].wait(timeout=5.0)
+                e["pode_seguir"].clear()
+                try:
+                    callback("imatrix", 13.0, "layer", {})
+                except _QuantCancelled:
+                    e["parou"] = True
+                    break
+                e["voltas"] += 1
+            e["fim"].set()
+
+        async def roda():
+            async with manager._quant_sem:
+                def _progress_cb(phase, pct, detail="", meta=None):
+                    if task_id in manager._cancelled:
+                        raise _QuantCancelled("cancelled")
+
+                task.status = QuantStatus.LOADING
+                await asyncio.to_thread(trabalho, _progress_cb)
+
+        return manager, task_id, task, e, roda
+
+    @pytest.mark.asyncio
+    async def test_remover_da_lista_nao_apaga_a_bandeira_do_cancelamento(self, tmp_path):
+        manager, task_id, task, e, roda = self._gerente_com_trabalho_vivo(tmp_path)
+        manager._active_tasks[task_id] = asyncio.create_task(roda())
+        e["pode_seguir"].set()
+        await asyncio.sleep(0.05)
+
+        cancelar = asyncio.create_task(manager.cancel_quantization(task_id))
+        await asyncio.sleep(0.05)
+        # o clique seguinte, em "remover da lista", com o trabalho ainda vivo
+        assert manager.remove_task(task_id) is False, (
+            "remover foi aceito com o trabalho ainda vivo — foi assim que a "
+            "bandeira sumiu e a quantizacao seguiu por 12 minutos"
+        )
+        assert task_id in manager._cancelled
+        assert task.status is QuantStatus.CANCELLING
+
+        e["pode_seguir"].set()               # a proxima camada: o thread ve a bandeira
+        await asyncio.wait_for(cancelar, timeout=5.0)
+        assert e["parou"] is True
+        assert task.status is QuantStatus.CANCELLED
+        # so agora sai da lista
+        assert manager.remove_task(task_id) is True
+        assert task_id in manager._cancelled, "a bandeira nao pode ser apagada"
+
+    @pytest.mark.asyncio
+    async def test_a_vaga_so_abre_quando_o_trabalho_sai(self, tmp_path):
+        """Matar a casca assincrona liberava o semaforo com o trabalho ainda
+        residente, e a proxima da fila entrava por cima — foi o estouro de
+        memoria de 03/09."""
+        manager, task_id, task, e, roda = self._gerente_com_trabalho_vivo(tmp_path)
+        manager._active_tasks[task_id] = asyncio.create_task(roda())
+        e["pode_seguir"].set()
+        await asyncio.sleep(0.05)
+        assert manager._quant_sem.locked()
+
+        cancelar = asyncio.create_task(manager.cancel_quantization(task_id))
+        await asyncio.sleep(0.05)
+        assert manager._quant_sem.locked(), (
+            "a vaga abriu com o trabalho ainda rodando: a proxima quantizacao "
+            "entraria com esta na memoria"
+        )
+        e["pode_seguir"].set()
+        await asyncio.wait_for(cancelar, timeout=5.0)
+        assert e["parou"] is True
+        assert not manager._quant_sem.locked()
+
+    @pytest.mark.asyncio
+    async def test_cancelando_conta_como_ativa(self, tmp_path):
+        """CANCELLING e um estado ATIVO: e isso que faz remove_task recusar e
+        o botao de remover sumir do painel."""
+        from omlx.admin.oq_manager import _ACTIVE_STATUSES
+
+        assert QuantStatus.CANCELLING in _ACTIVE_STATUSES
+        assert QuantStatus.CANCELLED not in _ACTIVE_STATUSES
