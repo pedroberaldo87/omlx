@@ -7800,3 +7800,82 @@ def test_streamed_collector_never_reads_a_name_it_already_released():
 
     walk(fn)
     assert not leaks, leaks
+
+
+class TestOVereditoSobreviveARecusa:
+    """02/09: as tres conferencias eram valores de um dicionario literal — a
+    primeira que levantava abortava as outras e o oq_verify_report.json nunca
+    era escrito; o gerente apagava a pasta e sobrava so a string do erro."""
+
+    def _fonte(self, tmp_path):
+        from safetensors.numpy import save_file as np_save
+
+        src = tmp_path / "src"
+        src.mkdir()
+        hidden = 64
+        np_save(
+            {
+                "model.layers.0.self_attn.q_proj.weight": np.ones((hidden, hidden), dtype=np.float32),
+                "model.layers.0.input_layernorm.weight": np.ones(hidden, dtype=np.float32),
+            },
+            str(src / "model.safetensors"),
+        )
+        (src / "config.json").write_text(json.dumps({
+            "architectures": ["TestModelForCausalLM"], "model_type": "test_veredito",
+            "num_hidden_layers": 1, "hidden_size": hidden, "vocab_size": 256,
+        }))
+        (src / "oq_sensitivity_map.json").write_text(json.dumps({"0": 0.1}))
+        return src
+
+    def test_recusa_tardia_grava_o_veredito_com_passed_false(self, tmp_path, monkeypatch):
+        import omlx.oq as oq
+
+        def _recusa(*a, **k):
+            raise RuntimeError("conferencia de mentira recusou")
+
+        monkeypatch.setattr(oq, "_verifica_familias_contra_indice", _recusa)
+        src = self._fonte(tmp_path)
+        out = tmp_path / "out"
+        with pytest.raises(RuntimeError, match="conferencia de mentira"):
+            quantize_oq_streaming(str(src), str(out), oq_level=4, dtype="float16")
+        rel = json.loads((out / "oq_verify_report.json").read_text())
+        assert rel["passed"] is False
+        assert "conferencia de mentira" in rel["error"]
+        # a que rodou antes fica registrada; a que recusou e as seguintes, nao
+        assert "config_vs_weights" in rel
+        assert "families" not in rel
+        assert "precision_and_values" not in rel
+
+    def test_cobranca_da_matriz_recusa_antes_de_gravar_qualquer_shard(self, tmp_path, monkeypatch):
+        """R15: a cobranca tardia so falava depois de ~75 min com todos os
+        shards gravados. O ensaio a seco sobre o plano recusa antes do laco."""
+        import omlx.oq as oq
+        from omlx.oq import OQImatrixData
+
+        monkeypatch.setattr(
+            oq, "_load_or_collect_imatrix",
+            lambda *a, **k: OQImatrixData(entries={}, metadata={}, path="vazio.npz", reused=True),
+        )
+        gravou = []
+        original = mx.save_safetensors
+        monkeypatch.setattr(mx, "save_safetensors", lambda *a, **k: (gravou.append(a[0]), original(*a, **k)))
+        src = self._fonte(tmp_path)
+        out = tmp_path / "out"
+        with pytest.raises(RuntimeError, match="sem entrada na matriz"):
+            quantize_oq_streaming(
+                str(src), str(out), oq_level=4, dtype="float16",
+                enhanced=True, imatrix_cache_path=str(tmp_path / "im.npz"),
+            )
+        assert gravou == []
+        assert not list(out.glob("*.safetensors"))
+
+    def test_entrada_com_forma_errada_tambem_e_cobrada(self):
+        """R10: forma errada ia para ``mismatched`` e a cobranca so lia ``missing``."""
+        from omlx.oq import _cobra_faltantes_da_matriz
+
+        rel = {
+            "enabled": True, "entry_count": 3, "applied": ["a"], "missing": [],
+            "mismatched": [{"tensor": "model.layers.0.mlp.down_proj", "weight_shape": [8, 8], "imatrix_shape": [4]}],
+        }
+        with pytest.raises(RuntimeError, match="1 peso.*model.layers.0.mlp.down_proj"):
+            _cobra_faltantes_da_matriz(rel, "/tmp/saida")

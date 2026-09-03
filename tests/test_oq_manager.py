@@ -788,3 +788,58 @@ class TestOQManagerHfCacheDiscovery:
 
         assert len(source_models) == 0
         assert len(all_models) == 0
+
+
+class TestRelatoriosSobrevivemAoRmtree:
+    """02/09: toda excecao apagava a pasta inteira, inclusive os oq_*_report.json
+    que a propria mensagem de erro mandava o dono ler."""
+
+    def test_move_os_relatorios_para_a_pasta_rejeitado(self, tmp_path):
+        from omlx.admin.oq_manager import _preserve_oq_reports
+
+        out = tmp_path / "GLM-oQ2e"
+        out.mkdir()
+        (out / "oq_imatrix_report.json").write_text("{}")
+        (out / "oq_verify_report.json").write_text("{}")
+        (out / "model-00001-of-00002.safetensors").write_bytes(b"x")
+        destino = _preserve_oq_reports(out)
+        assert destino == tmp_path / "GLM-oQ2e.rejeitado"
+        assert sorted(p.name for p in destino.iterdir()) == [
+            "oq_imatrix_report.json", "oq_verify_report.json",
+        ]
+        assert not (out / "oq_imatrix_report.json").exists()
+        assert (out / "model-00001-of-00002.safetensors").exists()
+
+    def test_sem_relatorio_nao_cria_pasta(self, tmp_path):
+        from omlx.admin.oq_manager import _preserve_oq_reports
+
+        out = tmp_path / "vazio"
+        out.mkdir()
+        assert _preserve_oq_reports(out) is None
+        assert not (tmp_path / "vazio.rejeitado").exists()
+
+    @pytest.mark.asyncio
+    async def test_falha_na_quantizacao_preserva_o_diagnostico_e_aponta_no_erro(
+        self, tmp_path, monkeypatch
+    ):
+        root = tmp_path / "models"
+        root.mkdir()
+        base = TestOQManagerAssistantCombine._write_gemma4_base(TestOQManagerAssistantCombine(), root)
+        manager = OQManager(model_dirs=[str(root)])
+
+        def _quant_que_recusa_no_fim(model_path, output_path, *args, **kwargs):
+            out = Path(output_path)
+            out.mkdir(parents=True)
+            (out / "oq_imatrix_report.json").write_text('{"missing": ["x"]}')
+            (out / "model-00001-of-00001.safetensors").write_bytes(b"x")
+            raise RuntimeError("oQe: 1 peso sem entrada. Nao gravo: " + output_path)
+
+        monkeypatch.setattr("omlx.oq.quantize_oq_streaming", _quant_que_recusa_no_fim)
+        task = await manager.start_quantization(str(base), 4)
+        await manager._active_tasks[task.task_id]
+
+        assert task.status is QuantStatus.FAILED
+        rejeitado = Path(task.output_path).parent / (Path(task.output_path).name + ".rejeitado")
+        assert (rejeitado / "oq_imatrix_report.json").exists()
+        assert not Path(task.output_path).exists()
+        assert str(rejeitado) in task.error

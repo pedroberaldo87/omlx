@@ -6247,9 +6247,17 @@ def _cobra_faltantes_da_matriz(imatrix_report: dict, output_path) -> None:
     multipla, lm_head, os embed_q) continuava passando. A tabela de tokens e
     a unica isenta por desenho, e ela nem entra na lista de faltantes.
     """
-    if not imatrix_report.get("enabled") or not imatrix_report["missing"]:
+    if not imatrix_report.get("enabled"):
         return
-    faltantes = imatrix_report["missing"]
+    # Forma errada e "sem entrada" na pratica: o consultor devolve None e o
+    # peso sai como oQ comum, so que ia para ``mismatched`` e a cobranca so
+    # lia ``missing``.
+    faltantes = list(imatrix_report["missing"]) + [
+        m["tensor"] if isinstance(m, dict) else str(m)
+        for m in imatrix_report.get("mismatched", [])
+    ]
+    if not faltantes:
+        return
     amostra = ", ".join(repr(n) for n in faltantes[:20])
     if len(faltantes) > 20:
         amostra += f", … (+{len(faltantes) - 20})"
@@ -6261,6 +6269,71 @@ def _cobra_faltantes_da_matriz(imatrix_report: dict, output_path) -> None:
         f"oq_imatrix_report.json. Nao gravo: {output_path}"
     )
 
+
+
+def _cobra_faltantes_no_ensaio(
+    plan,
+    imatrix_data,
+    config: dict,
+    oq_level: int,
+    group_size: int,
+    output_path,
+    *,
+    text_only: bool,
+    preserve_mtp: bool,
+    preserve_ngram_table: bool,
+) -> dict:
+    """Roda o consultor da matriz a seco sobre o plano e cobra ANTES do laco.
+
+    Espelha as decisoes do laco de gravacao (o que e pulado de proposito, o
+    que sai empacotado sem requantizar, o que e quantizado em affine) sem ler
+    um peso: so nomes e formas do plano. Devolve o relatorio do ensaio.
+    """
+    ensaio = {
+        "enabled": True,
+        "entry_count": len(imatrix_data.entries),
+        "applied": [],
+        "missing": [],
+        "mismatched": [],
+    }
+    for tensor_name, proxy in plan.items():
+        shape = tuple(proxy.shape)
+        if text_only and (
+            _is_vision_tensor(tensor_name) or _is_audio_tensor(tensor_name)
+        ):
+            continue
+        if not preserve_mtp and _is_mtp_tensor(tensor_name):
+            continue
+        if not _should_quantize_tensor(tensor_name, shape):
+            continue
+        if preserve_ngram_table and _is_qwen4_exp_ngram_embedding_tensor(
+            tensor_name, config
+        ):
+            continue
+        bits, gs, qmode = _get_predicate_bits(tensor_name, config, oq_level, group_size)
+        if bits is None or len(shape) < 2 or shape[-1] % gs != 0:
+            continue
+        src_info = (
+            plan.source_quant_info(tensor_name)
+            if hasattr(plan, "pop_packed")
+            else None
+        )
+        if src_info is not None and bits >= src_info["bits"]:
+            # Sai empacotado como veio (mxfp4/mxfp8): o laco nao consulta a
+            # matriz para ele.
+            continue
+        if qmode != "affine":
+            continue
+        _lookup_imatrix_importance(
+            imatrix_data,
+            tensor_name,
+            shape,
+            config=config,
+            strict=False,
+            report=ensaio,
+        )
+    _cobra_faltantes_da_matriz(ensaio, output_path)
+    return ensaio
 
 def quantize_oq_streaming(
     model_path: str,
@@ -6932,6 +7005,24 @@ def quantize_oq_streaming(
     else:
         config["_oq_boost_map"] = {}
 
+    if imatrix_data is not None:
+        # A cobranca tardia (depois do config.json) so falava depois de todos
+        # os shards gravados: ~75 min para dizer "nao gravo" com a pasta ja
+        # completa. Tudo que ela precisa existe aqui — o plano e as entradas
+        # — entao o mesmo consultor roda a seco sobre o plano e recusa antes
+        # do laco. A cobranca tardia fica como rede.
+        _cobra_faltantes_no_ensaio(
+            all_weights,
+            imatrix_data,
+            config,
+            oq_level,
+            group_size,
+            output_path,
+            text_only=text_only,
+            preserve_mtp=preserve_mtp,
+            preserve_ngram_table=preserve_ngram_table,
+        )
+
     cb("loading", 20.0, "Starting tensor quantization")
 
     tensor_names = list(all_weights.keys())
@@ -7247,17 +7338,36 @@ def quantize_oq_streaming(
     # origem trazia 1760 pesos na camada extra e 347 de visao; o resultado
     # saiu com zero dos dois, e o defeito so apareceu semanas depois, quando o
     # dono foi ligar a previsao multipla e ela nao existia.
-    relatorio_da_conferencia = {
-        "config_vs_weights": _verifica_config_contra_pesos(output, output_config),
-        "families": _verifica_familias_contra_indice(
-            set(tensor_names) - pulados_de_proposito, weight_map, output
+    relatorio_da_conferencia: dict[str, Any] = {}
+    conferencias = (
+        ("config_vs_weights", lambda: _verifica_config_contra_pesos(output, output_config)),
+        (
+            "families",
+            lambda: _verifica_familias_contra_indice(
+                set(tensor_names) - pulados_de_proposito, weight_map, output
+            ),
         ),
-        "precision_and_values": _verifica_precisao_e_valores(
-            output, weight_map, cast_predicate
+        (
+            "precision_and_values",
+            lambda: _verifica_precisao_e_valores(output, weight_map, cast_predicate),
         ),
-    }
-    # Cada conferencia levanta se falhar; chegar aqui e ter passado nas tres. O
-    # resumo fica ao lado do modelo para conferir sem reabrir os shards.
+    )
+    # Cada conferencia levanta se falhar. O veredito e gravado nos DOIS casos:
+    # ate 02/09 uma recusa abortava antes do arquivo existir, e o gerente
+    # apagava a pasta em seguida — sobrava so a string do erro, apontando
+    # para um relatorio que nao estava mais la.
+    try:
+        for nome, conferencia in conferencias:
+            relatorio_da_conferencia[nome] = conferencia()
+    except Exception as e:
+        with open(output / "oq_verify_report.json", "w") as f:
+            json.dump(
+                {"passed": False, "error": str(e), **relatorio_da_conferencia},
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
+        raise
     with open(output / "oq_verify_report.json", "w") as f:
         json.dump(
             {"passed": True, **relatorio_da_conferencia}, f, indent=2, ensure_ascii=False

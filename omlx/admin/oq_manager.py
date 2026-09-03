@@ -154,6 +154,21 @@ def _source_model_names(source: Path) -> tuple[str, str]:
     return source.name, source.name
 
 
+def _preserve_oq_reports(output: Path) -> Path | None:
+    """Move oq_*_report.json out of a refused output before it is deleted.
+
+    Returns the directory they were moved to, or None when there was none.
+    """
+    relatorios = sorted(output.glob("oq_*_report.json"))
+    if not relatorios:
+        return None
+    destino = output.parent / f"{output.name}.rejeitado"
+    destino.mkdir(parents=True, exist_ok=True)
+    for r in relatorios:
+        r.replace(destino / r.name)
+    return destino
+
+
 class OQManager:
     """Manages oQ quantization tasks with async execution and progress tracking.
 
@@ -681,11 +696,16 @@ class OQManager:
                 task.error = str(e)
                 task.completed_at = time.time()
                 logger.exception(f"oQ quantization failed: {task.model_name} -> {e}")
-                # Clean up partial output
+                # Clean up partial output — but keep the diagnosis. The
+                # refusal message points the owner at oq_*_report.json, and
+                # until 02/09 this rmtree deleted them along with the shards.
                 output = Path(task.output_path)
                 if output.exists():
                     import shutil
 
+                    guardados = _preserve_oq_reports(output)
+                    if guardados:
+                        task.error = f"{task.error} — relatorios em {guardados}"
                     shutil.rmtree(output, ignore_errors=True)
         finally:
             pt = self._progress_tasks.pop(task_id, None)
