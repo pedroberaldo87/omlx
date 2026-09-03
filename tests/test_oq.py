@@ -7959,3 +7959,69 @@ class TestAsRedesComFuroConhecido:
         assert ok["vision_tensors"] == 1 and ok["vision_tensors_expected"] == 1
         # sem contagem da origem (text_only) vale a presença, como antes
         assert _verifica_config_contra_pesos(out, cfg)["vision_tensors_expected"] is None
+
+
+class TestOsBaixosEOsDeOutraFamilia:
+    """02/09 — R2, R3, R12, R16, R17."""
+
+    def test_visao_da_origem_sem_indice_e_vista_nos_cabecalhos(self, tmp_path):
+        from safetensors.numpy import save_file as np_save
+        from omlx.oq import _fonte_tem_pesos_de_visao
+
+        src = tmp_path / "um_shard"
+        src.mkdir()
+        np_save({"model.visual.blocks.0.attn.qkv.weight": np.ones((2, 2), dtype=np.float32)}, str(src / "model.safetensors"))
+        assert not (src / "model.safetensors.index.json").exists()
+        assert _fonte_tem_pesos_de_visao(src) is True
+        so_texto = tmp_path / "texto"
+        so_texto.mkdir()
+        np_save({"model.layers.0.q.weight": np.ones((2, 2), dtype=np.float32)}, str(so_texto / "model.safetensors"))
+        assert _fonte_tem_pesos_de_visao(so_texto) is False
+
+    def test_o_piso_escrito_a_mao_e_semeado_no_plano_e_nao_e_logado_como_recusado(self, caplog):
+        """O emissor devolvia 8 bits antes de consultar o plano; o planejador
+        ainda tentava reforcar o tensor e podia registra-lo como recusado."""
+        import logging
+        from omlx.oq import _piso_escrito_a_mao
+
+        tc = {"model_type": "glm5_next", "layer_types": ["linear_attention", "full_attention"], "num_hidden_layers": 2}
+        assert _piso_escrito_a_mao("model.layers.0.self_attn.o_proj", tc) == 8
+        assert _piso_escrito_a_mao("model.layers.1.self_attn.o_proj", tc) is None
+        assert _piso_escrito_a_mao("model.layers.0.self_attn.q_conv1d", tc) == 8
+        assert _piso_escrito_a_mao("model.layers.0.linear_attn.out_proj", tc) == 5
+
+    def test_a_cabeca_que_falha_so_e_fatal_quando_a_build_a_preserva(self, caplog):
+        import logging
+        from omlx.oq import _cobra_passo_da_cabeca
+
+        _cobra_passo_da_cabeca(True, True)
+        with pytest.raises(RuntimeError, match="MTP head produced no entry"):
+            _cobra_passo_da_cabeca(False, True)
+        with caplog.at_level(logging.WARNING, logger="omlx.oq"):
+            _cobra_passo_da_cabeca(False, False)
+        assert "drops the head" in caplog.text
+
+    def test_a_cobranca_isenta_o_que_a_familia_nao_consegue_medir(self):
+        """O report real do Qwen3.8 de 02/09: 888 aplicadas e exatamente estes 3
+        faltando; a cobranca nova barrava a requantizacao dele."""
+        from omlx.oq import _cobra_faltantes_da_matriz, _isencoes_da_cobranca
+
+        qwen = ["language_model.lm_head",
+                "language_model.model.hyper_connection_mixer.input_mix_weight_down",
+                "language_model.model.hyper_connection_mixer.input_mix_weight_up"]
+        rel = {"enabled": True, "entry_count": 891, "applied": ["a"] * 888, "missing": list(qwen)}
+        _cobra_faltantes_da_matriz(rel, "/tmp/s", _isencoes_da_cobranca({"model_type": "qwen4_exp"}))
+        assert sorted(rel["exempt"]) == sorted(qwen)
+        # no GLM o lm_head TEM passo: faltar e recusa
+        rel = {"enabled": True, "entry_count": 1, "applied": [], "missing": ["language_model.lm_head"]}
+        with pytest.raises(RuntimeError, match="lm_head"):
+            _cobra_faltantes_da_matriz(rel, "/tmp/s", _isencoes_da_cobranca({"model_type": "glm5_next"}))
+
+    def test_entrada_toda_neutra_vai_para_neutral_e_nao_para_applied(self):
+        from omlx.oq import OQImatrixData, OQImatrixEntry, _lookup_imatrix_importance
+
+        neutra = OQImatrixEntry(in_sum2=np.ones(8, dtype=np.float32), counts=np.array(0, dtype=np.int64))
+        rel = {"applied": [], "missing": [], "mismatched": [], "zero_count_experts": 0}
+        dados = OQImatrixData(entries={"model.layers.0.mlp.down_proj": neutra}, metadata={}, path="x")
+        assert _lookup_imatrix_importance(dados, "model.layers.0.mlp.down_proj.weight", (8, 8), strict=False, report=rel) is None
+        assert rel["applied"] == [] and rel["neutral"] == ["model.layers.0.mlp.down_proj"]

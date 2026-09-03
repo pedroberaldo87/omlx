@@ -423,6 +423,28 @@ def _is_token_embedding_tensor(path: str) -> bool:
     )
 
 
+def _piso_escrito_a_mao(path_l: str, text_config: dict) -> int | None:
+    """Bits floor written by hand for the linear-attention tensors, or None.
+
+    One place for the three rules so the emitter (universal_quant_predicate)
+    and the budget planner agree: until 02/09 the emitter returned these
+    before consulting the plan, so the planner still tried to "boost" them,
+    could log them as refused by the bpw cap, and priced them at base bits.
+    """
+    if "conv1d" in path_l and ("linear_attn" in path_l or "self_attn" in path_l):
+        return 8
+    if "linear_attn.out_proj" in path_l:
+        return 5
+    if _is_glm5_next_linear_attention_o_proj(path_l, text_config):
+        # The GLM-5.3 source keeps its whole linear (KDA) attention in bf16
+        # (modules_to_not_convert); the output projection is the tensor the
+        # KLD study ranks worst to quantize. Without a written floor the
+        # oQ2e of 31/08 got it at 8 bits only because the sensitivity boost
+        # had budget left — a tighter cap would drop it to 2 bits.
+        return 8
+    return None
+
+
 def _is_glm5_next_linear_attention_o_proj(path_l: str, text_config: dict) -> bool:
     """``self_attn.o_proj`` of a LINEAR-attention layer of glm5_next.
 
@@ -555,17 +577,9 @@ def universal_quant_predicate(
     # model authors list all of them in modules_to_not_convert (34x each of
     # q/k/v_conv1d and o_proj), and a per-tensor KLD study puts the linear
     # attention out_proj as the single worst tensor to quantize.
-    if "conv1d" in path_l and ("linear_attn" in path_l or "self_attn" in path_l):
-        return bits(8)
-    if "linear_attn.out_proj" in path_l:
-        return bits(5)
-    if _is_glm5_next_linear_attention_o_proj(path_l, tc):
-        # The GLM-5.3 source keeps its whole linear (KDA) attention in bf16
-        # (modules_to_not_convert); the output projection is the tensor the
-        # KLD study above ranks worst to quantize. Without a written floor
-        # the oQ2e of 31/08 got it at 8 bits only because the sensitivity
-        # boost had budget left — a tighter cap would drop it to 2 bits.
-        return bits(8)
+    piso = _piso_escrito_a_mao(path_l, tc)
+    if piso is not None:
+        return bits(piso)
 
     # Inkling short-conv weights (k/v/attn/mlp_sconv.conv.weight; the
     # .weight suffix is stripped by _normalize_quant_path) are tiny
@@ -1073,12 +1087,24 @@ def _build_quant_plan(
     # GLM DSA indexers are a format invariant, not an optional sensitivity
     # boost. Seed them before pricing the plan and never let the bpw cap drop
     # them. On GLM-5.2 all 22 indexers together are only about 209 MiB at Q8.
+    tc_plan = config.get("text_config", {})
     for path in named_shapes:
         if path in fixed_overrides:
             continue
         override = _glm_indexer_q8_override(path, config)
         if override is not None:
             boost_map[path] = override
+            continue
+        # Hand-written floors are emitted regardless of the plan; seed them
+        # here so they are priced at their real cost and never logged as
+        # "refused" by a cap they ignore anyway.
+        piso = _piso_escrito_a_mao(_normalize_quant_path(path).lower(), tc_plan)
+        if piso is not None and piso > base_bits and not _is_routed_expert(path):
+            boost_map[path] = {
+                "bits": piso,
+                "group_size": _gs_for_mode(piso, _OQ_DEFAULT_GROUP_SIZE),
+                "mode": _mode_for_bits(piso),
+            }
 
     layer_scores = config.get("_oq_sensitivity_map") or {}
     max_layer_score = max(layer_scores.values(), default=0.0)
@@ -4016,12 +4042,11 @@ def _fonte_tem_pesos_de_visao(model_path: str | Path | None) -> bool:
     if model_path is None:
         return False
     try:
-        indice = Path(model_path) / "model.safetensors.index.json"
-        if indice.exists():
-            mapa = json.loads(indice.read_text()).get("weight_map") or {}
-            return any(_is_vision_tensor(k) for k in mapa)
+        # Indice primeiro; sem ele, os cabecalhos dos shards (uma origem de
+        # um shard so nao tem indice, e ate 02/09 ficava muda aqui).
+        return any(_is_vision_tensor(k) for k in _shard_key_map(Path(model_path)))
     except Exception as e:
-        logger.debug("nao deu para ler o indice de %s: %s", model_path, e)
+        logger.debug("nao deu para ler os pesos de %s: %s", model_path, e)
     return False
 
 
@@ -6016,18 +6041,27 @@ def _lookup_imatrix_importance(
 
     values = _normalised_imatrix_values(entry)
     in_dim = int(shape[-1])
-    if values.ndim == 1 and values.shape[0] == in_dim:
+    casou = (values.ndim == 1 and values.shape[0] == in_dim) or (
+        values.ndim == 2
+        and values.shape[-1] == in_dim
+        and len(shape) >= 3
+        and int(shape[0]) == int(values.shape[0])
+    )
+    if casou:
+        arr = mx.array(values)
+        if _importance_is_uniform(arr):
+            # Every channel equal (all experts at count 0 -> ones): the
+            # quantizer drops it and the weight goes out as plain oQ. Until
+            # 02/09 the report still listed it as applied.
+            if report is not None:
+                report.setdefault("neutral", []).append(base)
+            return None
         if report is not None:
             report["applied"].append(base)
-        return mx.array(values)
-
-    if values.ndim == 2 and values.shape[-1] == in_dim:
-        if len(shape) >= 3 and int(shape[0]) == int(values.shape[0]):
-            if report is not None:
-                report["applied"].append(base)
+            if values.ndim == 2:
                 zero_count = int((np.asarray(entry.counts) <= 0).sum())
                 report["zero_count_experts"] += zero_count
-            return mx.array(values)
+        return arr
 
     if report is not None:
         report["mismatched"].append(
@@ -6308,7 +6342,24 @@ def _resolve_stream_calibration(
     return model_exceeds_ram and supported
 
 
-def _cobra_faltantes_da_matriz(imatrix_report: dict, output_path) -> None:
+# What the streamed collector cannot measure on a family, by name fragment.
+# The output head only has a pass on glm5_next; the two hyper-connection
+# mixer tensors of qwen4_exp live outside every layer. Measured on the
+# Qwen3.8 report of 02/09: exactly these three missing, 888 applied.
+_ISENTOS_DA_COBRANCA_SEMPRE = ("hyper_connection_mixer.",)
+_ISENTOS_DA_COBRANCA_SEM_PASSO_DO_LM_HEAD = ("lm_head",)
+
+
+def _isencoes_da_cobranca(config: dict | None) -> tuple[str, ...]:
+    familia = str((config or {}).get("model_type", "")).lower()
+    if familia == "glm5_next":
+        return _ISENTOS_DA_COBRANCA_SEMPRE
+    return _ISENTOS_DA_COBRANCA_SEMPRE + _ISENTOS_DA_COBRANCA_SEM_PASSO_DO_LM_HEAD
+
+
+def _cobra_faltantes_da_matriz(
+    imatrix_report: dict, output_path, isentos: tuple[str, ...] = ()
+) -> None:
     """Recusa o resultado oQe que tem peso quantizado sem entrada da matriz.
 
     O "e" de oQe e a matriz de importancia; peso que nao casou com entrada
@@ -6329,6 +6380,11 @@ def _cobra_faltantes_da_matriz(imatrix_report: dict, output_path) -> None:
         m["tensor"] if isinstance(m, dict) else str(m)
         for m in imatrix_report.get("mismatched", [])
     ]
+    if isentos:
+        isentados = [n for n in faltantes if any(i in n for i in isentos)]
+        if isentados:
+            imatrix_report["exempt"] = sorted(set(isentados))
+        faltantes = [n for n in faltantes if n not in isentados]
     if not faltantes:
         return
     amostra = ", ".join(repr(n) for n in faltantes[:20])
@@ -6405,7 +6461,7 @@ def _cobra_faltantes_no_ensaio(
             strict=False,
             report=ensaio,
         )
-    _cobra_faltantes_da_matriz(ensaio, output_path)
+    _cobra_faltantes_da_matriz(ensaio, output_path, _isencoes_da_cobranca(config))
     return ensaio
 
 def quantize_oq_streaming(
@@ -6798,6 +6854,7 @@ def quantize_oq_streaming(
             "applied": [],
             "missing": [],
             "mismatched": [],
+            "neutral": [],
             "zero_count_experts": 0,
         }
 
@@ -7404,7 +7461,9 @@ def quantize_oq_streaming(
             imatrix_report[key] = sorted(set(imatrix_report[key]))
         with open(output / "oq_imatrix_report.json", "w") as f:
             json.dump(imatrix_report, f, indent=2, ensure_ascii=False)
-        _cobra_faltantes_da_matriz(imatrix_report, output_path)
+        _cobra_faltantes_da_matriz(
+            imatrix_report, output_path, _isencoes_da_cobranca(config)
+        )
 
     # O que o config do resultado anuncia tem que estar nos pesos: visao e a
     # cabeca de previsao multipla. Medido em 31/08/2026 no GLM-5.3-Flash: a
@@ -9661,6 +9720,24 @@ def _log_streamed_sensitivity(oq_level, scores: dict[int, float]) -> None:
     )
 
 
+def _cobra_passo_da_cabeca(mtp_ok: bool, require_mtp_head: bool) -> None:
+    """The MTP-head pass failed: fatal only for a build that keeps the head.
+
+    Until 02/09 the raise keyed on the model config, not on the request, so
+    a plain (no ``-mtp``) quantization died at the end of a 23-minute sweep
+    over entries it would never use.
+    """
+    if mtp_ok:
+        return
+    msg = (
+        "oQe imatrix streaming: the GLM-5.3 MTP head produced no entry after "
+        "the last layer"
+    )
+    if require_mtp_head:
+        raise RuntimeError(f"{msg}; refusing a partial imatrix")
+    logger.warning("%s; this build drops the head, so the entries go unused", msg)
+
+
 def _collect_imatrix_streaming(
     source,
     tokenizer,
@@ -9681,6 +9758,7 @@ def _collect_imatrix_streaming(
     sensitivity_num_samples: int = 32,
     sensitivity_seq_length: int = 256,
     sensitivity_calib_seed: int = _OQE_STREAM_CALIB_SEED,
+    require_mtp_head: bool = True,
 ) -> tuple[dict[str, OQImatrixEntry], dict[str, Any]]:
     """Collect the oQe imatrix with one decoder layer resident at a time.
 
@@ -9993,11 +10071,7 @@ def _collect_imatrix_streaming(
                 finally:
                     del embed_weight
                     mx.clear_cache()
-                if not mtp_ok:
-                    raise RuntimeError(
-                        "oQe imatrix streaming: the GLM-5.3 MTP head produced "
-                        "no entry after the last layer; refusing a partial imatrix"
-                    )
+                _cobra_passo_da_cabeca(mtp_ok, require_mtp_head)
             # The per-layer budget check never saw this step: after layer 44
             # the table (1.3 GB) and the whole head block (~15 GB bf16) go up
             # unmeasured. Logged, not enforced — the streaming budget is
@@ -10353,6 +10427,7 @@ def _load_or_collect_imatrix(
             sensitivity_oq_level=sensitivity_oq_level,
             sensitivity_num_samples=sensitivity_num_samples,
             sensitivity_seq_length=sensitivity_seq_length,
+            require_mtp_head=require_mtp_entries,
         )
     else:
         # ``load_path_factory`` swaps in an alternate checkpoint for the
