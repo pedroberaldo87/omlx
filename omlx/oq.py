@@ -4595,7 +4595,9 @@ def _verifica_familias_contra_indice(
     return veredito
 
 
-def _verifica_config_contra_pesos(output: Path, output_config: dict) -> dict:
+def _verifica_config_contra_pesos(
+    output: Path, output_config: dict, *, visao_esperada: int | None = None
+) -> dict:
     """The output config announces what the output weights must carry.
 
     Reads only the weight index (or the shard headers) — never a tensor.
@@ -4615,11 +4617,24 @@ def _verifica_config_contra_pesos(output: Path, output_config: dict) -> dict:
     veredito = {
         "vision_config": visao_anunciada,
         "vision_tensors": visao_presente,
+        "vision_tensors_expected": visao_esperada,
         "mtp_declared": cabeca_anunciada,
         "mtp_tensors": cabeca_presente,
     }
     problemas = []
-    if visao_anunciada and visao_presente == 0:
+    if (
+        visao_anunciada
+        and visao_esperada is not None
+        and visao_presente != visao_esperada
+    ):
+        # Presence alone let 1 of 347 through. The tower is preserved 1:1
+        # (never quantized, never stacked), so the source count is the
+        # expected count.
+        problemas.append(
+            f"o config anuncia vision_config, a origem tem {visao_esperada} "
+            f"tensor(es) de visao e o resultado gravou {visao_presente}"
+        )
+    elif visao_anunciada and visao_presente == 0:
         problemas.append(
             "o config anuncia vision_config e o indice de pesos nao tem nenhum "
             "tensor de visao — o servidor cairia do motor de imagem para o de texto"
@@ -5968,6 +5983,14 @@ def _lookup_imatrix_importance(
 
     base = tensor_name[: -len(".weight")]
     entry = imatrix.entries.get(base)
+    if entry is None:
+        # The collector always names its entries from the vision-route plan
+        # (``language_model.model.layers.N…``); the text route writes the
+        # same tensors without that prefix. On 31/08 that mismatch left 0 of
+        # 682 entries applied on the GLM-5.3 oQ2e, with nothing saying so.
+        _pref = "language_model."
+        alt = base[len(_pref) :] if base.startswith(_pref) else _pref + base
+        entry = imatrix.entries.get(alt)
     if entry is None and config is not None:
         text_config = config.get("text_config")
         text_model_type = (
@@ -7390,7 +7413,18 @@ def quantize_oq_streaming(
     # dono foi ligar a previsao multipla e ela nao existia.
     relatorio_da_conferencia: dict[str, Any] = {}
     conferencias = (
-        ("config_vs_weights", lambda: _verifica_config_contra_pesos(output, output_config)),
+        (
+            "config_vs_weights",
+            lambda: _verifica_config_contra_pesos(
+                output,
+                output_config,
+                visao_esperada=(
+                    None
+                    if text_only
+                    else sum(1 for k in _shard_key_map(source) if _is_vision_tensor(k))
+                ),
+            ),
+        ),
         (
             "families",
             lambda: _verifica_familias_contra_indice(

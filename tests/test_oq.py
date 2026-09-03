@@ -4542,7 +4542,8 @@ class TestQuantizeOqStreamingPassthroughDtypes:
         rel = json.loads((out / "oq_verify_report.json").read_text())
         assert rel["passed"] is True
         assert rel["config_vs_weights"] == {
-            "vision_config": False, "vision_tensors": 0, "mtp_declared": False, "mtp_tensors": 0,
+            "vision_config": False, "vision_tensors": 0, "vision_tensors_expected": 0,
+            "mtp_declared": False, "mtp_tensors": 0,
         }
         assert rel["families"]["expected_tensors"] == 4
         assert rel["families"]["written_tensors"] == 4
@@ -7924,3 +7925,37 @@ class TestARegraDeCastNaoSomeCalada:
         oq._pre_voo_da_quantizacao(
             tmp_path, {"model_type": "glm5_next"}, text_only=False, preserve_mtp=False
         )
+
+
+class TestAsRedesComFuroConhecido:
+    """02/09 — R11 e R14."""
+
+    def test_a_busca_da_matriz_tolera_o_prefixo_do_caminho_de_visao(self):
+        """A coleta nomeia language_model.…; a rota de texto grava sem o
+        prefixo. Em 31/08 isso deixou 0 de 682 entradas aplicadas."""
+        from omlx.oq import OQImatrixData, OQImatrixEntry, _lookup_imatrix_importance
+
+        entrada = OQImatrixEntry(in_sum2=np.arange(1, 9, dtype=np.float32), counts=np.array(4, dtype=np.int64))
+        rel = {"applied": [], "missing": [], "mismatched": []}
+        dados = OQImatrixData(entries={"language_model.model.layers.0.mlp.down_proj": entrada}, metadata={}, path="x")
+        assert _lookup_imatrix_importance(dados, "model.layers.0.mlp.down_proj.weight", (8, 8), strict=False, report=rel) is not None
+        dados = OQImatrixData(entries={"model.layers.0.mlp.down_proj": entrada}, metadata={}, path="x")
+        assert _lookup_imatrix_importance(dados, "language_model.model.layers.0.mlp.down_proj.weight", (8, 8), strict=False, report=rel) is not None
+        assert rel["missing"] == []
+        assert len(rel["applied"]) == 2
+
+    def test_a_conferencia_de_visao_compara_com_a_contagem_da_origem(self, tmp_path):
+        """Presença 'pelo menos um' deixava passar 1 de 347."""
+        from safetensors.numpy import save_file as np_save
+        from omlx.oq import _verifica_config_contra_pesos
+
+        out = tmp_path / "out"
+        out.mkdir()
+        np_save({"vision_model.blocks.0.attn.qkv.weight": np.ones((4, 4), dtype=np.float32)}, str(out / "m.safetensors"))
+        cfg = {"vision_config": {"x": 1}}
+        with pytest.raises(RuntimeError, match="origem tem 3 tensor.*gravou 1"):
+            _verifica_config_contra_pesos(out, cfg, visao_esperada=3)
+        ok = _verifica_config_contra_pesos(out, cfg, visao_esperada=1)
+        assert ok["vision_tensors"] == 1 and ok["vision_tensors_expected"] == 1
+        # sem contagem da origem (text_only) vale a presença, como antes
+        assert _verifica_config_contra_pesos(out, cfg)["vision_tensors_expected"] is None
