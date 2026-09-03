@@ -8025,3 +8025,38 @@ class TestOsBaixosEOsDeOutraFamilia:
         dados = OQImatrixData(entries={"model.layers.0.mlp.down_proj": neutra}, metadata={}, path="x")
         assert _lookup_imatrix_importance(dados, "model.layers.0.mlp.down_proj.weight", (8, 8), strict=False, report=rel) is None
         assert rel["applied"] == [] and rel["neutral"] == ["model.layers.0.mlp.down_proj"]
+
+
+class TestOEnsaioTemAsMesmasChavesDoRelatorio:
+    """03/09: a requantizacao morreu DEPOIS da coleta inteira com
+    KeyError 'zero_count_experts' — o ensaio a seco montava o relatorio sem
+    a chave que o consultor incrementa num tensor de especialistas (3-D).
+    Nenhum teste chegava la: os de brinquedo so tem pesos 2-D."""
+
+    def test_ensaio_com_tensor_de_especialistas_nao_estoura(self):
+        from omlx.oq import OQImatrixData, OQImatrixEntry, _cobra_faltantes_no_ensaio
+
+        n, out, inn = 4, 8, 64
+
+        class _Proxy:
+            def __init__(self, sh): self.shape = tuple(sh); self.ndim = len(sh)
+
+        class _Plano:
+            def items(self):
+                return [("model.layers.0.mlp.switch_mlp.down_proj.weight", _Proxy((n, out, inn)))]
+
+        # dois especialistas nunca roteados (count 0): e o caso que incrementa zero_count_experts
+        entrada = OQImatrixEntry(
+            in_sum2=np.tile(np.arange(1, inn + 1, dtype=np.float32), (n, 1)),
+            counts=np.array([3, 0, 5, 0], dtype=np.int64),
+        )
+        dados = OQImatrixData(
+            entries={"model.layers.0.mlp.switch_mlp.down_proj": entrada}, metadata={}, path="x"
+        )
+        rel = _cobra_faltantes_no_ensaio(
+            _Plano(), dados, {"model_type": "test_ensaio"}, 4, 64, "/tmp/s",
+            text_only=False, preserve_mtp=False, preserve_ngram_table=False,
+        )
+        assert rel["applied"] == ["model.layers.0.mlp.switch_mlp.down_proj"]
+        assert rel["zero_count_experts"] == 2
+        assert rel["neutral"] == []

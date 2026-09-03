@@ -6424,6 +6424,12 @@ def _cobra_faltantes_no_ensaio(
         "applied": [],
         "missing": [],
         "mismatched": [],
+        # As mesmas chaves do relatorio real: o consultor incrementa
+        # zero_count_experts num tensor de especialistas empilhados e grava
+        # neutral numa entrada uniforme. Sem elas, KeyError no primeiro MoE —
+        # foi o que derrubou a requantizacao de 03/09 depois da coleta inteira.
+        "neutral": [],
+        "zero_count_experts": 0,
     }
     for tensor_name, proxy in plan.items():
         shape = tuple(proxy.shape)
