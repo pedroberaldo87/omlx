@@ -365,7 +365,19 @@ def test_glm_native_fused_kernels_match_reference(monkeypatch):
             mx.float16
         )
         mx.eval(y_native, y_ref)
-        assert float(mx.max(mx.abs(y_native - y_ref)).item()) == 0.0
+        # O nucleo fundido soma na ordem do bloco; a referencia soma na ordem
+        # do eixo. Mesma conta, ordens diferentes: o ultimo bit do float16
+        # pode divergir, e exigir igualdade EXATA aqui reprovava um nucleo
+        # correto (medido 02/09: 1 de 512 elementos, 1,22e-04, contra 1 ULP
+        # de 4,88e-04 na magnitude em jogo — e os dois erram o MESMO tanto
+        # contra a conta feita em float32). A regua e 1 ULP do float16.
+        dif = float(mx.max(mx.abs(y_native - y_ref)).item())
+        escala = float(mx.max(mx.abs(y_ref)).item())
+        assert dif <= 2 ** -10 * max(escala, 1.0), (
+            f"o nucleo fundido difere da referencia em {dif:.3e}, acima de "
+            f"1 ULP do float16 ({2 ** -10 * max(escala, 1.0):.3e}) — isso "
+            "e erro de conta, nao arredondamento"
+        )
 
     batch, heads, length, latent, values = 1, 64, 1, 512, 256
     x = mx.random.normal((batch, heads, length, latent), dtype=mx.float16)

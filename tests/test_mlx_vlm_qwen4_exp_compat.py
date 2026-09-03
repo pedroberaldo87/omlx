@@ -158,12 +158,22 @@ def test_qwen4_small_hyper_connection_fusion_fails_closed(quantized):
     decode_compiled = module(decode_inputs)
     verify_compiled = module(inputs, target_verify=True)
     mx.eval(*prefill, *decode_eager, *decode_compiled, *verify_compiled)
+    # Acima, a fusao RECUSOU: nada mudou, entao a comparacao e bit a bit.
+    # Daqui para baixo o modulo passou por mx.compile, que reassocia as somas
+    # — o ultimo bit pode divergir. Medido 02/09: 1 de 12 saidas, 5,96e-08
+    # (0,7 ULP do float32). Exigir igualdade EXATA reprovava um caminho
+    # compilado correto; a regua e alguns ULPs.
+    def _igual_a_menos_de_arredondamento(esperado, obtido):
+        e = esperado.astype(mx.float32)
+        o = obtido.astype(mx.float32)
+        return bool(mx.allclose(e, o, rtol=8 * 2 ** -23, atol=1e-7).item())
+
     for expected, actual in zip(fused, prefill):
-        assert mx.array_equal(expected, actual).item()
+        assert _igual_a_menos_de_arredondamento(expected, actual)
     for expected, actual in zip(decode_eager, decode_compiled):
-        assert mx.array_equal(expected, actual).item()
+        assert _igual_a_menos_de_arredondamento(expected, actual)
     for expected, actual in zip(verify_fused, verify_compiled):
-        assert mx.array_equal(expected, actual).item()
+        assert _igual_a_menos_de_arredondamento(expected, actual)
 
     compiled_forward = module._compiled_forward
     module._compiled_forward = MagicMock(
