@@ -4293,11 +4293,31 @@ def _build_model_sanitizer(
                         # Um duble por bloco da cabeca: a limpeza conta
                         # ``len(self.mtp)`` para saber quantas camadas extras
                         # renomear, e o completador de hiperconexao le
-                        # ``bloco.parameters()`` — vazio aqui, de proposito:
-                        # a quantizacao nao inventa peso; quem completa os
-                        # seis coeficientes e o carregador.
+                        # ``bloco.parameters()`` para gravar os seis
+                        # coeficientes que a origem nao traz. Ate 02/09 o
+                        # duble devolvia vazio ("a quantizacao nao inventa
+                        # peso") e o quant saia SEM eles: so carregava porque
+                        # o motor esconde a marca format=mlx e forca o
+                        # sanitize de novo (engine/vlm.py). Os valores sao os
+                        # NEUTROS do construtor — mistura zerada, escala
+                        # unitaria — os mesmos que o carregador poria; o
+                        # quant de 31/08 (rota de texto) os gravava.
+                        from omlx.patches.deepseek_v4.hyper_connection import (
+                            HyperConnection,
+                        )
+
+                        def _coeficientes_neutros():
+                            return {
+                                "block": {
+                                    "attn_hc": HyperConnection(text_config).parameters(),
+                                    "ffn_hc": HyperConnection(text_config).parameters(),
+                                }
+                            }
+
                         bloco_proxy = type(
-                            "_BlocoProxy", (), {"parameters": lambda self: {}}
+                            "_BlocoProxy",
+                            (),
+                            {"parameters": lambda self: _coeficientes_neutros()},
                         )
                         _lm_proxy.mtp = [bloco_proxy() for _ in range(n_cabeca)]
                     _lm_proxy.sanitize = lambda weights: model_module.LanguageModel.sanitize(
@@ -9691,7 +9711,9 @@ def _collect_imatrix_streaming(
 
     # Stage 0: source the embedding table once, embed the full adaptive-max
     # draw, drop the table. Embedding everything up front (6.4 GB at the
-    # 1024x512 ceiling) means an escalation round re-streams layers only
+    # 1024x512 ceiling — x hc_mult on the hyper-connected families: 17.2 GB
+    # on GLM-5.3, resident for the whole run) means an escalation round
+    # re-streams layers only
     # for its own sample slice instead of re-running stage 0.
     calib_data = calib_data[:max_samples]
     is_qwen4_exp = _stream_source_model_type(config) == "qwen4_exp"
@@ -9801,11 +9823,10 @@ def _collect_imatrix_streaming(
             else None
         )
 
-        # No MTP-head pass here: the checkpoints this path serves declare
-        # MTP modules without shipping their weights (MiniMax-M3), so the
-        # resident collector's head pass is a no-op for them too. A source
-        # with real mtp.* tensors needs the _collect_mtp_head_imatrix
-        # equivalent added after the last layer.
+        # The output head and the MTP head are NOT layers: on glm5_next they
+        # are measured after this loop (``if is_glm5_next:`` below). Until
+        # 02/09 a comment here said no head pass existed, and the stage-0
+        # table was released as if nothing after the loop needed it.
         first_streamed_layer = round_index == 0
         for layer_idx, block, _is_moe in _iter_streamed_layer_blocks(
             source, config, trust_remote_code=trust_remote_code
@@ -9943,6 +9964,26 @@ def _collect_imatrix_streaming(
                         "oQe imatrix streaming: the GLM-5.3 MTP head produced "
                         "no entry after the last layer; refusing a partial imatrix"
                     )
+            # The per-layer budget check never saw this step: after layer 44
+            # the table (1.3 GB) and the whole head block (~15 GB bf16) go up
+            # unmeasured. Logged, not enforced — the streaming budget is
+            # sized for a layer, and the head is one; a 1-2 GB overshoot
+            # here is not a leak.
+            active = mx.get_active_memory()
+            logger.info(
+                "oQe imatrix streaming: round %d head passes done "
+                "(active %.1f GB, peak %.1f GB)",
+                round_index + 1,
+                active / 1e9,
+                mx.get_peak_memory() / 1e9,
+            )
+            if active > _OQE_STREAM_ACTIVE_LIMIT_BYTES:
+                logger.warning(
+                    "oQe imatrix streaming: active memory %.1f GB after the head "
+                    "passes exceeds the %.0f GB streaming budget",
+                    active / 1e9,
+                    _OQE_STREAM_ACTIVE_LIMIT_BYTES / 1e9,
+                )
 
         if round_index == 0:
             # Counter snapshot after the first full sweep. Later rounds
@@ -10188,10 +10229,10 @@ def _load_or_collect_imatrix(
     # ``require_mtp_entries=False`` skips the mtp.*-entries completeness
     # check on a cache hit. A build that drops the MTP head
     # (preserve_mtp=False) never quantizes mtp.* tensors, so a cache
-    # without head entries is complete for it — and the streaming
-    # collector never runs the MTP-head pass, so on a source that ships
-    # real mtp.* weights (e.g. qwen4_exp) the check would otherwise force
-    # a full recollect on every reuse.
+    # without head entries is complete for it. The streaming collector only
+    # measures the MTP head on glm5_next (after the layer loop); on the
+    # other families that ship real mtp.* weights (e.g. qwen4_exp) the check
+    # would otherwise force a full recollect on every reuse.
     # ``measure_sensitivity`` asks the streaming collector to fuse the
     # per-layer qdq sensitivity measurement into the collection sweep; the
     # scores come back under metadata["collection"]["sensitivity_map"]. It

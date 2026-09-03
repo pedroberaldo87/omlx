@@ -567,3 +567,34 @@ def test_contagem_por_familia_nomeia_a_familia_e_a_diferenca(tmp_path):
     indice["model.layers.0.visual.blocks.0.attn.qkv.weight"] = "a"
     with pytest.raises(RuntimeError, match=r"visual\.blocks\.N\.attn\.qkv\.weight: esperados 0, gravados 1"):
         _verifica_familias_contra_indice(esperados, indice, tmp_path)
+
+
+@precisa_do_config
+def test_os_seis_coeficientes_da_cabeca_saem_no_plano():
+    """02/09: o duble da rota de visao devolvia parameters() vazio e o quant
+    saia SEM os seis coeficientes de hiperconexao da cabeca — so carregava
+    porque o motor esconde a marca format=mlx e forca o sanitize na carga.
+    O quant de 31/08 (rota de texto) os gravava; o de visao tem que gravar
+    tambem, com os valores neutros do construtor."""
+    import json
+
+    import mlx.core as _mx
+
+    from omlx.oq import _build_model_sanitizer
+
+    cfg = json.load(open(os.path.join(ORIGEM, "config.json")))
+    n = (cfg.get("text_config") or {}).get("num_hidden_layers")
+    limpeza = _build_model_sanitizer(cfg, model_path=ORIGEM, preserve_mtp=True)
+    saida = limpeza(_amostra_com_a_cabeca(n))
+
+    hc = sorted(k for k in saida if "_hc." in k)
+    assert len(hc) == 6, f"esperava os 6 coeficientes da cabeca, saiu {hc}"
+    assert all(".mtp.0.block." in k for k in hc), hc
+    assert {k.rsplit(".", 2)[-2] for k in hc} == {"attn_hc", "ffn_hc"}
+    assert {k.rsplit(".", 1)[-1] for k in hc} == {"fn", "base", "scale"}
+    # neutros: mistura zerada, escala unitaria, em fp32 (a regra de cast os mantem)
+    for k in hc:
+        v = saida[k]
+        assert v.dtype == _mx.float32, (k, v.dtype)
+        esperado = 1.0 if k.endswith(".scale") else 0.0
+        assert float(v.min()) == esperado == float(v.max()), (k, v)
