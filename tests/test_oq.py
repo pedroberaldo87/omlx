@@ -4551,6 +4551,9 @@ class TestQuantizeOqStreamingPassthroughDtypes:
         assert rel["precision_and_values"]["non_finite"] == []
         assert rel["precision_and_values"]["downcast_sensitive"] == []
         assert rel["precision_and_values"]["checked_float_tensors"] >= 2
+        # sem regra de cast a lista vazia NAO significa "conferi": o veredito
+        # tem que dizer que a regra nao existia (R1, 02/09)
+        assert rel["precision_and_values"]["cast_predicate"] is False
 
 
 # =============================================================================
@@ -7651,6 +7654,7 @@ class TestConferenciaDePrecisaoEValores:
             "model.layers.0.self_attn.q_proj.weight": np.zeros((4, 1), dtype=np.uint32),
         })
         assert _verifica_precisao_e_valores(out, wm, self._regra) == {
+            "cast_predicate": True,
             "checked_float_tensors": 2, "downcast_sensitive": [], "non_finite": [],
         }
         # sem regra exposta (família sem predicado) só o NaN/inf vale
@@ -7879,3 +7883,44 @@ class TestOVereditoSobreviveARecusa:
         }
         with pytest.raises(RuntimeError, match="1 peso.*model.layers.0.mlp.down_proj"):
             _cobra_faltantes_da_matriz(rel, "/tmp/saida")
+
+
+class TestARegraDeCastNaoSomeCalada:
+    """02/09: a regra de precisao dos 430 sensiveis so existe na rota de visao;
+    na de texto o veredito saia com downcast_sensitive vazio como se tivesse
+    conferido, e o pre-voo deixava passar."""
+
+    def test_veredito_diz_que_a_regra_existia(self, tmp_path):
+        from safetensors.numpy import save_file as np_save
+        from omlx.oq import _verifica_precisao_e_valores
+
+        out = tmp_path / "out"
+        out.mkdir()
+        np_save({"a.weight": np.ones((4, 4), dtype=np.float16)}, str(out / "m.safetensors"))
+        wm = {"a.weight": "m.safetensors"}
+        assert _verifica_precisao_e_valores(out, wm, None)["cast_predicate"] is False
+        assert _verifica_precisao_e_valores(out, wm, lambda k: True)["cast_predicate"] is True
+
+    def test_pre_voo_recusa_glm5_next_sem_regra_de_cast(self, tmp_path, monkeypatch):
+        import omlx.oq as oq
+
+        monkeypatch.setattr(oq, "_build_model_sanitizer", lambda *a, **k: (lambda w: w))
+        chegou = []
+        monkeypatch.setattr(oq, "_streamed_source_plan", lambda *a, **k: chegou.append(1))
+        with pytest.raises(RuntimeError, match="pre-voo: glm5_next publica uma regra"):
+            oq._pre_voo_da_quantizacao(
+                tmp_path, {"model_type": "glm5_next"}, text_only=True, preserve_mtp=False
+            )
+        assert chegou == []
+
+    def test_pre_voo_segue_quando_a_regra_chega(self, tmp_path, monkeypatch):
+        import omlx.oq as oq
+
+        limpeza = lambda w: w
+        limpeza._omlx_cast_predicate = lambda k: True
+        monkeypatch.setattr(oq, "_build_model_sanitizer", lambda *a, **k: limpeza)
+        monkeypatch.setattr(oq, "_streamed_source_plan", lambda *a, **k: {"language_model.x": None})
+        monkeypatch.setattr(oq, "_fonte_tem_pesos_de_visao", lambda p: False)
+        oq._pre_voo_da_quantizacao(
+            tmp_path, {"model_type": "glm5_next"}, text_only=False, preserve_mtp=False
+        )

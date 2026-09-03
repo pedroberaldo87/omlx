@@ -4660,7 +4660,17 @@ def _verifica_precisao_e_valores(output: Path, weight_map: dict, cast_predicate)
             conferidos += len(flags)
         del tensores, flags
         mx.clear_cache()
+    if cast_predicate is None:
+        # Sem regra a varredura dos sensiveis nao roda. Ate 02/09 o veredito
+        # saia com a lista vazia, que se le como "conferi, esta limpo" — e a
+        # rota de texto do GLM-5.3, a que produziu os 430 em F16 de 31/08,
+        # chega aqui exatamente sem regra.
+        logger.warning(
+            "oQ: a conferencia de precisao dos sensiveis NAO rodou — esta rota "
+            "nao publica regra de cast; downcast_sensitive vazio nao e prova"
+        )
     veredito = {
+        "cast_predicate": cast_predicate is not None,
         "checked_float_tensors": conferidos,
         "downcast_sensitive": rebaixados,
         "non_finite": invalidos,
@@ -4708,6 +4718,11 @@ def _fonte_exige_limpeza(source: Path, config: dict) -> list[str]:
     return motivos
 
 
+# Familias cuja limpeza publica uma regra de cast (chave -> bool) para os
+# tensores sensiveis. Chegar ao pre-voo sem ela e sinal de rota errada.
+_FAMILIAS_COM_REGRA_DE_CAST = {"glm5_next"}
+
+
 def _pre_voo_da_quantizacao(
     source: Path, config: dict, *, text_only: bool, preserve_mtp: bool
 ) -> None:
@@ -4722,6 +4737,21 @@ def _pre_voo_da_quantizacao(
     sanitize_fn = _build_model_sanitizer(
         config, text_only=text_only, model_path=source, preserve_mtp=preserve_mtp
     )
+    familia = str(config.get("model_type", "")).lower()
+    if (
+        familia in _FAMILIAS_COM_REGRA_DE_CAST
+        and getattr(sanitize_fn, "_omlx_cast_predicate", None) is None
+    ):
+        # A regra de precisao dos sensiveis so e amarrada na rota de visao
+        # (glm5_next_cast_predicate); a rota de texto chegava sem ela e os
+        # 430 tensores saiam em F16 (o oQ2e de 31/08), com a conferencia
+        # tardia cega pelo mesmo motivo. Parar aqui custa segundos.
+        raise RuntimeError(
+            f"oQ pre-voo: {familia} publica uma regra de precisao para os "
+            f"tensores sensiveis e a rota escolhida (text_only={text_only}) "
+            "chegou sem ela — os sensiveis sairiam rebaixados. Parando antes "
+            "da quantizacao longa."
+        )
     if sanitize_fn is None:
         # Raw checkpoint keys only load for plain layouts. A source that
         # needs family-specific cleaning (per-index experts, a head in extra
