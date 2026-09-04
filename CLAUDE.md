@@ -149,6 +149,23 @@ O tique é uma multiplicação 256×256 em float16, disparada só no ramo do la�
 requisição alguma (`omlx/engine_core.py`). Desliga em Settings › Advanced › Performance, ou com
 `OMLX_GPU_KEEPWARM=0`.
 
+## O aquecimento do preparo depois da carga (prefill warmup)
+
+Ligado de fábrica desde `d5dc0a99`. O primeiro pedaço de prefill depois de uma carga fria custa
+~14,5 GB de memória do processo (o pool de buffers do Metal enchendo uma vez); todos os seguintes,
+~2 GB. Quem pagava era o primeiro prompt do usuário — medido em 04/09: o modelo de 103 GB cruzava a
+marca dura de 115,5 GB e **o primeiro prompt era abortado em 2 de 4 cargas**; e o preditor do
+estrangulador recusava o segundo pedaço de um bloco de 1024.
+
+Agora o pool roda um pedaço de 512 tokens descartável logo depois do `Loaded model`, na thread MLX
+do motor (`Scheduler.warmup_prefill`). Medido em 6 subidas: 5,9 s na carga, o guarda drena o pool
+em 1 s (`hard -> ok`, 115,7 → 104,9 GB), e o primeiro prompt real passa a ver 2,4 GB de
+transitório em vez de 14,5. Desliga em Settings › Advanced (`prefill_warmup`) ou com
+`OMLX_PREFILL_WARMUP=0`.
+
+**Ao medir prefill, o primeiro prompt de uma subida antiga (sem aquecimento) não é comparável ao
+de uma subida nova** — era ele que carregava o custo frio.
+
 ## Onde ficam configuração e registros
 
 ```
