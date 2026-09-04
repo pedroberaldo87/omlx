@@ -60,6 +60,36 @@ def test_a_barreira_existe():
     assert fn.name == "__call__", f"a barreira mudou de função: {fn.name}"
 
 
+def _volta_por_recursao(no: ast.Return, nome: str) -> bool:
+    """O retorno é feito de chamadas à própria função?
+
+    Um retorno assim não pula a barreira — ele a atravessa uma vez por
+    chamada interna. É o caso do fatiamento da recorrente no preparo do
+    prompt: `return mx.concatenate([self(fatia, ...) for fatia ...])`, em que
+    cada fatia executa o corpo inteiro, barreira inclusive. O que o
+    invariante proíbe é o retorno que devolve um resultado calculado ali
+    mesmo, sem passar pela amarra.
+    """
+    for interno in ast.walk(no):
+        if isinstance(interno, ast.Call):
+            f = interno.func
+            if isinstance(f, ast.Name) and f.id == nome:
+                return True
+            # `self(...)` chama __call__; `self._nome(...)` chama o método
+            if isinstance(f, ast.Name) and f.id == "self" and nome == "__call__":
+                return True
+            if isinstance(f, ast.Attribute) and f.attr == nome:
+                return True
+        if isinstance(interno, ast.Name) and interno.id == "self" and nome == "__call__":
+            # `self(pedaco, m, cache)` aparece como Call(func=Name('self'))
+            pai_e_chamada = any(
+                isinstance(c, ast.Call) and c.func is interno for c in ast.walk(no)
+            )
+            if pai_e_chamada:
+                return True
+    return False
+
+
 def test_nenhuma_saida_antecipada_pula_a_barreira():
     """O invariante: nenhum retorno pode acontecer antes da barreira."""
     fn, chamada = _funcao_da_barreira()
@@ -68,7 +98,9 @@ def test_nenhuma_saida_antecipada_pula_a_barreira():
     antes = [
         no.lineno
         for no in ast.walk(fn)
-        if isinstance(no, ast.Return) and no.lineno < linha_barreira
+        if isinstance(no, ast.Return)
+        and no.lineno < linha_barreira
+        and not _volta_por_recursao(no, fn.name)
     ]
     assert not antes, (
         f"{len(antes)} saída(s) da função acontecem ANTES da barreira "
