@@ -689,6 +689,9 @@
             oqeReuseImatrixCache: true,
             oqeImatrixCachePath: '',
             oqeStrictImatrix: false,
+            oqAttentionBitsCap: 0,
+            oqVisionDtype: 'auto',
+            oqGroupSize: 64,
 
             // oQ Uploader state
             uploadHfToken: localStorage.getItem('omlx-hf-upload-token') || '',
@@ -11409,11 +11412,13 @@
                     const payload = {
                         model_path: this.oqSelectedModelPath,
                         oq_level: this.oqLevel,
-                        group_size: 64,
+                        group_size: this.oqGroupSize,
                         sensitivity_model_path: this.oqSensitivityModelPath,
                         text_only: this.oqTextOnly,
                         dtype: this.oqDtype,
                         preserve_mtp: this.oqSelectedModelHasMtp() ? this.oqPreserveMtp : false,
+                        attention_bits_cap: this.oqAttentionBitsCap,
+                        vision_dtype: this.oqVisionDtype,
                         mtp_assistant_model_path: this.oqMtpAssistantCandidates().some(m => m.path === this.oqMtpAssistantPath)
                             ? this.oqMtpAssistantPath : '',
                     };
@@ -11621,6 +11626,8 @@
                             model_path: this.oqSelectedModelPath,
                             oq_level: this.oqLevel,
                             preserve_mtp: this.oqSelectedModelHasMtp() && this.oqPreserveMtp ? 'true' : 'false',
+                            group_size: this.oqGroupSize,
+                            attention_bits_cap: this.oqAttentionBitsCap,
                         });
                         const resp = await fetch(`/admin/api/oq/estimate?${params}`);
                         if (resp.ok) {

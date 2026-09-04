@@ -445,6 +445,80 @@ def _piso_escrito_a_mao(path_l: str, text_config: dict) -> int | None:
     return None
 
 
+_TETO_ATENCAO_PROJECOES = (
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "b_proj",
+    "g_a_proj",
+    "g_b_proj",
+    "q_a_proj",
+    "q_b_proj",
+    "k_a_proj",
+    "k_b_proj",
+    "v_a_proj",
+    "v_b_proj",
+    "kv_a_proj_with_mqa",
+    "kv_b_proj",
+    "f_a_proj",
+    "f_b_proj",
+    "qkv_proj",
+    "in_proj_qkv",
+    "in_proj_z",
+    "in_proj_a",
+    "in_proj_b",
+    "attn_qkv",
+    "embed_q",
+    "unembed_out",
+    "out_proj",
+)
+
+
+def _e_projecao_de_atencao(path_l: str) -> bool:
+    """True for the dense projection matrices of an attention block.
+
+    Deliberately narrow: it must live under an attention module and end in a
+    known projection. The DSA indexer is a format invariant (its Q8 override
+    is what makes the kernel load at all), conv1d is a depthwise conv rather
+    than a matmul, and experts/shared experts/embeddings are not attention —
+    all four stay out of the cap.
+    """
+    if not any(p in path_l for p in ("self_attn.", "attn.", "attention.", "mixer.")):
+        return False
+    if ".indexer." in path_l or "conv1d" in path_l:
+        return False
+    if "shared_expert" in path_l or "switch_mlp" in path_l or "experts." in path_l:
+        return False
+    return any(path_l.endswith(p) for p in _TETO_ATENCAO_PROJECOES)
+
+
+def _teto_da_atencao(path_l: str, config: dict) -> int | None:
+    """Requested bit ceiling for this tensor, or None when it does not apply.
+
+    The oQ recipe is all floors and no ceiling (see ``bits()`` in
+    universal_quant_predicate): every rule raises, none lowers, so on
+    GLM-5.3-Flash the greedy sensitivity boost took the whole dense attention
+    to 8 bits — 6,31 GB of the checkpoint, measured 04/09. This is the one
+    knob that can bring it down, and it is opt-in: 0/absent keeps today's
+    behaviour exactly.
+    """
+    teto = config.get("_oq_attention_bits_cap") or 0
+    try:
+        teto = int(teto)
+    except (TypeError, ValueError):
+        return None
+    if teto <= 0 or not _e_projecao_de_atencao(path_l):
+        return None
+    return teto
+
+
+def _limita_pela_atencao(path: str, cand_bits: int, config: dict) -> int:
+    """cand_bits capped by the attention ceiling, if one applies to path."""
+    teto = _teto_da_atencao(_normalize_quant_path(path).lower(), config)
+    return min(cand_bits, teto) if teto is not None else cand_bits
+
+
 def _is_glm5_next_linear_attention_o_proj(path_l: str, text_config: dict) -> bool:
     """``self_attn.o_proj`` of a LINEAR-attention layer of glm5_next.
 
@@ -529,8 +603,12 @@ def universal_quant_predicate(
             return 128
         return 64
 
+    teto_atencao = _teto_da_atencao(path_l, config)
+
     def bits(n):
         effective = int(max(n, base_bits))
+        if teto_atencao is not None:
+            effective = min(effective, teto_atencao)
         return {
             "bits": effective,
             "group_size": _gs_for_mode(effective, gs()),
@@ -1099,6 +1177,8 @@ def _build_quant_plan(
         # here so they are priced at their real cost and never logged as
         # "refused" by a cap they ignore anyway.
         piso = _piso_escrito_a_mao(_normalize_quant_path(path).lower(), tc_plan)
+        if piso is not None:
+            piso = _limita_pela_atencao(path, piso, config)
         if piso is not None and piso > base_bits and not _is_routed_expert(path):
             boost_map[path] = {
                 "bits": piso,
@@ -1266,6 +1346,7 @@ def _build_quant_plan(
             max_target = min(cur_bits + 2, 8)
         else:
             max_target = min(cur_bits + 1, 8)
+        max_target = _limita_pela_atencao(path, max_target, config)
         if max_target <= cur_bits:
             continue
         candidates.append((layer_score, path, shape, cur_bits, cur_cost, max_target))
@@ -1320,8 +1401,9 @@ def _build_quant_plan(
         for _score, path, shape, cur_bits, cur_cost in sorted(
             fallback_candidates, key=lambda x: x[0], reverse=True
         ):
+            teto = _limita_pela_atencao(path, 8, config)
             for cand_bits in (8, 6, 5, 4, 3):
-                if cand_bits <= cur_bits:
+                if cand_bits <= cur_bits or cand_bits > teto:
                     continue
                 cand_gs = _gs_for_mode(cand_bits, _OQ_DEFAULT_GROUP_SIZE)
                 cand_mode = _mode_for_bits(cand_bits)
@@ -1408,6 +1490,8 @@ def resolve_output_name(
     dtype: str = "bfloat16",
     preserve_mtp: bool = False,
     enhanced: bool = False,
+    attention_bits_cap: int = 0,
+    group_size: int = 64,
 ) -> str:
     """Generate output model name: strip existing quant suffixes, append oQ tag.
 
@@ -1422,9 +1506,15 @@ def resolve_output_name(
         "Qwen3.5-122B-A10B" + 4 + float16  -> "Qwen3.5-122B-A10B-oQ4-fp16"
         "Qwen3.5-122B-A10B-oQ6-fp16" + 2 + bfloat16 -> "Qwen3.5-122B-A10B-oQ2"
         "Qwen3.5-27B" + 4 + bfloat16 + preserve_mtp -> "Qwen3.5-27B-oQ4-mtp"
+        "Qwen3.5-27B" + 2 + attention_bits_cap=4 -> "Qwen3.5-27B-oQ2-a4"
+        "Qwen3.5-27B" + 2 + group_size=128 -> "Qwen3.5-27B-oQ2-g128"
+
+    The attention cap and a non-default group size change the weights without
+    changing the level, so the name has to carry them: two oQ2e built with
+    different recipes are otherwise indistinguishable on disk.
     """
     pattern = re.compile(
-        r"-(oQ[\d.]+e?|[0-9]+[_-]?bit|fp\d+|bf\d+|mtp)$",
+        r"-(oQ[\d.]+e?|a[2-8]|g\d{2,3}|[0-9]+[_-]?bit|fp\d+|bf\d+|mtp)$",
         flags=re.IGNORECASE,
     )
     base = model_name
@@ -1435,6 +1525,10 @@ def resolve_output_name(
         base = new
     level_str = f"{oq_level:g}"
     suffix = f"-oQ{level_str}{'e' if enhanced else ''}"
+    if attention_bits_cap:
+        suffix += f"-a{int(attention_bits_cap)}"
+    if group_size and int(group_size) != _OQ_DEFAULT_GROUP_SIZE:
+        suffix += f"-g{int(group_size)}"
     if dtype == "float16":
         suffix += "-fp16"
     if preserve_mtp:
@@ -3312,6 +3406,7 @@ def estimate_bpw_and_size(
     oq_level: int,
     group_size: int = 64,
     preserve_mtp: bool = False,
+    attention_bits_cap: int = 0,
 ) -> dict:
     """Calculate precise effective bpw and output size by scanning actual tensors.
 
@@ -3425,6 +3520,7 @@ def estimate_bpw_and_size(
     # the per-tensor pricing loop below (the flag changes which predicate
     # branch answers).
     config["_oq_use_budget_plan"] = oq_level in _OQ_BPW_TARGETS
+    config["_oq_attention_bits_cap"] = int(attention_bits_cap or 0)
 
     # Pre-quantized tensors that pass through in source precision (mirrors
     # the decision in quantize_oq_streaming, evaluated pre-boost).
@@ -3978,7 +4074,52 @@ def _should_quantize_tensor(name: str, shape: tuple) -> bool:
     return True
 
 
-def _cast_passthrough_tensor(tensor_name: str, w_mx, target_dtype):
+# Vision towers whose float16 behaviour was measured, not assumed. The
+# upstream rule that forces float32 (PR #1682, issue #1678) came from Gemma 4
+# on an M1 Max: a real symptom, a hypothetical cause, and no activation
+# number. Measured here on GLM-5.3-Flash (04/09, visao_f16.py): median cosine
+# 0.99989-0.99998 in F16 against 0.99741-0.99964 for the source BF16, peak
+# activation ~228 against the 65504 F16 ceiling, no inf/nan on real screen
+# captures — the family clamps both vision SwiGLUs at +-10, which Gemma 4
+# does not. Every other family keeps the float32 rule until someone measures.
+_VISION_FP16_FAMILIES = ("glm5_next",)
+
+VISION_DTYPES = ("auto", "float16", "float32")
+
+
+def _familia_do_config(config: dict) -> str:
+    """The model_type this config declares, text sub-config included."""
+    for chave in (config.get("model_type"), (config.get("text_config") or {}).get("model_type")):
+        if isinstance(chave, str) and chave:
+            return chave.lower().replace("-", "_")
+    return ""
+
+
+def _resolve_vision_dtype(config: dict, target_dtype, vision_dtype: str = "auto"):
+    """Storage dtype for the un-quantized vision/audio tensors.
+
+    ``auto`` keeps the float32 rule for every family except the ones measured
+    in ``_VISION_FP16_FAMILIES``; ``float16``/``float32`` force it. The rule
+    only ever mattered when the request asked for float16 — in bfloat16 the
+    tower already stayed at source precision.
+    """
+    if vision_dtype not in VISION_DTYPES:
+        raise ValueError(
+            f"Invalid vision_dtype {vision_dtype!r}. Must be one of {VISION_DTYPES}"
+        )
+    if target_dtype != mx.float16:
+        return target_dtype
+    if vision_dtype == "float16":
+        return mx.float16
+    if vision_dtype == "float32":
+        return mx.float32
+    familia = _familia_do_config(config)
+    if familia.startswith(_VISION_FP16_FAMILIES):
+        return mx.float16
+    return mx.float32
+
+
+def _cast_passthrough_tensor(tensor_name: str, w_mx, target_dtype, vision_dtype=None):
     """Cast an unquantized output tensor to its storage dtype."""
     if not mx.issubdtype(w_mx.dtype, mx.floating):
         return w_mx
@@ -3986,8 +4127,9 @@ def _cast_passthrough_tensor(tensor_name: str, w_mx, target_dtype):
     if target_dtype == mx.float16 and (
         _is_vision_tensor(tensor_name) or _is_audio_tensor(tensor_name)
     ):
-        if w_mx.dtype != mx.float32:
-            return w_mx.astype(mx.float32)
+        alvo = mx.float32 if vision_dtype is None else vision_dtype
+        if w_mx.dtype != alvo:
+            return w_mx.astype(alvo)
         return w_mx
 
     if w_mx.dtype != target_dtype:
@@ -6493,6 +6635,8 @@ def quantize_oq_streaming(
     sensitivity_map_override: dict[int | str, float] | None = None,
     stream_calibration: bool | None = None,
     preserve_ngram_table: bool = False,
+    attention_bits_cap: int = 0,
+    vision_dtype: str = "auto",
 ) -> None:
     """Tensor-by-tensor quantization. Memory: ~3-4GB regardless of model size.
 
@@ -6627,6 +6771,21 @@ def quantize_oq_streaming(
             f"{oq_level:g}",
         )
     config["_oq_use_budget_plan"] = oq_level in _OQ_BPW_TARGETS
+    config["_oq_attention_bits_cap"] = int(attention_bits_cap or 0)
+    vision_target_dtype = _resolve_vision_dtype(config, target_dtype, vision_dtype)
+    if attention_bits_cap:
+        logger.info(
+            "oQ%s: attention projections capped at %d bits",
+            f"{oq_level:g}",
+            int(attention_bits_cap),
+        )
+    if target_dtype == mx.float16:
+        logger.info(
+            "oQ%s: vision/audio passthrough stored as %s (vision_dtype=%s)",
+            f"{oq_level:g}",
+            vision_target_dtype,
+            vision_dtype,
+        )
 
     output.mkdir(parents=True, exist_ok=True)
 
@@ -7307,11 +7466,15 @@ def quantize_oq_streaming(
                         per_layer_config[base] = layer_cfg
                 else:
                     if cast_predicate is None or cast_predicate(tensor_name):
-                        w_mx = _cast_passthrough_tensor(tensor_name, w_mx, target_dtype)
+                        w_mx = _cast_passthrough_tensor(
+                            tensor_name, w_mx, target_dtype, vision_target_dtype
+                        )
                     out_shard_data[tensor_name] = w_mx
             else:
                 if cast_predicate is None or cast_predicate(tensor_name):
-                    w_mx = _cast_passthrough_tensor(tensor_name, w_mx, target_dtype)
+                    w_mx = _cast_passthrough_tensor(
+                        tensor_name, w_mx, target_dtype, vision_target_dtype
+                    )
                 out_shard_data[tensor_name] = w_mx
 
             del w_mx
@@ -10850,6 +11013,10 @@ def _build_streaming_proxy_for_sensitivity(
         config = json.load(f)
     _validate_oq_dtype_for_model(config, dtype)
     target_dtype = mx.bfloat16 if dtype == "bfloat16" else mx.float16
+    # The proxy is a throwaway model for sensitivity scoring, but it has to
+    # carry the same vision dtype the real run will write, or the score comes
+    # from a tower the output never has.
+    vision_target_dtype = _resolve_vision_dtype(config, target_dtype, "auto")
 
     weight_files = sorted(source.glob("*.safetensors"))
     if not weight_files:
@@ -10985,11 +11152,15 @@ def _build_streaming_proxy_for_sensitivity(
                     del qw, scales, biases
                 else:
                     if cast_predicate is None or cast_predicate(tensor_name):
-                        w_mx = _cast_passthrough_tensor(tensor_name, w_mx, target_dtype)
+                        w_mx = _cast_passthrough_tensor(
+                            tensor_name, w_mx, target_dtype, vision_target_dtype
+                        )
                     out_shard_data[tensor_name] = w_mx
             else:
                 if cast_predicate is None or cast_predicate(tensor_name):
-                    w_mx = _cast_passthrough_tensor(tensor_name, w_mx, target_dtype)
+                    w_mx = _cast_passthrough_tensor(
+                        tensor_name, w_mx, target_dtype, vision_target_dtype
+                    )
                 out_shard_data[tensor_name] = w_mx
 
             del w_mx

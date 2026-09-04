@@ -632,6 +632,60 @@ class TestOQManagerEnhanced:
         assert task.imatrix_cache_path.endswith("-s8-l128.npz")
 
 
+class TestOQManagerOpcoesDeMemoria:
+    """As tres opcoes de memoria chegam ao pedido e ao nome do checkpoint.
+
+    Sao opcoes, nao mudanca fixa: com os valores de fabrica o pedido tem que
+    sair identico ao de antes delas existirem.
+    """
+
+    @pytest.mark.asyncio
+    async def test_o_padrao_nao_muda_o_pedido_nem_o_nome(
+        self, fp_model_dir, monkeypatch
+    ):
+        manager = OQManager(model_dirs=[str(fp_model_dir)])
+
+        async def _noop_run(task_id):
+            return None
+
+        monkeypatch.setattr(manager, "_run_quantization", _noop_run)
+        task = await manager.start_quantization(str(fp_model_dir / "Llama-3B"), 4)
+        await manager._active_tasks[task.task_id]
+
+        assert task.attention_bits_cap == 0
+        assert task.vision_dtype == "auto"
+        assert task.group_size == 64
+        assert task.output_name == "Llama-3B-oQ4"
+
+    @pytest.mark.asyncio
+    async def test_as_opcoes_chegam_ao_pedido_e_ao_nome(
+        self, fp_model_dir, monkeypatch
+    ):
+        manager = OQManager(model_dirs=[str(fp_model_dir)])
+
+        async def _noop_run(task_id):
+            return None
+
+        monkeypatch.setattr(manager, "_run_quantization", _noop_run)
+        task = await manager.start_quantization(
+            str(fp_model_dir / "Llama-3B"),
+            2,
+            group_size=128,
+            attention_bits_cap=4,
+            vision_dtype="float16",
+        )
+        await manager._active_tasks[task.task_id]
+
+        assert task.attention_bits_cap == 4
+        assert task.vision_dtype == "float16"
+        assert task.group_size == 128
+        assert task.output_name == "Llama-3B-oQ2-a4-g128"
+        # e o painel enxerga as tres pelo to_dict
+        d = task.to_dict()
+        assert d["attention_bits_cap"] == 4
+        assert d["vision_dtype"] == "float16"
+
+
 class TestOQManagerHfCacheDiscovery:
     """HF cache models (non-MLX) should appear as quantization sources."""
 

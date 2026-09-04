@@ -93,6 +93,8 @@ class QuantTask:
     imatrix_num_samples: int = 128
     imatrix_seq_length: int = 512
     mtp_assistant_model_path: str = ""
+    attention_bits_cap: int = 0
+    vision_dtype: str = "auto"
 
     def to_dict(self) -> dict:
         """Serialize task to JSON-compatible dict."""
@@ -117,6 +119,8 @@ class QuantTask:
             "dtype": self.dtype,
             "enhanced": self.enhanced,
             "imatrix_cache_path": self.imatrix_cache_path,
+            "attention_bits_cap": self.attention_bits_cap,
+            "vision_dtype": self.vision_dtype,
         }
 
 
@@ -315,6 +319,8 @@ class OQManager:
         imatrix_num_samples: int = 128,
         imatrix_seq_length: int = 512,
         mtp_assistant_model_path: str = "",
+        attention_bits_cap: int = 0,
+        vision_dtype: str = "auto",
     ) -> QuantTask:
         """Start a quantization job.
 
@@ -405,6 +411,8 @@ class OQManager:
             dtype,
             preserve_mtp=preserve_mtp,
             enhanced=enhanced,
+            attention_bits_cap=attention_bits_cap,
+            group_size=group_size,
         )
         if mtp_assistant_model_path and not output_name.endswith("-mtp"):
             output_name += "-mtp"
@@ -469,6 +477,8 @@ class OQManager:
             imatrix_num_samples=imatrix_num_samples,
             imatrix_seq_length=imatrix_seq_length,
             mtp_assistant_model_path=mtp_assistant_model_path,
+            attention_bits_cap=attention_bits_cap,
+            vision_dtype=vision_dtype,
         )
         self._tasks[task_id] = task
 
@@ -662,6 +672,8 @@ class OQManager:
                     imatrix_strict=task.imatrix_strict,
                     imatrix_num_samples=task.imatrix_num_samples,
                     imatrix_seq_length=task.imatrix_seq_length,
+                    attention_bits_cap=task.attention_bits_cap,
+                    vision_dtype=task.vision_dtype,
                 )
 
                 if task_id in self._cancelled:

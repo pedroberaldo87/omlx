@@ -8060,3 +8060,231 @@ class TestOEnsaioTemAsMesmasChavesDoRelatorio:
         assert rel["applied"] == ["model.layers.0.mlp.switch_mlp.down_proj"]
         assert rel["zero_count_experts"] == 2
         assert rel["neutral"] == []
+
+
+class TestTetoDaAtencao:
+    """O teto de bits da atenção: opt-in, e o padrão preserva o de hoje.
+
+    A receita do oQ só tem pisos (ver ``bits()`` em universal_quant_predicate:
+    todo caminho é ``max(n, base)``), então no GLM-5.3-Flash a atenção densa
+    terminou inteira em 8 bits — 6,31 GB do checkpoint, medidos em 04/09. O
+    teto é a única regra que desce, e ela não pode encostar em especialista,
+    embedding, indexador DSA nem conv1d.
+    """
+
+    @staticmethod
+    def _config_glm5(cap=0):
+        return {
+            "model_type": "glm5_next",
+            "text_config": {
+                "model_type": "glm5_next_text",
+                "hidden_size": 64,
+                "num_hidden_layers": 2,
+                "num_local_experts": 8,
+                "layer_types": ["linear_attention", "full_attention"],
+            },
+            "hidden_size": 64,
+            "num_local_experts": 8,
+            "_oq_use_budget_plan": True,
+            "_oq_attention_bits_cap": cap,
+        }
+
+    ALVOS = (
+        "model.layers.0.self_attn.q_proj",
+        "model.layers.0.self_attn.k_proj",
+        "model.layers.0.self_attn.v_proj",
+        "model.layers.0.self_attn.o_proj",
+        "model.layers.0.self_attn.b_proj",
+        "model.layers.0.self_attn.forget_gate.f_a_proj",
+        "model.layers.1.self_attn.q_a_proj",
+        "model.layers.1.self_attn.q_b_proj",
+        "model.layers.1.self_attn.kv_a_proj_with_mqa",
+        "model.layers.1.self_attn.embed_q",
+    )
+    INTOCADOS = (
+        "model.layers.0.self_attn.conv1d",
+        "model.layers.1.self_attn.indexer.wk",
+        "model.layers.1.self_attn.indexer.wq_b",
+        "model.layers.0.mlp.switch_mlp.gate_proj",
+        "model.layers.0.mlp.shared_experts.gate_proj",
+        "lm_head",
+        "model.embed_tokens",
+    )
+
+    def test_o_padrao_nao_muda_nada(self):
+        """Sem teto (0), cada tensor sai com os mesmos bits de sempre."""
+        from omlx.oq import universal_quant_predicate
+
+        sem = self._config_glm5(0)
+        for path in self.ALVOS + self.INTOCADOS:
+            assert universal_quant_predicate(
+                path, None, {**sem, "_oq_use_budget_plan": False}, 2
+            ) == universal_quant_predicate(
+                path, None, {**sem, "_oq_use_budget_plan": False}, 2
+            )
+        # e o teto ausente é o mesmo que teto zero
+        vazio = {k: v for k, v in sem.items() if k != "_oq_attention_bits_cap"}
+        for path in self.ALVOS:
+            assert universal_quant_predicate(
+                path, None, {**vazio, "_oq_use_budget_plan": False}, 2
+            ) == universal_quant_predicate(
+                path, None, {**sem, "_oq_use_budget_plan": False}, 2
+            )
+
+    def test_o_teto_desce_a_atencao_e_so_ela(self):
+        from omlx.oq import universal_quant_predicate
+
+        com = self._config_glm5(4)
+        com["_oq_use_budget_plan"] = False
+        sem = self._config_glm5(0)
+        sem["_oq_use_budget_plan"] = False
+        for path in self.ALVOS:
+            pred = universal_quant_predicate(path, None, com, 2)
+            if isinstance(pred, dict):
+                assert pred["bits"] <= 4, f"{path} passou do teto: {pred}"
+        for path in self.INTOCADOS:
+            assert universal_quant_predicate(
+                path, None, com, 2
+            ) == universal_quant_predicate(path, None, sem, 2), path
+
+    def test_o_piso_escrito_a_mao_do_o_proj_linear_obedece_ao_teto(self):
+        """O o_proj da atenção linear tem piso 8 escrito à mão; o teto o vence."""
+        from omlx.oq import universal_quant_predicate
+
+        path = "model.layers.0.self_attn.o_proj"  # layer_types[0] = linear_attention
+        sem = self._config_glm5(0)
+        sem["_oq_use_budget_plan"] = False
+        assert universal_quant_predicate(path, None, sem, 2)["bits"] == 8
+        com = self._config_glm5(4)
+        com["_oq_use_budget_plan"] = False
+        assert universal_quant_predicate(path, None, com, 2)["bits"] == 4
+
+    def test_o_plano_inteiro_respeita_o_teto(self):
+        """No planejador por orçamento (oQ2), nem o boost guloso nem o
+        fallback levam a atenção acima do teto."""
+        from omlx.oq import _build_quant_plan
+
+        formas = {p: (64, 64) for p in self.ALVOS + self.INTOCADOS}
+        formas["model.layers.0.mlp.switch_mlp.gate_proj"] = (8, 64, 64)
+        formas["model.layers.0.mlp.switch_mlp.down_proj"] = (8, 64, 64)
+        cfg = self._config_glm5(4)
+        cfg["_oq_sensitivity_map"] = {"0": 1.0, "1": 0.9}
+        plano = _build_quant_plan(formas, cfg, 2, target_bpw=2.8, hard_cap_bpw=8.0)
+        for path in self.ALVOS:
+            entrada = plano.boost_map.get(path)
+            if entrada is not None:
+                assert entrada["bits"] <= 4, f"{path} passou do teto: {entrada}"
+        # sem teto o mesmo plano leva a atenção acima de 4 — a prova de que o
+        # teste falha sem o conserto
+        cfg_sem = self._config_glm5(0)
+        cfg_sem["_oq_sensitivity_map"] = {"0": 1.0, "1": 0.9}
+        plano_sem = _build_quant_plan(formas, cfg_sem, 2, target_bpw=2.8, hard_cap_bpw=8.0)
+        assert any(
+            plano_sem.boost_map.get(p, {}).get("bits", 0) > 4 for p in self.ALVOS
+        ), "sem teto o plano deveria passar de 4 bits em alguma projeção"
+
+
+class TestDtypeDaVisaoPorFamilia:
+    """O dtype da torre de visão: auto por família medida, ou forçado."""
+
+    def test_auto_mantem_float32_em_familia_nao_medida(self):
+        from omlx.oq import _resolve_vision_dtype
+
+        cfg = {"model_type": "gemma4"}
+        assert _resolve_vision_dtype(cfg, mx.float16, "auto") == mx.float32
+
+    def test_auto_da_float16_no_glm5_next(self):
+        from omlx.oq import _resolve_vision_dtype
+
+        cfg = {"model_type": "glm5_next"}
+        assert _resolve_vision_dtype(cfg, mx.float16, "auto") == mx.float16
+        # e também quando a família só aparece no text_config
+        cfg = {"model_type": "", "text_config": {"model_type": "glm5_next_text"}}
+        assert _resolve_vision_dtype(cfg, mx.float16, "auto") == mx.float16
+
+    def test_forcar_vence_a_familia_nos_dois_sentidos(self):
+        from omlx.oq import _resolve_vision_dtype
+
+        assert (
+            _resolve_vision_dtype({"model_type": "glm5_next"}, mx.float16, "float32")
+            == mx.float32
+        )
+        assert (
+            _resolve_vision_dtype({"model_type": "gemma4"}, mx.float16, "float16")
+            == mx.float16
+        )
+
+    def test_em_bfloat16_a_regra_nao_existe(self):
+        from omlx.oq import _resolve_vision_dtype
+
+        for pedido in ("auto", "float16", "float32"):
+            assert (
+                _resolve_vision_dtype({"model_type": "glm5_next"}, mx.bfloat16, pedido)
+                == mx.bfloat16
+            )
+
+    def test_valor_invalido_e_recusado(self):
+        from omlx.oq import _resolve_vision_dtype
+
+        with pytest.raises(ValueError, match="Invalid vision_dtype"):
+            _resolve_vision_dtype({"model_type": "glm5_next"}, mx.float16, "fp8")
+
+
+class TestResolveOutputNameComTeto:
+    def test_o_teto_entra_no_nome(self):
+        assert (
+            resolve_output_name(
+                "GLM-5.3-Flash",
+                2,
+                "float16",
+                preserve_mtp=True,
+                enhanced=True,
+                attention_bits_cap=4,
+            )
+            == "GLM-5.3-Flash-oQ2e-a4-fp16-mtp"
+        )
+
+    def test_o_nome_com_teto_e_descascado_na_proxima_vez(self):
+        assert (
+            resolve_output_name("GLM-5.3-Flash-oQ2e-a4-fp16-mtp", 2, "float16",
+                                preserve_mtp=True, enhanced=True)
+            == "GLM-5.3-Flash-oQ2e-fp16-mtp"
+        )
+
+    def test_sem_teto_o_nome_nao_muda(self):
+        assert (
+            resolve_output_name("GLM-5.3-Flash", 2, "float16", preserve_mtp=True,
+                                enhanced=True, attention_bits_cap=0)
+            == "GLM-5.3-Flash-oQ2e-fp16-mtp"
+        )
+
+
+class TestGrupoDosEspecialistas:
+    """O tamanho do grupo entra no nome e chega ao pedido.
+
+    Medido no checkpoint de 04/09: os 288 especialistas saíram em group_size 64
+    (`switch_mlp.gate_proj`: weight U32 [288,2048,256] contra scales F16
+    [288,2048,64]), porque o formulário mandava 64 constante enquanto a regra
+    do predicado pedia 128 para modelos com 150 ou mais especialistas. A 2 bits
+    isso e 2,5 bpw contra 2,25 — 9,5 GB nos 95,1 GB de especialistas.
+    """
+
+    def test_o_grupo_padrao_nao_entra_no_nome(self):
+        assert (
+            resolve_output_name("GLM-5.3-Flash", 2, "float16", preserve_mtp=True,
+                                enhanced=True, group_size=64)
+            == "GLM-5.3-Flash-oQ2e-fp16-mtp"
+        )
+
+    def test_o_grupo_diferente_entra_no_nome(self):
+        assert (
+            resolve_output_name("GLM-5.3-Flash", 2, "float16", preserve_mtp=True,
+                                enhanced=True, attention_bits_cap=4, group_size=128)
+            == "GLM-5.3-Flash-oQ2e-a4-g128-fp16-mtp"
+        )
+
+    def test_o_nome_com_grupo_e_descascado_na_proxima_vez(self):
+        assert (
+            resolve_output_name("GLM-5.3-Flash-oQ2e-a4-g128-fp16-mtp", 2, "bfloat16")
+            == "GLM-5.3-Flash-oQ2"
+        )
