@@ -311,12 +311,53 @@ async def _continue_queue(engine_pool: Any, chain_id: int) -> None:
         f"benchmarks={list(request.benchmarks.keys())}"
     )
 
+    # O item anterior acabou de descarregar o modelo dele; sem esta espera a
+    # admissão lê o footprint antigo e recusa a carga (ver o helper).
+    await _esperar_memoria_assentar(engine_pool)
+
     try:
         await run_accuracy_benchmark(run, engine_pool)
     except Exception as e:
         logger.error(f"Queue: error running {request.model_id}: {e}")
 
     await _continue_queue(engine_pool, chain_id)
+
+
+async def _esperar_memoria_assentar(engine_pool, teto_s: float = 90.0) -> None:
+    """Espera o ledger do kernel devolver as páginas do modelo anterior.
+
+    A admissão de carga (``engine_pool.get_engine``) compara o teto contra
+    ``max(active_memory, phys_footprint, contabilizado)``, e o
+    ``phys_footprint`` é o ledger do macOS, que continua contando páginas
+    recuperáveis de um modelo recém-descarregado. Medido em 03/09: a descarga
+    reportou ``freed=106,72GB, active_memory: 433,66MB (settled)`` às
+    15:06:25,491 e a fila pediu o modelo seguinte no MESMO milissegundo — a
+    projeção leu ``current: 75,91GB`` e recusou com InsufficientMemoryError.
+    Dois itens da fila morreram assim, com a máquina de fato vazia; 92 s
+    depois a mesma carga passou sem nenhuma intervenção.
+
+    A barreira do próprio unload já espera o ``active_memory`` (e ela cumpriu
+    o papel: 433 MB). O que falta é esperar o ledger, e é isso que este
+    helper faz — só entre itens da fila, onde ninguém está esperando resposta.
+    """
+    import mlx.core as mx
+
+    from ..utils.proc_memory import get_phys_footprint
+
+    limite = time.monotonic() + teto_s
+    anterior = None
+    while time.monotonic() < limite:
+        footprint = get_phys_footprint()
+        vivo = mx.get_active_memory()
+        # assentou quando o ledger se aproxima do que o MLX diz estar vivo
+        if footprint <= vivo + 8 * 1024**3:
+            return
+        if anterior is not None and footprint >= anterior:
+            # parou de cair: insistir não ajuda, e a admissão tem seu próprio
+            # caminho de despejo se ainda faltar espaço
+            return
+        anterior = footprint
+        await asyncio.sleep(2.0)
 
 
 async def cancel_queue() -> None:
