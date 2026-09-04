@@ -80,6 +80,14 @@ dobre a amostra até duas rodadas seguidas repetirem o resultado.
 guarda desce ao piso de 32 tokens por pedaço. Medido em 04/09: o modelo em produção deu 66-70
 palavras por segundo medido logo após descarregar outro, contra 119,5 no protocolo limpo.
 
+**Reiniciar o servidor quando o app da barra não responde.** A rota `POST /admin/api/server/restart`
+só funciona sob o supervisor do app; matar o `omlx-server` não faz o app respawnar; e em 04/09 o
+app travou de vez (AppleEvent −1712, ignorou SIGTERM, `~/.omlx/bin/omlx start` recusado no
+socket de controle). O que funcionou: `cd ~ && ~/.omlx/bin/omlx serve` — o CLI do próprio app,
+com o Python e o pacote embutidos, subiu em 3 s com os núcleos Metal e o teto de 121,6 GB.
+Antes de derrubar, descarregue e desfixe o modelo (`PUT .../settings {"is_pinned": false}` e
+`POST .../unload`), senão ele volta a carregar 103 GB sozinho.
+
 **O `rm` é recusado pela permissão das sessões.** Para apagar modelo, use a rota do painel
 (`DELETE /admin/api/hf/models/<nome>`), que também atualiza a lista do servidor. Para apps,
 `osascript -e 'tell application "Finder" to delete ...'`.
@@ -105,20 +113,30 @@ Desde 04/09 o valor sobrevive ao reinício: há um serviço do sistema
 de memória bateu 117,0 GB de um teto de 121,60 (96%). Com o alvo em 115,5 GB o pico passaria do
 teto e o processo morreria no OOM assíncrono do Metal, que não dá para capturar.
 
-## O formulário de quantização tem três opções de memória
+## O formulário de quantização tem quatro opções de memória
 
-Desde `ac781500`, o formulário do painel expõe três escolhas, todas com padrão que preserva o
-comportamento anterior:
+Desde `ac781500` (três) e `7fab3550` (a quarta), o formulário do painel expõe quatro escolhas,
+todas com padrão que preserva o comportamento anterior:
 
 | opção | valores | o que faz |
 |---|---|---|
 | teto de bits da atenção | 0 (sem teto) · 4 · 5 · 6 | a única regra que DESCE bits; sufixo `-a4` no nome |
 | tamanho do grupo | 64 · 128 | quantos pesos dividem um fator de escala; sufixo `-g128` |
 | dtype da torre de visão | auto · float16 · float32 | `auto` = float16 só em `glm5_next` |
+| piso de bits da cabeça MTP | 4 (padrão) · 0 (acompanha o tronco) | solto, a cabeça de rascunho desce junto com o tronco; sufixo `-mtp2` |
 
-**O preço delas está medido: ~0,03 de perplexidade por gigabyte economizado**, constante nas
-duas receitas testadas. Não há receita esperta. Detalhe em
+**O preço das três primeiras está medido: ~0,03 de perplexidade por gigabyte economizado**,
+constante nas duas receitas testadas. Não há receita esperta. Detalhe em
 `.claude/reports/2026-09-04-buffers-de-comando/candidatos.md`.
+
+**A quarta é a exceção, por construção:** a cabeça só escreve rascunhos e o tronco confere todo
+token emitido, então a perplexidade sai idêntica e o que muda é a taxa de aceitação. Estimado
+no checkpoint em 04/09: −1,81 GB (110,07 → 108,26 GB) no oQ2e. É a alavanca a puxar quando
+falta folga ao preparo do prompt.
+
+**Ajustar o bloco de preparo do modelo híbrido:** `OMLX_ARRAYS_CACHE_BLOCK=<n>` no ambiente do
+servidor fixa o bloco do cache paginado E o `prefill_step_size` de uma vez
+(`omlx/scheduler.py:2827-2840`); sem ele o servidor força 512 para o `glm5_next`.
 
 ## O aquecimento da placa (keepwarm)
 
