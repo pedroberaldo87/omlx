@@ -654,6 +654,7 @@ class TestOQManagerOpcoesDeMemoria:
 
         assert task.attention_bits_cap == 0
         assert task.vision_dtype == "auto"
+        assert task.mtp_bits_floor == 4
         assert task.group_size == 64
         assert task.output_name == "Llama-3B-oQ4"
 
@@ -673,17 +674,20 @@ class TestOQManagerOpcoesDeMemoria:
             group_size=128,
             attention_bits_cap=4,
             vision_dtype="float16",
+            mtp_bits_floor=0,
         )
         await manager._active_tasks[task.task_id]
 
         assert task.attention_bits_cap == 4
         assert task.vision_dtype == "float16"
+        assert task.mtp_bits_floor == 0
         assert task.group_size == 128
         assert task.output_name == "Llama-3B-oQ2-a4-g128"
-        # e o painel enxerga as tres pelo to_dict
+        # e o painel enxerga as quatro pelo to_dict
         d = task.to_dict()
         assert d["attention_bits_cap"] == 4
         assert d["vision_dtype"] == "float16"
+        assert d["mtp_bits_floor"] == 0
 
 
 class TestOQManagerHfCacheDiscovery:

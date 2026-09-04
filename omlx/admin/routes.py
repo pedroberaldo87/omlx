@@ -430,6 +430,7 @@ class OQStartRequest(BaseModel):
     mtp_assistant_model_path: str = ""
     attention_bits_cap: int = 0
     vision_dtype: str = "auto"
+    mtp_bits_floor: int = 4
 
 
 class HFUploadRequest(BaseModel):
@@ -7689,6 +7690,7 @@ async def estimate_oq(
     preserve_mtp: bool = False,
     group_size: int = 64,
     attention_bits_cap: int = 0,
+    mtp_bits_floor: int = 4,
     is_admin: bool = Depends(require_admin),
 ):
     """Estimate effective bpw and output size for a model at given oQ level."""
@@ -7702,6 +7704,7 @@ async def estimate_oq(
             group_size,
             preserve_mtp,
             attention_bits_cap,
+            mtp_bits_floor,
         )
         return result
     except Exception as e:
@@ -7714,7 +7717,7 @@ async def start_oq_quantization(
     is_admin: bool = Depends(require_admin),
 ):
     """Start an oQ quantization task."""
-    from ..oq import OQ_LEVELS, VISION_DTYPES
+    from ..oq import MTP_BITS_FLOORS, OQ_LEVELS, VISION_DTYPES
 
     if _oq_manager is None:
         raise HTTPException(status_code=503, detail="oQ quantizer not initialized")
@@ -7754,6 +7757,14 @@ async def start_oq_quantization(
             status_code=400,
             detail=f"Invalid vision_dtype. Must be one of {list(VISION_DTYPES)}",
         )
+    if request.mtp_bits_floor not in MTP_BITS_FLOORS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid mtp_bits_floor. Must be "
+                f"{MTP_BITS_FLOORS[0]} (default) or 0 (head follows the trunk)."
+            ),
+        )
     is_paro, _ = _paroquant_compat_for_model({"model_path": request.model_path})
     if is_paro:
         raise HTTPException(
@@ -7782,6 +7793,7 @@ async def start_oq_quantization(
             mtp_assistant_model_path=request.mtp_assistant_model_path,
             attention_bits_cap=request.attention_bits_cap,
             vision_dtype=request.vision_dtype,
+            mtp_bits_floor=request.mtp_bits_floor,
         )
         return {"success": True, "task": task.to_dict()}
     except ValueError as e:

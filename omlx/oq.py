@@ -48,6 +48,14 @@ OQ_DTYPES: tuple[str, ...] = ("bfloat16", "float16")
 
 _OQ_DEFAULT_GROUP_SIZE = 64
 
+# Default minimum bits for quantized MTP-head tensors — see _mtp_bits_override
+# for why the head is held above the trunk, and mtp_bits_floor for the knob
+# that lets a memory-starved machine drop it.
+_MTP_MIN_BITS = 4
+
+# Bit floors accepted for the MTP head: the default, or 0 to follow the trunk.
+MTP_BITS_FLOORS: tuple[int, ...] = (_MTP_MIN_BITS, 0)
+
 _GLM_INDEXER_Q8 = {"bits": 8, "group_size": 64, "mode": "affine"}
 # The GLM-5.x config ships quantization_config.modules_to_not_convert with
 # 12x each of index_kpool_compress_ape and index_kpool_compress_gate, next
@@ -1492,6 +1500,7 @@ def resolve_output_name(
     enhanced: bool = False,
     attention_bits_cap: int = 0,
     group_size: int = 64,
+    mtp_bits_floor: int = _MTP_MIN_BITS,
 ) -> str:
     """Generate output model name: strip existing quant suffixes, append oQ tag.
 
@@ -1508,13 +1517,17 @@ def resolve_output_name(
         "Qwen3.5-27B" + 4 + bfloat16 + preserve_mtp -> "Qwen3.5-27B-oQ4-mtp"
         "Qwen3.5-27B" + 2 + attention_bits_cap=4 -> "Qwen3.5-27B-oQ2-a4"
         "Qwen3.5-27B" + 2 + group_size=128 -> "Qwen3.5-27B-oQ2-g128"
+        "Qwen3.5-27B" + 2 + preserve_mtp + mtp_bits_floor=0 -> "...-oQ2-mtp2"
 
     The attention cap and a non-default group size change the weights without
     changing the level, so the name has to carry them: two oQ2e built with
-    different recipes are otherwise indistinguishable on disk.
+    different recipes are otherwise indistinguishable on disk. Same for a
+    dropped MTP floor, and there the suffix carries the bits the head ended up
+    with — but only when dropping it actually lowered them, so every name
+    built under today's default is byte-identical to what it was.
     """
     pattern = re.compile(
-        r"-(oQ[\d.]+e?|a[2-8]|g\d{2,3}|[0-9]+[_-]?bit|fp\d+|bf\d+|mtp)$",
+        r"-(oQ[\d.]+e?|a[2-8]|g\d{2,3}|[0-9]+[_-]?bit|fp\d+|bf\d+|mtp\d?)$",
         flags=re.IGNORECASE,
     )
     base = model_name
@@ -1533,6 +1546,9 @@ def resolve_output_name(
         suffix += "-fp16"
     if preserve_mtp:
         suffix += "-mtp"
+        cabeca = _base_bits_for_level(oq_level)
+        if int(mtp_bits_floor) < _MTP_MIN_BITS and cabeca < _MTP_MIN_BITS:
+            suffix += str(cabeca)
     return f"{base}{suffix}"
 
 
@@ -3407,6 +3423,7 @@ def estimate_bpw_and_size(
     group_size: int = 64,
     preserve_mtp: bool = False,
     attention_bits_cap: int = 0,
+    mtp_bits_floor: int = _MTP_MIN_BITS,
 ) -> dict:
     """Calculate precise effective bpw and output size by scanning actual tensors.
 
@@ -3521,6 +3538,7 @@ def estimate_bpw_and_size(
     # branch answers).
     config["_oq_use_budget_plan"] = oq_level in _OQ_BPW_TARGETS
     config["_oq_attention_bits_cap"] = int(attention_bits_cap or 0)
+    config["_oq_mtp_bits_floor"] = int(mtp_bits_floor)
 
     # Pre-quantized tensors that pass through in source precision (mirrors
     # the decision in quantize_oq_streaming, evaluated pre-boost).
@@ -5139,7 +5157,7 @@ def _get_predicate_bits(
         gs = result.get("group_size", group_size)
         mode = result.get("mode", _mode_for_bits(bits))
         if _is_mtp_tensor(tensor_name):
-            raised = _mtp_bits_override(bits)
+            raised = _mtp_bits_override(bits, config)
             if raised != bits:
                 # Floor lift re-derives mode and group size; unchanged bits
                 # keep the predicate's choice (e.g. mxfp8 head projections).
@@ -5148,19 +5166,25 @@ def _get_predicate_bits(
         return bits, gs, mode
     bits = base_bits
     if _is_mtp_tensor(tensor_name):
-        bits = _mtp_bits_override(bits)
+        bits = _mtp_bits_override(bits, config)
     return bits, _gs_for_mode(bits, group_size), _mode_for_bits(bits)
 
 
-# Minimum bits for quantized MTP-head tensors. Sub-4-bit oQ levels drag the
-# head down with the trunk (DeepSeek-V4 oQ2.5e stored its head's routed
-# experts and attention at 2-bit gs64), but the head only shapes drafts —
-# every emitted token is trunk-verified — so its footprint (~2 GB on
-# DeepSeek-V4-Flash, ~15 MB on Qwen3.6) buys draft acceptance directly and
-# costs almost nothing relative to the model.
-_MTP_MIN_BITS = 4
-
-
+# Why the head is held above the trunk: sub-4-bit oQ levels drag it down with
+# the trunk (DeepSeek-V4 oQ2.5e stored its head's routed experts and attention
+# at 2-bit gs64), but the head only shapes drafts — every emitted token is
+# trunk-verified — so its footprint (~2 GB on DeepSeek-V4-Flash, ~15 MB on
+# Qwen3.6) buys draft acceptance directly and costs almost nothing relative to
+# the model.
+#
+# On a machine that is short of memory the trade flips, so ``mtp_bits_floor``
+# makes it a choice: 0 drops the floor and the head follows the trunk. It is
+# the only bit reduction that cannot cost answer quality — the trunk is
+# untouched and verifies every emitted token, so perplexity is unchanged by
+# construction and only draft acceptance moves. Measured on
+# GLM-5.3-Flash-oQ2e: the floor costs 1,9 GB, and the server's prefill had
+# 1,30 GB of headroom, which is why every 512-token chunk was being cut to
+# 192-384.
 _AVISOU_PISO_MTP = False
 
 
@@ -5170,8 +5194,21 @@ def _reinicia_aviso_do_piso_mtp() -> None:
     _AVISOU_PISO_MTP = False
 
 
-def _mtp_bits_override(bits: int) -> int:
-    if bits and bits < _MTP_MIN_BITS:
+def _piso_da_cabeca(config: dict | None) -> int:
+    """Bit floor requested for the MTP head. Absent means today's default."""
+    if not config:
+        return _MTP_MIN_BITS
+    piso = config.get("_oq_mtp_bits_floor", _MTP_MIN_BITS)
+    try:
+        piso = int(piso)
+    except (TypeError, ValueError):
+        return _MTP_MIN_BITS
+    return max(0, piso)
+
+
+def _mtp_bits_override(bits: int, config: dict | None = None) -> int:
+    piso = _piso_da_cabeca(config)
+    if bits and bits < piso:
         global _AVISOU_PISO_MTP
         if not _AVISOU_PISO_MTP:
             _AVISOU_PISO_MTP = True
@@ -5184,11 +5221,11 @@ def _mtp_bits_override(bits: int) -> int:
                 "preco e memoria: no GLM-5.3-Flash-oQ2e foram 1,9 GB a mais, e "
                 "isso levou o modelo a 101,9 GB contra um teto de aborto de "
                 "102,1 — o guarda passou a recusar prompt de 24 tokens. Se a "
-                "maquina estiver apertada, e aqui que sobra espaco.",
-                _MTP_MIN_BITS,
+                "maquina estiver apertada, mtp_bits_floor=0 solta esse piso.",
+                piso,
                 bits,
             )
-        return _MTP_MIN_BITS
+        return piso
     return bits
 
 
@@ -6637,6 +6674,7 @@ def quantize_oq_streaming(
     preserve_ngram_table: bool = False,
     attention_bits_cap: int = 0,
     vision_dtype: str = "auto",
+    mtp_bits_floor: int = _MTP_MIN_BITS,
 ) -> None:
     """Tensor-by-tensor quantization. Memory: ~3-4GB regardless of model size.
 
@@ -6772,12 +6810,20 @@ def quantize_oq_streaming(
         )
     config["_oq_use_budget_plan"] = oq_level in _OQ_BPW_TARGETS
     config["_oq_attention_bits_cap"] = int(attention_bits_cap or 0)
+    config["_oq_mtp_bits_floor"] = int(mtp_bits_floor)
     vision_target_dtype = _resolve_vision_dtype(config, target_dtype, vision_dtype)
     if attention_bits_cap:
         logger.info(
             "oQ%s: attention projections capped at %d bits",
             f"{oq_level:g}",
             int(attention_bits_cap),
+        )
+    if preserve_mtp and int(mtp_bits_floor) < _MTP_MIN_BITS:
+        logger.info(
+            "oQ%s: MTP head bit floor dropped (mtp_bits_floor=%d) — the head "
+            "follows the trunk; the trunk is untouched, only draft acceptance moves",
+            f"{oq_level:g}",
+            int(mtp_bits_floor),
         )
     if target_dtype == mx.float16:
         logger.info(

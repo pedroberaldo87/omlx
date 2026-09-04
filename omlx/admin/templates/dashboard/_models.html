@@ -1284,7 +1284,7 @@
 
                     <!-- ==================== QUANTIZER TAB ==================== -->
                     <div x-show="modelsTab === 'quantizer'" x-cloak
-                         x-effect="oqSelectedModelPath; oqLevel; oqGroupSize; oqAttentionBitsCap; oqRefreshEstimate()">
+                         x-effect="oqSelectedModelPath; oqLevel; oqGroupSize; oqAttentionBitsCap; oqPreserveMtp; oqMtpBitsFloor; oqRefreshEstimate()">
                         <!-- Header -->
                         <div class="mb-8">
                             <h2 class="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">{{ t('models.oq.section_label') }}</h2>
@@ -1520,6 +1520,22 @@
                                                             :class="oqGroupSize === gs ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'"
                                                             class="px-3 py-1.5 text-xs font-medium rounded-full transition-colors"
                                                             x-text="gs"></button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <!-- MTP head bit floor (only when the head is kept) -->
+                                        <div class="flex items-center justify-between gap-4 mt-3"
+                                             x-show="oqSelectedModelHasMtp() && oqPreserveMtp" x-cloak>
+                                            <div class="flex-1 min-w-0">
+                                                <span class="text-sm text-neutral-600">{{ t('models.oq.mtp_floor_label') }}</span>
+                                                <p class="text-xs text-neutral-400 mt-0.5 leading-relaxed">{{ t('models.oq.mtp_floor_help') }}</p>
+                                            </div>
+                                            <div class="flex gap-1.5 shrink-0">
+                                                <template x-for="piso in [4, 0]" :key="piso">
+                                                    <button type="button" @click="oqMtpBitsFloor = piso"
+                                                            :class="oqMtpBitsFloor === piso ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'"
+                                                            class="px-3 py-1.5 text-xs font-medium rounded-full transition-colors"
+                                                            x-text="piso === 0 ? '{{ t('models.oq.mtp_floor_none') }}' : piso + ' bits'"></button>
                                                 </template>
                                             </div>
                                         </div>

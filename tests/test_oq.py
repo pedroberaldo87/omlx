@@ -8288,3 +8288,156 @@ class TestGrupoDosEspecialistas:
             resolve_output_name("GLM-5.3-Flash-oQ2e-a4-g128-fp16-mtp", 2, "bfloat16")
             == "GLM-5.3-Flash-oQ2"
         )
+
+
+class TestPisoDeBitsDaCabeca:
+    """O piso da cabeça de rascunho vira escolha, e soltá-lo devolve memória.
+
+    A cabeça é segurada em 4 bits enquanto o tronco desce, porque mais bits ali
+    compram aceitação de rascunho barato. Medido no GLM-5.3-Flash-oQ2e em
+    04/09: esse piso custa 1,9 GB, e o preparo de prompt do servidor tinha
+    1,30 GB de folga — por isso todo pedaço de 512 estava sendo cortado para
+    192-384. Soltar o piso é a única redução de bits que não pode custar
+    qualidade de resposta: o tronco não muda um bit e confere todo token
+    emitido, então só a aceitação de rascunho se mexe.
+    """
+
+    @staticmethod
+    def _config(piso=None):
+        cfg = {
+            "model_type": "glm5_next",
+            "text_config": {
+                "model_type": "glm5_next_text",
+                "hidden_size": 64,
+                "num_hidden_layers": 2,
+                "num_local_experts": 288,
+                "layer_types": ["linear_attention", "full_attention"],
+            },
+            "hidden_size": 64,
+            "num_local_experts": 288,
+            "_oq_use_budget_plan": False,
+        }
+        if piso is not None:
+            cfg["_oq_mtp_bits_floor"] = piso
+        return cfg
+
+    CABECA = (
+        "mtp.layers.0.mlp.switch_mlp.gate_proj",
+        "mtp.layers.0.mlp.switch_mlp.down_proj",
+        "mtp.layers.0.self_attn.q_proj",
+    )
+    TRONCO = (
+        "model.layers.0.mlp.switch_mlp.gate_proj",
+        "model.layers.0.self_attn.q_proj",
+        "model.layers.1.self_attn.q_a_proj",
+        "lm_head",
+        "model.embed_tokens",
+    )
+
+    def test_o_piso_de_fabrica_segura_a_cabeca_acima_do_tronco(self):
+        from omlx.oq import _MTP_MIN_BITS, _get_predicate_bits
+
+        cfg = self._config(_MTP_MIN_BITS)
+        for path in self.CABECA:
+            bits, _, _ = _get_predicate_bits(path, cfg, 2, 64)
+            assert bits == _MTP_MIN_BITS, path
+
+    def test_o_piso_ausente_e_o_piso_de_fabrica(self):
+        """Um config sem a chave tem que dar exatamente o que dava antes."""
+        from omlx.oq import _MTP_MIN_BITS, _get_predicate_bits
+
+        sem_chave = self._config(None)
+        de_fabrica = self._config(_MTP_MIN_BITS)
+        for path in self.CABECA + self.TRONCO:
+            assert _get_predicate_bits(path, sem_chave, 2, 64) == _get_predicate_bits(
+                path, de_fabrica, 2, 64
+            ), path
+
+    def test_soltar_o_piso_desce_a_cabeca_ate_o_tronco(self):
+        from omlx.oq import _MTP_MIN_BITS, _get_predicate_bits
+
+        solto = self._config(0)
+        for path in self.CABECA:
+            bits, _, _ = _get_predicate_bits(path, solto, 2, 64)
+            assert bits == 2, path
+            assert bits < _MTP_MIN_BITS
+
+    def test_soltar_o_piso_nao_encosta_no_tronco(self):
+        """A prova de que a perplexidade não pode mudar: o tronco é idêntico."""
+        from omlx.oq import _MTP_MIN_BITS, _get_predicate_bits
+
+        de_fabrica = self._config(_MTP_MIN_BITS)
+        solto = self._config(0)
+        for path in self.TRONCO:
+            assert _get_predicate_bits(path, solto, 2, 64) == _get_predicate_bits(
+                path, de_fabrica, 2, 64
+            ), path
+
+    def test_o_piso_nao_mexe_no_que_ja_esta_acima_dele(self):
+        """Num nível de 8 bits a cabeça continua em 8 — o piso só levanta."""
+        from omlx.oq import _MTP_MIN_BITS, _get_predicate_bits
+
+        de_fabrica = self._config(_MTP_MIN_BITS)
+        for path in self.CABECA:
+            bits, _, _ = _get_predicate_bits(path, de_fabrica, 8, 64)
+            assert bits >= _MTP_MIN_BITS, path
+
+    def test_valor_invalido_cai_no_piso_de_fabrica(self):
+        from omlx.oq import _MTP_MIN_BITS, _piso_da_cabeca
+
+        assert _piso_da_cabeca(None) == _MTP_MIN_BITS
+        assert _piso_da_cabeca({}) == _MTP_MIN_BITS
+        assert _piso_da_cabeca({"_oq_mtp_bits_floor": "nada"}) == _MTP_MIN_BITS
+        assert _piso_da_cabeca({"_oq_mtp_bits_floor": -3}) == 0
+        assert _piso_da_cabeca({"_oq_mtp_bits_floor": 0}) == 0
+
+    def test_o_piso_solto_entra_no_nome(self):
+        assert (
+            resolve_output_name(
+                "GLM-5.3-Flash",
+                2,
+                "float16",
+                preserve_mtp=True,
+                enhanced=True,
+                mtp_bits_floor=0,
+            )
+            == "GLM-5.3-Flash-oQ2e-fp16-mtp2"
+        )
+
+    def test_o_piso_de_fabrica_deixa_o_nome_como_sempre_foi(self):
+        from omlx.oq import _MTP_MIN_BITS
+
+        assert (
+            resolve_output_name(
+                "GLM-5.3-Flash",
+                2,
+                "float16",
+                preserve_mtp=True,
+                enhanced=True,
+                mtp_bits_floor=_MTP_MIN_BITS,
+            )
+            == "GLM-5.3-Flash-oQ2e-fp16-mtp"
+        )
+
+    def test_sem_a_cabeca_o_piso_nao_aparece_no_nome(self):
+        assert (
+            resolve_output_name(
+                "GLM-5.3-Flash", 2, "float16", preserve_mtp=False, mtp_bits_floor=0
+            )
+            == "GLM-5.3-Flash-oQ2-fp16"
+        )
+
+    def test_o_piso_solto_nao_muda_nome_quando_nao_desceria_nada(self):
+        """Num nível de 8 bits soltar o piso não muda a cabeça, nem o nome."""
+        assert (
+            resolve_output_name(
+                "GLM-5.3-Flash", 8, "float16", preserve_mtp=True, mtp_bits_floor=0
+            )
+            == "GLM-5.3-Flash-oQ8-fp16-mtp"
+        )
+
+    def test_o_nome_com_o_piso_e_descascado_na_proxima_vez(self):
+        assert (
+            resolve_output_name("GLM-5.3-Flash-oQ2e-fp16-mtp2", 2, "bfloat16")
+            == "GLM-5.3-Flash-oQ2"
+        )

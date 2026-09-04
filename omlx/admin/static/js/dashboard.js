@@ -691,6 +691,7 @@
             oqeStrictImatrix: false,
             oqAttentionBitsCap: 0,
             oqVisionDtype: 'auto',
+            oqMtpBitsFloor: 4,
             oqGroupSize: 64,
 
             // oQ Uploader state
@@ -11420,6 +11421,7 @@
                         preserve_mtp: this.oqSelectedModelHasMtp() ? this.oqPreserveMtp : false,
                         attention_bits_cap: this.oqAttentionBitsCap,
                         vision_dtype: this.oqVisionDtype,
+                        mtp_bits_floor: this.oqMtpBitsFloor,
                         mtp_assistant_model_path: this.oqMtpAssistantCandidates().some(m => m.path === this.oqMtpAssistantPath)
                             ? this.oqMtpAssistantPath : '',
                     };
@@ -11629,6 +11631,7 @@
                             preserve_mtp: this.oqSelectedModelHasMtp() && this.oqPreserveMtp ? 'true' : 'false',
                             group_size: this.oqGroupSize,
                             attention_bits_cap: this.oqAttentionBitsCap,
+                            mtp_bits_floor: this.oqMtpBitsFloor,
                         });
                         const resp = await fetch(`/admin/api/oq/estimate?${params}`);
                         if (resp.ok) {
