@@ -498,6 +498,8 @@
   "settings.advanced.metal_command_buffers_hint": "How many operations and how many MB of data MLX packs into one GPU command buffer before sending it (0 = MLX default: 10 ops / 40 MB). Larger buffers speed up token generation (measured +24% on GLM-5.3) but slow prompt reading and raise peak memory. Applies on the next server start.",
   "settings.advanced.metal_ops_per_buffer": "ops",
   "settings.advanced.metal_mb_per_buffer": "MB",
+  "settings.advanced.gpu_keepwarm": "Keep the GPU warm while idle",
+  "settings.advanced.gpu_keepwarm_hint": "The GPU lowers its clock when it sits idle, and the next request pays the ramp. Measured on M1 Ultra with GLM-5.3-Flash (04/09): with 8 s between requests, 17.5-18.5 tok/s without this and 23.8-24.5 with it; back-to-back requests are unchanged. Costs idle power, not quality — the tick is one tiny matmul, only when no request is in flight. Applies on the next server start.",
   "settings.advanced.burst_decode": "Burst Decode",
   "settings.advanced.burst_decode_hint": "Process tokens in batches internally for faster generation. Higher levels run faster but stream in larger chunks; lower levels stream more smoothly. Applies instantly, no restart.",
   "settings.advanced.burst_decode_off": "Off (smoothest streaming)",

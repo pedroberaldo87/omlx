@@ -87,6 +87,7 @@ class TestServerSettings:
             "max_audio_upload_size": "100MB",
             "metal_ops_per_buffer": 0,
             "metal_mb_per_buffer": 0,
+            "gpu_keepwarm": True,
         }
 
     def test_from_dict_distributed_inference_is_opt_in(self):

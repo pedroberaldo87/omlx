@@ -1156,6 +1156,8 @@
   "settings.advanced.metal_command_buffers": "Metal コマンドバッファ",
   "settings.advanced.metal_command_buffers_hint": "MLX が 1 つの GPU コマンドバッファに何個の演算と何 MB のデータを詰めてから送信するか（0 = MLX の既定値: 10 ops / 40 MB）。バッファを大きくするとトークン生成は速くなります（GLM-5.3 で +24% を計測）が、プロンプトの読み込みは遅くなり、ピークメモリが増えます。次回のサーバー起動から有効。",
   "settings.advanced.metal_mb_per_buffer": "MB",
+  "settings.advanced.gpu_keepwarm": "アイドル時に GPU を温めておく",
+  "settings.advanced.gpu_keepwarm_hint": "GPU はアイドル状態でクロックを下げるため、次のリクエストが立ち上がりを負担します。M1 Ultra・GLM-5.3-Flash で実測（04/09）：リクエスト間隔 8 秒で、無効時 17.5-18.5 tok/s、有効時 23.8-24.5 tok/s。連続リクエストは変わりません。品質ではなくアイドル時の電力を消費します。次回のサーバー起動から有効。",
   "settings.advanced.metal_ops_per_buffer": "ops",
   "modal.model_settings.mtp_hysteresis": "MTP 深さラダー",
   "modal.model_settings.mtp_hysteresis_hint": "ドラフトの深さは全受理の連続で上がり、拒否のたびに下がります。ヘッドは停止しません。GLM-5.3 での計測: ヘッドのカバー率 100%（従来 25–59%）、tok/s は同等。",

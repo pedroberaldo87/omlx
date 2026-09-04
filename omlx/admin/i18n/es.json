@@ -1156,6 +1156,8 @@
   "settings.advanced.metal_command_buffers": "Command buffers de Metal",
   "settings.advanced.metal_command_buffers_hint": "Cuántas operaciones y cuántos MB de datos empaqueta MLX en un único command buffer de la GPU antes de enviarlo (0 = valor por defecto de MLX: 10 ops / 40 MB). Buffers mayores aceleran la generación de tokens (medido +24% en GLM-5.3), pero ralentizan la lectura del prompt y elevan el pico de memoria. Se aplica en el próximo arranque del servidor.",
   "settings.advanced.metal_mb_per_buffer": "MB",
+  "settings.advanced.gpu_keepwarm": "Mantener la GPU caliente mientras está inactiva",
+  "settings.advanced.gpu_keepwarm_hint": "La GPU baja su frecuencia cuando está inactiva y la siguiente petición paga la subida. Medido en M1 Ultra con GLM-5.3-Flash (04/09): con 8 s entre peticiones, 17,5-18,5 tok/s sin esto y 23,8-24,5 con esto. Cuesta energía en reposo, no calidad. Se aplica al reiniciar el servidor.",
   "settings.advanced.metal_ops_per_buffer": "ops",
   "modal.model_settings.mtp_hysteresis": "Escalera de profundidad del MTP",
   "modal.model_settings.mtp_hysteresis_hint": "La profundidad del borrador sube con rachas de aceptación completa y baja con cada rechazo; la cabeza nunca se aparca. Medido en GLM-5.3: cobertura de la cabeza 100% frente a 25–59%, tok/s igual.",
