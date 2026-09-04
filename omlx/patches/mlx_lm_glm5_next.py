@@ -78,7 +78,7 @@ class ModelArgs:
         quant = params.get("quantization")
         if isinstance(quant, dict):
             for chave in [k for k in quant if isinstance(quant[k], dict)]:
-                nova = _strip_language_prefix(chave)
+                nova = _module_key(chave)
                 if nova != chave:
                     quant[nova] = quant.pop(chave)
         # mlx-lm reads model_type off the args to pick cache and prompt paths.
@@ -93,6 +93,25 @@ def _strip_language_prefix(chave: str) -> str:
         return "model." + chave[len("model.language_model."):]
     if chave.startswith("language_model."):
         return chave[len("language_model."):]
+    return chave
+
+
+def _module_key(chave: str) -> str:
+    """A quantization-table key as the MODULE path the loaded model has.
+
+    Mirrors what the vendored sanitize does to the weights: the language
+    prefix goes, and a raw-layout checkpoint's forget gate
+    (``self_attn.f_a_proj`` / ``f_b_proj``) is nested under
+    ``self_attn.forget_gate.``. Measured on the Vontra 2-bit build (04/09):
+    its table names the gate raw, the module is nested, the lookup missed,
+    and the 8-bit f_a_proj died in quantized_matmul with
+    "w.shape() == (128,1024) and scales.shape() == (128,64) ... bits=2".
+    """
+    chave = _strip_language_prefix(chave)
+    for parte in ("f_a_proj", "f_b_proj"):
+        sufixo = ".self_attn." + parte
+        if chave.endswith(sufixo):
+            return chave[: -len(parte)] + "forget_gate." + parte
     return chave
 
 
