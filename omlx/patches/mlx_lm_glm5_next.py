@@ -67,10 +67,33 @@ class ModelArgs:
         if not isinstance(text, dict):
             text = params
         args = TextConfig.from_dict(text)
+        # mlx-lm's load_model looks the per-tensor quantization table up by
+        # MODULE path (``model.layers.3.self_attn.embed_q``) — the same
+        # ``config`` dict it hands us here. A VLM-layout oQ checkpoint keys
+        # that table ``language_model.model.layers...`` (sanitize strips the
+        # prefix from the WEIGHTS, but nothing stripped it from the table), so
+        # every override missed, fell to the default bits, and an 8-bit tensor
+        # died in dequantize with a shape mismatch. Measured on
+        # GLM-5.3-Flash-oQ2e (03/09); the 31/08 build had raw names and slid by.
+        quant = params.get("quantization")
+        if isinstance(quant, dict):
+            for chave in [k for k in quant if isinstance(quant[k], dict)]:
+                nova = _strip_language_prefix(chave)
+                if nova != chave:
+                    quant[nova] = quant.pop(chave)
         # mlx-lm reads model_type off the args to pick cache and prompt paths.
         if not getattr(args, "model_type", None):
             args.model_type = "glm5_next"
         return args
+
+
+def _strip_language_prefix(chave: str) -> str:
+    """``language_model.X`` / ``model.language_model.X`` -> the text-only path."""
+    if chave.startswith("model.language_model."):
+        return "model." + chave[len("model.language_model."):]
+    if chave.startswith("language_model."):
+        return chave[len("language_model."):]
+    return chave
 
 
 class Model(nn.Module):
