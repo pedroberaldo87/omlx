@@ -30,6 +30,8 @@ que ele resolve continua aparecendo no registro. Aconteceu em 31/08.
 | construir e instalar o aplicativo | [BUILD-DO-FORK.md](BUILD-DO-FORK.md) |
 | medições, números e caminhos refutados | `~/PROGRAMACAO/oMLX-WORKS` |
 | o que o projeto é, para quem chega | [README.md](README.md) |
+| ajustar o teto de memória da placa | `~/Applications/Memória do Metal.app` ou `~/bin/omlx-iogpu.sh` |
+| a sessão de 04/09 (performance) | `.claude/reports/2026-09-04-buffers-de-comando/README.md` |
 
 A base de conhecimento em `~/PROGRAMACAO/oMLX-WORKS` guarda a tabela de números
 medidos e a lista do que já foi refutado. **Consulte antes de citar número ou
@@ -67,6 +69,67 @@ duas coisas dizem coisas opostas sobre o modelo.
 **Amostra pequena não fecha conclusão.** Quatro afirmações caíram em 31/08 por
 isso, três antes de sair do projeto. Quando o veredito depende de estatística,
 dobre a amostra até duas rodadas seguidas repetirem o resultado.
+
+**Enquanto uma quantização estiver rodando, nenhuma medição de GPU vale.** A regra acima diz
+"máquina em repouso" e faltava dizer que a própria conversão conta como ocupação. Medido em
+04/09: um `gather_qmm` de 2 bits deu 7,3 ms durante uma quantização, contra 0,108 ms em repouso —
+68 vezes mais lento.
+
+**Medir dois modelos exige derrubar e resubir o servidor entre eles.** O ledger do kernel
+(`phys_footprint`) continua contando o modelo recém-descarregado, a folga de memória some, e o
+guarda desce ao piso de 32 tokens por pedaço. Medido em 04/09: o modelo em produção deu 66-70
+palavras por segundo medido logo após descarregar outro, contra 119,5 no protocolo limpo.
+
+**O `rm` é recusado pela permissão das sessões.** Para apagar modelo, use a rota do painel
+(`DELETE /admin/api/hf/models/<nome>`), que também atualiza a lista do servidor. Para apps,
+`osascript -e 'tell application "Finder" to delete ...'`.
+
+## O teto de memória da placa
+
+O servidor lê `iogpu.wired_limit_mb` **quando sobe** e usa 90% dele como alvo ao preparar
+prompts — esse fator é constante em `omlx/scheduler.py:3911`, não sai do `settings.json`.
+
+Desde 04/09 o valor sobrevive ao reinício: há um serviço do sistema
+(`/Library/LaunchDaemons/com.pedroberaldo.omlx-iogpu.plist`) que o reaplica no boot.
+
+```
+~/Applications/Memória do Metal.app   o app: mostra o estado e ajusta
+~/bin/omlx-iogpu.sh [alto|padrao|fixar|soltar|status]
+```
+
+`fixar` grava o teto de agora para voltar sozinho; `status` diz se isso está no lugar. O
+`launchctl bootstrap` falha com `Input/output error` quando já existe registro do mesmo serviço
+— o `bootout` antes resolve, e o modo `fixar` já faz isso.
+
+**Não suba o fator de 0,90.** Medido em 04/09: mesmo com ele limitando os pedaços, o pico real
+de memória bateu 117,0 GB de um teto de 121,60 (96%). Com o alvo em 115,5 GB o pico passaria do
+teto e o processo morreria no OOM assíncrono do Metal, que não dá para capturar.
+
+## O formulário de quantização tem três opções de memória
+
+Desde `ac781500`, o formulário do painel expõe três escolhas, todas com padrão que preserva o
+comportamento anterior:
+
+| opção | valores | o que faz |
+|---|---|---|
+| teto de bits da atenção | 0 (sem teto) · 4 · 5 · 6 | a única regra que DESCE bits; sufixo `-a4` no nome |
+| tamanho do grupo | 64 · 128 | quantos pesos dividem um fator de escala; sufixo `-g128` |
+| dtype da torre de visão | auto · float16 · float32 | `auto` = float16 só em `glm5_next` |
+
+**O preço delas está medido: ~0,03 de perplexidade por gigabyte economizado**, constante nas
+duas receitas testadas. Não há receita esperta. Detalhe em
+`.claude/reports/2026-09-04-buffers-de-comando/candidatos.md`.
+
+## O aquecimento da placa (keepwarm)
+
+Ligado de fábrica desde `14b44117`. A placa baixa o clock quando fica ociosa, e a primeira
+geração depois de uma pausa paga a subida. Medido no servidor, duas rodadas por braço, com 8
+segundos entre pedidos: **17,5-18,5 palavras por segundo sem ele contra 23,8-24,5 com ele**
+(+29% a +40%), e zero custo em pedidos consecutivos.
+
+O tique é uma multiplicação 256×256 em float16, disparada só no ramo do laço em que não há
+requisição alguma (`omlx/engine_core.py`). Desliga em Settings › Advanced › Performance, ou com
+`OMLX_GPU_KEEPWARM=0`.
 
 ## Onde ficam configuração e registros
 
