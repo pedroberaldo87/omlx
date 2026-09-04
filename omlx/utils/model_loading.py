@@ -1376,18 +1376,27 @@ def cast_vision_f32_params_to_fp16(model: Any) -> int:
     """
     from mlx.utils import tree_unflatten
 
-    pending = [
-        (key, value)
+    keys = [
+        key
         for key, value in tree_flatten(model.parameters())
         if isinstance(value, mx.array)
         and value.dtype == mx.float32
         and key.split(".", 1)[0] in _VISION_SUBTREES
     ]
-    for start in range(0, len(pending), _MATERIALIZE_EVAL_CHUNK):
-        chunk = [(key, value.astype(mx.float16)) for key, value in pending[start : start + _MATERIALIZE_EVAL_CHUNK]]
+    params = dict(tree_flatten(model.parameters()))
+    for start in range(0, len(keys), _MATERIALIZE_EVAL_CHUNK):
+        chunk = [(key, params.pop(key).astype(mx.float16)) for key in keys[start : start + _MATERIALIZE_EVAL_CHUNK]]
         mx.eval([value for _, value in chunk])
         model.update(tree_unflatten(chunk))
-    return len(pending)
+        del chunk
+    del params
+    if keys:
+        # Only now are the float32 originals unreferenced. Clearing the pool
+        # with them still held by a local (the first version did) cleared
+        # nothing, and the load-time "actual" read ~1 GB HIGHER (104.9 vs
+        # 103.9 GB, measured 04/09): both copies sat in memory.
+        mx.clear_cache()
+    return len(keys)
 
 
 def apply_post_load_transforms(model: Any, model_settings: Any = None) -> Any:
