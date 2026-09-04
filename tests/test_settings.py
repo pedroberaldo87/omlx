@@ -88,6 +88,7 @@ class TestServerSettings:
             "metal_ops_per_buffer": 0,
             "metal_mb_per_buffer": 0,
             "gpu_keepwarm": True,
+            "prefill_warmup": True,
         }
 
     def test_from_dict_distributed_inference_is_opt_in(self):

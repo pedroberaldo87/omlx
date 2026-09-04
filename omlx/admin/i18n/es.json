@@ -1161,6 +1161,8 @@
   "settings.advanced.metal_mb_per_buffer": "MB",
   "settings.advanced.gpu_keepwarm": "Mantener la GPU caliente mientras está inactiva",
   "settings.advanced.gpu_keepwarm_hint": "La GPU baja su frecuencia cuando está inactiva y la siguiente petición paga la subida. Medido en M1 Ultra con GLM-5.3-Flash (04/09): con 8 s entre peticiones, 17,5-18,5 tok/s sin esto y 23,8-24,5 con esto. Cuesta energía en reposo, no calidad. Se aplica al reiniciar el servidor.",
+  "settings.advanced.prefill_warmup": "Calentar el prellenado tras cargar un modelo",
+  "settings.advanced.prefill_warmup_hint": "El primer prompt tras una carga paga un coste en frío: el primer bloque de 512 tokens hace crecer la memoria del proceso ~14,5 GB; todos los siguientes, ~2 GB (el pool de búferes de Metal llenándose una vez). Medido en M1 Ultra con GLM-5.3-Flash (04/09): ese bloque frío llevó un modelo de 103 GB por encima de la marca dura de 115,5 GB y abortó el primer prompt del usuario en 2 de 4 cargas. Activado, una pasada descartable de 512 tokens corre justo después de cada carga (~3-4 s) y el primer prompt real ya encuentra el pool caliente. Se aplica en el próximo arranque del servidor.",
   "settings.advanced.metal_ops_per_buffer": "ops",
   "modal.model_settings.mtp_hysteresis": "Escalera de profundidad del MTP",
   "modal.model_settings.mtp_hysteresis_hint": "La profundidad del borrador sube con rachas de aceptación completa y baja con cada rechazo; la cabeza nunca se aparca. Medido en GLM-5.3: cobertura de la cabeza 100% frente a 25–59%, tok/s igual.",

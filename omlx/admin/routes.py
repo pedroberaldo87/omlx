@@ -267,6 +267,7 @@ class GlobalSettingsRequest(BaseModel):
     burst_decode_mode: str | None = None  # "off" / "light" / "balanced" / "aggressive"
     metal_ops_per_buffer: int | None = None  # 0 = MLX default; applies on restart
     gpu_keepwarm: bool | None = None  # applies on restart
+    prefill_warmup: bool | None = None  # applies on restart
     metal_mb_per_buffer: int | None = None  # 0 = MLX default; applies on restart
     preserve_mid_system_cache: bool | None = None
     distributed_inference_enabled: bool | None = None
@@ -3638,6 +3639,7 @@ async def get_global_settings(is_admin: bool = Depends(require_admin)):
             "metal_ops_per_buffer": global_settings.server.metal_ops_per_buffer,
             "metal_mb_per_buffer": global_settings.server.metal_mb_per_buffer,
             "gpu_keepwarm": getattr(global_settings.server, "gpu_keepwarm", True),
+            "prefill_warmup": getattr(global_settings.server, "prefill_warmup", True),
             "preserve_mid_system_cache": getattr(
                 global_settings.server,
                 "preserve_mid_system_cache",
@@ -3902,6 +3904,8 @@ async def update_global_settings(
     # Same story: the engine loop reads it once, when it starts.
     if request.gpu_keepwarm is not None:
         global_settings.server.gpu_keepwarm = bool(request.gpu_keepwarm)
+    if request.prefill_warmup is not None:
+        global_settings.server.prefill_warmup = bool(request.prefill_warmup)
     if request.auto_start_on_launch is not None:
         global_settings.server.auto_start_on_launch = request.auto_start_on_launch
         runtime_applied.append("auto_start_on_launch")

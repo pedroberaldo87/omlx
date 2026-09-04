@@ -133,6 +133,9 @@ def serve_command(args):
     # keeps an explicit env override authoritative.
     if not bool(getattr(settings.server, "gpu_keepwarm", True)):
         os.environ.setdefault("OMLX_GPU_KEEPWARM", "0")
+    # Same for the post-load prefill warmup: the pool reads it at every load.
+    if not bool(getattr(settings.server, "prefill_warmup", True)):
+        os.environ.setdefault("OMLX_PREFILL_WARMUP", "0")
 
     # Register TRACE level (5) — includes full message content
     TRACE = 5

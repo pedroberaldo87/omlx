@@ -196,6 +196,11 @@ class ServerSettings:
     # quality: the tick is one 256x256 fp16 matmul, only when no request is
     # in flight. Applies on the next server start.
     gpu_keepwarm: bool = True
+    # Pay the cold first prefill chunk (~14,5 GB of footprint against ~2 GB
+    # warm, measured 04/09 on GLM-5.3-Flash) at load time, not on the user's
+    # first prompt — it aborted the 103 GB model in 2 of 4 loads and refused
+    # a 1024-token step. One throwaway 512-token forward after each load.
+    prefill_warmup: bool = True
 
     def max_audio_upload_bytes(self) -> int:
         """Configured audio upload limit in bytes. Non-positive sizes raise ValueError."""
@@ -230,6 +235,7 @@ class ServerSettings:
             metal_ops_per_buffer=int(data.get("metal_ops_per_buffer", 0) or 0),
             metal_mb_per_buffer=int(data.get("metal_mb_per_buffer", 0) or 0),
             gpu_keepwarm=bool(data.get("gpu_keepwarm", True)),
+            prefill_warmup=bool(data.get("prefill_warmup", True)),
         )
 
 

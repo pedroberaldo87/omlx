@@ -1161,6 +1161,8 @@
   "settings.advanced.metal_mb_per_buffer": "Mo",
   "settings.advanced.gpu_keepwarm": "Garder le GPU au chaud pendant l'inactivité",
   "settings.advanced.gpu_keepwarm_hint": "Le GPU baisse sa fréquence lorsqu'il est inactif, et la requête suivante paie la remontée. Mesuré sur M1 Ultra avec GLM-5.3-Flash (04/09) : avec 8 s entre les requêtes, 17,5-18,5 tok/s sans et 23,8-24,5 avec. Coûte de l'énergie au repos, pas de la qualité. S'applique au prochain démarrage du serveur.",
+  "settings.advanced.prefill_warmup": "Préchauffer le préremplissage après le chargement d'un modèle",
+  "settings.advanced.prefill_warmup_hint": "Le premier prompt après un chargement paie un coût à froid : le premier bloc de 512 jetons fait croître la mémoire du processus d'environ 14,5 Go ; tous les suivants, d'environ 2 Go (le pool de tampons Metal se remplissant une fois). Mesuré sur M1 Ultra avec GLM-5.3-Flash (04/09) : ce bloc froid a poussé un modèle de 103 Go au-dessus de la limite dure de 115,5 Go et a interrompu le premier prompt de l'utilisateur dans 2 chargements sur 4. Activé, une passe jetable de 512 jetons s'exécute juste après chaque chargement (~3-4 s) et le premier vrai prompt trouve un pool chaud. S'applique au prochain démarrage du serveur.",
   "settings.advanced.metal_ops_per_buffer": "ops",
   "modal.model_settings.mtp_hysteresis": "Échelle de profondeur MTP",
   "modal.model_settings.mtp_hysteresis_hint": "La profondeur du brouillon monte sur des séries d'acceptation complète et descend à chaque rejet ; la tête ne se gare jamais. Mesuré sur GLM-5.3 : couverture de la tête 100 % contre 25–59 %, tok/s inchangé.",
