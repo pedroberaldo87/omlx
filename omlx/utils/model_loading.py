@@ -1356,6 +1356,40 @@ def cast_bf16_params_to_fp16(model: Any) -> int:
     return len(pending)
 
 
+_VISION_SUBTREES = ("vision_model", "vision_tower")
+
+
+def cast_vision_f32_params_to_fp16(model: Any) -> int:
+    """Recast the float32 leaves of a VLM's vision tower to float16.
+
+    The oQ float16 recipe stores vision/audio passthrough tensors in float32
+    (upstream #1682, measured on Gemma 4 with no activation numbers). On
+    GLM-5.3-Flash the tower's SwiGLU is clamped at +-10, its peak activation
+    is ~228 against float16's 65504, and — measured token by token against
+    the float32 tower on real screenshots — float16 lands 4-5x CLOSER to
+    float32 than bfloat16 does (the dtype the model was trained in and that
+    every non-oQ build serves). The float32 copy costs ~1 GB resident on a
+    104 GB model for nothing. Runs in the same bounded chunks as
+    materialize_lazy_state so the float32 originals are released as we go.
+
+    Returns the number of tensors recast.
+    """
+    from mlx.utils import tree_unflatten
+
+    pending = [
+        (key, value)
+        for key, value in tree_flatten(model.parameters())
+        if isinstance(value, mx.array)
+        and value.dtype == mx.float32
+        and key.split(".", 1)[0] in _VISION_SUBTREES
+    ]
+    for start in range(0, len(pending), _MATERIALIZE_EVAL_CHUNK):
+        chunk = [(key, value.astype(mx.float16)) for key, value in pending[start : start + _MATERIALIZE_EVAL_CHUNK]]
+        mx.eval([value for _, value in chunk])
+        model.update(tree_unflatten(chunk))
+    return len(pending)
+
+
 def apply_post_load_transforms(model: Any, model_settings: Any = None) -> Any:
     """Apply optional post-load model transforms based on settings.
 
