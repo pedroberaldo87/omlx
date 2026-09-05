@@ -374,6 +374,7 @@ class TestSchedulerSettings:
             "embedding_batch_size": 32,
             "chunked_prefill": False,
             "prefill_priority": "context",
+            "hybrid_cache_block": 0,
             "decode_fairness": True,
         }
 
