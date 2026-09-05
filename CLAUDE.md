@@ -33,6 +33,7 @@ que ele resolve continua aparecendo no registro. Aconteceu em 31/08.
 | ajustar o teto de memória da placa | `~/Applications/Memória do Metal.app` ou `~/bin/omlx-iogpu.sh` |
 | a sessão de 04/09 (performance) | `.claude/reports/2026-09-04-buffers-de-comando/README.md` |
 | a noite de 04-05/09 (cabeça a 2 bits, aquecimento, contexto longo, PRs) | `.claude/reports/2026-09-04-cabeca-2-bits/README.md` |
+| as notas do Obsidian (levas finais, refutados, setup) | vault `ObsidianPedro/DEV/LLM-Local/` · fonte `~/PROGRAMACAO/oMLX-WORKS/07-OBSIDIAN` |
 
 A base de conhecimento em `~/PROGRAMACAO/oMLX-WORKS` guarda a tabela de números
 medidos e a lista do que já foi refutado. **Consulte antes de citar número ou
