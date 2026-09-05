@@ -1919,6 +1919,13 @@ class VLMBatchedEngine(BaseEngine):
             if self._scheduler_config
             else SchedulerConfig()
         )
+        # Per-model block wins over the server-wide one: the right value is a
+        # property of the architecture, not of the server (measured 05/09:
+        # Qwen3.8-Flash-Next is 18% faster on its native 4096, which a
+        # server-wide 1024 chosen for GLM-5.3 was capping).
+        model_block = getattr(self._model_settings, "hybrid_cache_block", None)
+        if model_block is not None:
+            scheduler_config.hybrid_cache_block = int(model_block)
 
         engine_config = EngineConfig(
             model_name=self._model_name,

@@ -133,6 +133,7 @@ class ModelSettingsRequest(BaseModel):
     forced_ct_kwargs: list[str] | None = None
     ttl_seconds: int | None = None
     index_cache_freq: int | None = None
+    hybrid_cache_block: int | None = None  # 0 = follow the server-wide setting
     enable_thinking: bool | None = None
     # Keep  thinking blocks in historical turns (None = auto, True when the
     # template supports it). Mirrors ModelSettings.preserve_thinking.
@@ -2412,6 +2413,14 @@ async def update_model_settings(
         current_settings.forced_ct_kwargs = request.forced_ct_kwargs
     if "ttl_seconds" in sent:
         current_settings.ttl_seconds = request.ttl_seconds
+    if "hybrid_cache_block" in sent:
+        if request.hybrid_cache_block not in (None, 0, 512, 1024, 2048, 4096):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid hybrid_cache_block: must be 0 (server-wide), 512, 1024, 2048 or 4096",
+            )
+        # 0 means "follow the server-wide setting" (stored as None).
+        current_settings.hybrid_cache_block = request.hybrid_cache_block or None
     if "index_cache_freq" in sent:
         # 0 means disable (reset to None)
         current_settings.index_cache_freq = (

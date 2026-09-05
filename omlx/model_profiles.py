@@ -42,6 +42,9 @@ UNIVERSAL_PROFILE_FIELDS = (
 
 # Model-specific fields — eligible for per-model profiles only (never templates).
 MODEL_SPECIFIC_PROFILE_FIELDS = (
+    # The right paged-cache block is a property of the architecture, not of
+    # the server: GLM-5.3 wants 1024, Qwen3.8-Flash-Next its native 4096.
+    "hybrid_cache_block",
     "turboquant_kv_enabled",
     "turboquant_kv_bits",
     "turboquant_skip_last",

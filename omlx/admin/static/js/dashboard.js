@@ -25,6 +25,7 @@
         'guided_grammar',
         'max_tool_result_tokens',
         'index_cache_freq',
+        'hybrid_cache_block',
         'turboquant_kv_enabled',
         'turboquant_kv_bits',
         'turboquant_skip_last',
@@ -7406,6 +7407,7 @@
                     ttl_seconds: s.ttl_seconds ?? null,
                     enableIndexCache: !!(s.index_cache_freq),
                     index_cache_freq: s.index_cache_freq || null,
+                    hybrid_cache_block: s.hybrid_cache_block || 0,
                     activation_fp16_enabled: s.activation_fp16_enabled || false,
                     // Checkpoint already stored in float16 → the recast is a no-op.
                     activation_fp16_supported: model?.activation_fp16_supported !== false,

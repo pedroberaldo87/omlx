@@ -111,6 +111,8 @@ class ModelSettings:
         reasoning_parser: xgrammar builtin name: "qwen", "harmony", "llama", etc.
         guided_grammar_enabled: Whether a default guided grammar is active.
         guided_grammar: Default EBNF grammar for constrained decoding.
+        hybrid_cache_block: Paged-cache block and prefill step for THIS hybrid
+            model (None = follow the server-wide setting).
         turboquant_kv_enabled: Enable TurboQuant KV cache compression.
         turboquant_kv_bits: TurboQuant bit depth (2/2.5/3/3.5/4/6/8).
         turboquant_skip_last: Skip last KVCache layer to prevent corruption.
@@ -237,6 +239,12 @@ class ModelSettings:
     guided_grammar: Optional[str] = None
 
     # TurboQuant KV cache (mlx-vlm backend)
+    # Paged-cache block AND prefill step for hybrid models, for THIS model.
+    # None = follow the server-wide scheduler.hybrid_cache_block. The right
+    # value is per model: measured 05/09 on an M1 Ultra, GLM-5.3 wants 1024
+    # while Qwen3.8-Flash-Next is 18% faster on its own native 4096 (which the
+    # server-wide 1024 was silently capping).
+    hybrid_cache_block: int | None = None
     turboquant_kv_enabled: bool = False
     turboquant_kv_bits: float = 4  # 2, 2.5, 3, 3.5, 4, 6, 8
     turboquant_skip_last: bool = (

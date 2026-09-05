@@ -393,6 +393,20 @@
                                 </div>
                             </template>
 
+                            <!-- Paged-cache block for this hybrid model -->
+                            <div class="mb-4">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-neutral-500 mb-2">{{ t('modal.model_settings.hybrid_cache_block') }}</label>
+                                <p class="text-xs text-neutral-400 mb-2">{{ t('modal.model_settings.hybrid_cache_block_hint') }}</p>
+                                <div class="flex gap-1.5 flex-wrap">
+                                    <template x-for="b in [0, 512, 1024, 2048, 4096]" :key="b">
+                                        <button type="button" @click="modelSettings.hybrid_cache_block = b"
+                                                :class="(parseInt(modelSettings.hybrid_cache_block) || 0) === b ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-500 hover:bg-neutral-50'"
+                                                class="px-3 py-1.5 text-xs font-medium rounded-full border border-neutral-200 transition-colors"
+                                                x-text="b === 0 ? '{{ t('modal.model_settings.hybrid_cache_block_server')|replace('\\', '\\\\')|replace("'", "\\'") }}' : b"></button>
+                                    </template>
+                                </div>
+                            </div>
+
                             <!-- TTL (all model types) -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
