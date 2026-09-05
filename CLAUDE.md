@@ -119,6 +119,12 @@ memória mede a mexida no pool e a taxa por token sobe em progressão geométric
 fecha um dos caminhos, mas a folga é o que evita o colapso. Detalhe em
 `.claude/reports/2026-09-04-cabeca-2-bits/README.md`.
 
+**O pool de buffers do MLX é drenado no meio de um preparo longo** (`8afc7aae`): a limpeza periódica
+conta passos do agendador e um prefill inteiro é um passo só; medido em 05/09 num prompt de 229k, o
+pool crescia de 2,7 para 5,0 GB e era metade do que encostava o processo no alvo. `OMLX_PREFILL_POOL_DRAIN=0`
+desliga. **O bloco do modelo híbrido é ajuste do painel** (`hybrid_cache_block`, 0 = automático = 512;
+`db6ee3a5`); a variável `OMLX_ARRAYS_CACHE_BLOCK` continua vencendo como botão de A/B.
+
 **Em contexto alto (>16k) o pedaço custa menos, não mais**: 285-412 MB contra ~1 GB abaixo. A
 110k o bloco de 1024 rendeu 181 tok/s (94 pedaços inteiros, zero cortes) contra 163 com 512.
 
