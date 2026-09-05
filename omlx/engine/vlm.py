@@ -1768,6 +1768,30 @@ class VLMBatchedEngine(BaseEngine):
             except Exception:
                 logger.warning("vision fp16 recast failed; staying on float32", exc_info=True)
 
+        # Text-only deployment: drop the vision tower (1.12 GB on GLM-5.3-Flash) so
+        # a long prompt stops meeting the memory guard's target near 180k tokens
+        # (measured 05/09: the miss was ~0.4 GB). Image inputs are refused with a
+        # clear error while it is out. Off by default; OMLX_VISION_TOWER_TEXT_ONLY=1
+        # (the CLI exports the saved setting).
+        self._vision_tower_freed = False
+        if (
+            _read_config_model_type(self._model_name) == "glm5_next"
+            and os.environ.get("OMLX_VISION_TOWER_TEXT_ONLY", "0") == "1"
+        ):
+            try:
+                from ..utils.model_loading import free_vision_tower
+
+                n_tensores, n_bytes = await loop.run_in_executor(
+                    get_mlx_executor(), free_vision_tower, self._vlm_model
+                )
+                self._vision_tower_freed = True
+                logger.info(
+                    "vision tower unloaded (text-only mode): %d tensors, %.2f GB returned",
+                    n_tensores, n_bytes / 1024**3,
+                )
+            except Exception:
+                logger.warning("vision tower unload failed; tower stays resident", exc_info=True)
+
         # Native-fp16 activations. Off by default; OMLX_ACT_FP16=1 forces it on
         # for a one-off A/B without touching persisted settings.
         if os.environ.get("OMLX_ACT_FP16") == "1" or getattr(
@@ -2483,6 +2507,12 @@ class VLMBatchedEngine(BaseEngine):
             and self._count_content_parts(msg.get("content"), audio_part_types) > 0
             for msg in messages
         )
+        if getattr(self, "_vision_tower_freed", False) and (has_explicit_images or num_images > 0):
+            raise ValueError(
+                "This model is serving in text-only mode: the vision tower was unloaded "
+                "to free memory (Settings > Advanced > vision tower text-only, or "
+                "OMLX_VISION_TOWER_TEXT_ONLY). Turn it off and reload the model to send images."
+            )
 
         remaining_images = num_images
         remaining_audios = num_audios

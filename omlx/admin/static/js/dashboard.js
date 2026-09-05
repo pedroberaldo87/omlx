@@ -129,7 +129,7 @@
             // Global settings
             globalSettings: {
                 base_path: '',
-                server: { host: '127.0.0.1', port: 8000, log_level: 'info', sse_keepalive_mode: 'chunk', burst_decode_mode: 'balanced', metal_ops_per_buffer: 0, metal_mb_per_buffer: 0, gpu_keepwarm: true, prefill_warmup: true, preserve_mid_system_cache: true, distributed_inference_enabled: false, distributed_inference_active: false, max_audio_upload_size: '100MB' },
+                server: { host: '127.0.0.1', port: 8000, log_level: 'info', sse_keepalive_mode: 'chunk', burst_decode_mode: 'balanced', metal_ops_per_buffer: 0, metal_mb_per_buffer: 0, gpu_keepwarm: true, prefill_warmup: true, vision_tower_text_only: false, preserve_mid_system_cache: true, distributed_inference_enabled: false, distributed_inference_active: false, max_audio_upload_size: '100MB' },
                 model: { model_dirs: [''], model_fallback: false, hide_helper_models: false },
                 memory: { prefill_memory_guard: true, memory_guard_tier: 'balanced', memory_guard_custom_ceiling_gb: 0 },
                 scheduler: { max_concurrent_requests: 8, embedding_batch_size: 32, chunked_prefill: false, prefill_priority: 'context', hybrid_cache_block: 0, decode_fairness: true },
@@ -6720,6 +6720,7 @@
                             burst_decode_mode: this.globalSettings.server.burst_decode_mode,
                             gpu_keepwarm: !!this.globalSettings.server.gpu_keepwarm,
                             prefill_warmup: !!this.globalSettings.server.prefill_warmup,
+                            vision_tower_text_only: !!this.globalSettings.server.vision_tower_text_only,
                             metal_ops_per_buffer: parseInt(this.globalSettings.server.metal_ops_per_buffer) || 0,
                             metal_mb_per_buffer: parseInt(this.globalSettings.server.metal_mb_per_buffer) || 0,
                             preserve_mid_system_cache: this.globalSettings.server.preserve_mid_system_cache,

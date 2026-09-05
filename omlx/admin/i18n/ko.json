@@ -508,6 +508,8 @@
   "settings.advanced.gpu_keepwarm_hint": "GPU는 유휴 상태에서 클럭을 낮추므로 다음 요청이 상승 비용을 치릅니다. M1 Ultra에서 GLM-5.3-Flash로 측정(04/09): 요청 간격 8초에서 끄면 17.5-18.5 tok/s, 켜면 23.8-24.5 tok/s. 연속 요청은 변화 없음. 품질이 아니라 유휴 전력을 소비합니다. 다음 서버 시작부터 적용.",
   "settings.advanced.prefill_warmup": "모델 로드 후 프리필 워밍업",
   "settings.advanced.prefill_warmup_hint": "로드 직후의 첫 프롬프트는 콜드 비용을 냅니다. 첫 512토큰 청크에서 프로세스 메모리가 약 14.5GB 늘고, 이후 청크는 약 2GB입니다(Metal 버퍼 풀이 한 번 채워짐). M1 Ultra와 GLM-5.3-Flash에서 측정(04/09): 이 콜드 청크가 103GB 모델을 115.5GB 하드 워터마크 위로 밀어 4번의 로드 중 2번에서 사용자의 첫 프롬프트를 중단시켰습니다. 켜면 로드 직후 512토큰 일회성 포워드가 한 번 실행되어(약 3-4초) 첫 실제 프롬프트가 따뜻한 풀을 만납니다. 다음 서버 시작부터 적용됩니다.",
+  "settings.advanced.vision_tower_text_only": "비전 타워 제거(텍스트 전용 모드)",
+  "settings.advanced.vision_tower_text_only_hint": "이미지를 보내지 않는 에이전트용: 로드 후 비전 타워 가중치를 해제하고(GLM-5.3-Flash: 347 텐서, 1.12GB) 이미지 입력은 명확한 오류로 거부합니다. M1 Ultra에서 측정(05/09): 229k 토큰 프롬프트가 180k 근처에서 메모리 가드 목표에 약 0.4GB 차이로 닿아 두 번 멈췄습니다. 목표 아래에 머무는 가장 저렴한 방법입니다. 다음 모델 로드부터 적용.",
   "settings.advanced.burst_decode": "Burst Decode",
   "settings.advanced.burst_decode_hint": "Process tokens in batches internally for faster generation. Higher levels run faster but stream in larger chunks; lower levels stream more smoothly. Applies instantly, no restart.",
   "settings.advanced.burst_decode_off": "Off (smoothest streaming)",

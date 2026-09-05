@@ -268,6 +268,7 @@ class GlobalSettingsRequest(BaseModel):
     metal_ops_per_buffer: int | None = None  # 0 = MLX default; applies on restart
     gpu_keepwarm: bool | None = None  # applies on restart
     prefill_warmup: bool | None = None  # applies on restart
+    vision_tower_text_only: bool | None = None  # applies on next load
     metal_mb_per_buffer: int | None = None  # 0 = MLX default; applies on restart
     preserve_mid_system_cache: bool | None = None
     distributed_inference_enabled: bool | None = None
@@ -3641,6 +3642,7 @@ async def get_global_settings(is_admin: bool = Depends(require_admin)):
             "metal_mb_per_buffer": global_settings.server.metal_mb_per_buffer,
             "gpu_keepwarm": getattr(global_settings.server, "gpu_keepwarm", True),
             "prefill_warmup": getattr(global_settings.server, "prefill_warmup", True),
+            "vision_tower_text_only": getattr(global_settings.server, "vision_tower_text_only", False),
             "preserve_mid_system_cache": getattr(
                 global_settings.server,
                 "preserve_mid_system_cache",
@@ -3908,6 +3910,14 @@ async def update_global_settings(
         global_settings.server.gpu_keepwarm = bool(request.gpu_keepwarm)
     if request.prefill_warmup is not None:
         global_settings.server.prefill_warmup = bool(request.prefill_warmup)
+    if request.vision_tower_text_only is not None:
+        global_settings.server.vision_tower_text_only = bool(request.vision_tower_text_only)
+        import os as _os
+
+        if request.vision_tower_text_only:
+            _os.environ["OMLX_VISION_TOWER_TEXT_ONLY"] = "1"
+        else:
+            _os.environ.pop("OMLX_VISION_TOWER_TEXT_ONLY", None)
     if request.auto_start_on_launch is not None:
         global_settings.server.auto_start_on_launch = request.auto_start_on_launch
         runtime_applied.append("auto_start_on_launch")

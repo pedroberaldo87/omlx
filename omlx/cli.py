@@ -136,6 +136,9 @@ def serve_command(args):
     # Same for the post-load prefill warmup: the pool reads it at every load.
     if not bool(getattr(settings.server, "prefill_warmup", True)):
         os.environ.setdefault("OMLX_PREFILL_WARMUP", "0")
+    # The VLM engine reads this at load; export the saved setting the same way.
+    if bool(getattr(settings.server, "vision_tower_text_only", False)):
+        os.environ.setdefault("OMLX_VISION_TOWER_TEXT_ONLY", "1")
 
     # Register TRACE level (5) — includes full message content
     TRACE = 5

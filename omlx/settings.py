@@ -201,6 +201,10 @@ class ServerSettings:
     # first prompt — it aborted the 103 GB model in 2 of 4 loads and refused
     # a 1024-token step. One throwaway 512-token forward after each load.
     prefill_warmup: bool = True
+    # Drop the glm5_next vision tower after load (1.12 GB) and refuse image
+    # inputs — for agents that never send images. Off by default. Measured
+    # 05/09: the long-context prefill missed the guard's target by ~0.4 GB.
+    vision_tower_text_only: bool = False
 
     def max_audio_upload_bytes(self) -> int:
         """Configured audio upload limit in bytes. Non-positive sizes raise ValueError."""
@@ -236,6 +240,7 @@ class ServerSettings:
             metal_mb_per_buffer=int(data.get("metal_mb_per_buffer", 0) or 0),
             gpu_keepwarm=bool(data.get("gpu_keepwarm", True)),
             prefill_warmup=bool(data.get("prefill_warmup", True)),
+            vision_tower_text_only=bool(data.get("vision_tower_text_only", False)),
         )
 
 

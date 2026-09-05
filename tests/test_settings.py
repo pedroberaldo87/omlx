@@ -89,6 +89,7 @@ class TestServerSettings:
             "metal_mb_per_buffer": 0,
             "gpu_keepwarm": True,
             "prefill_warmup": True,
+            "vision_tower_text_only": False,
         }
 
     def test_from_dict_distributed_inference_is_opt_in(self):

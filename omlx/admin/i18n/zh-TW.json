@@ -1166,6 +1166,8 @@
   "settings.advanced.gpu_keepwarm_hint": "GPU 閒置時會降頻，下一個請求要承擔升頻的代價。M1 Ultra 上用 GLM-5.3-Flash 實測（04/09）：請求間隔 8 秒時，關閉為 17.5-18.5 tok/s，開啟為 23.8-24.5。連續請求不變。消耗的是閒置功耗，不是品質。下次啟動伺服器時生效。",
   "settings.advanced.prefill_warmup": "載入模型後預熱預填充",
   "settings.advanced.prefill_warmup_hint": "載入後的第一個提示要付冷啟動代價：第一個 512 詞元的區塊使處理程序記憶體增加約 14.5 GB，之後每塊約 2 GB（Metal 緩衝池只填滿一次）。在 M1 Ultra 上以 GLM-5.3-Flash 實測（04/09）：這個冷區塊把 103 GB 的模型推過 115.5 GB 的硬水位線，4 次載入中有 2 次中止了使用者的第一個提示。開啟後，每次載入後立即執行一次 512 詞元的一次性前向（約 3-4 秒），第一個真實提示就能遇到已預熱的緩衝池。下次伺服器啟動時生效。",
+  "settings.advanced.vision_tower_text_only": "卸載視覺塔（純文字模式）",
+  "settings.advanced.vision_tower_text_only_hint": "面向從不傳送圖片的代理：模型載入後釋放視覺塔權重（GLM-5.3-Flash：347 個張量，1.12 GB），圖片輸入以明確錯誤拒絕。在 M1 Ultra 上實測（05/09）：229k 詞元的提示在 180k 附近以約 0.4 GB 之差觸及記憶體守衛目標並暫停兩次；這是留在目標之下最便宜的辦法。下次載入模型時生效。",
   "settings.advanced.metal_ops_per_buffer": "ops",
   "modal.model_settings.mtp_hysteresis": "MTP 深度階梯",
   "modal.model_settings.mtp_hysteresis_hint": "草稿深度在連續全部接受時上升，任一拒絕時下降；頭部從不停車。GLM-5.3 實測：頭部覆蓋率 100%（原 25–59%），tok/s 不變。",
