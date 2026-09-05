@@ -83,3 +83,48 @@ def test_pausa_no_meio_do_prefill_externo_guarda_o_progresso(mock_tokenizer):
     assert request.cached_tokens == 8, request.cached_tokens
     assert request.remaining_tokens == prompt[8:], request.remaining_tokens
     assert request.prompt_cache is cache
+
+
+def test_pausa_num_prompt_FRIO_tambem_guarda_o_progresso(mock_tokenizer):
+    """O caso que faltou: sem cache de prefixo, a pausa recomeçava do token zero.
+
+    Medido em 05/09 no GLM-5.3-Flash oQ2e: um prompt frio de 229.923 tokens foi
+    pausado aos 206.336 por falta de folga (111,76 GB contra o alvo de 112,48),
+    o despejo recuperou 1,56 GB, e o pedido voltou como novo (new=229923,
+    kv_exact=0) — 19 minutos de preparo jogados fora, sem nada que impedisse o
+    mesmo aos 206k de novo. O cache construído localmente tem que ir para o
+    pedido, que é de onde a retomada o lê.
+    """
+    modelo = _ModeloDeContagem()
+    scheduler = Scheduler(
+        model=modelo, tokenizer=mock_tokenizer, config=SchedulerConfig(prefill_step_size=4)
+    )
+    prompt = list(range(100, 116))
+    request = Request(request_id="req-frio", prompt=prompt, sampling_params=SamplingParams())
+    request.prompt_token_ids = prompt
+    request.num_prompt_tokens = len(prompt)
+    request.cached_tokens = 0
+    request.remaining_tokens = prompt
+    request.prompt_cache = None
+    scheduler.requests[request.request_id] = request
+
+    chamadas = {"n": 0}
+    original = scheduler._adaptive_chunk_size
+
+    def estrangula_no_terceiro(requested, **kw):
+        chamadas["n"] += 1
+        if chamadas["n"] == 3:
+            raise _PrefillEvictionNeeded(
+                SimpleNamespace(reason="adaptive_prefill_throttle", request_id=request.request_id)
+            )
+        return original(requested, **kw)
+
+    scheduler._adaptive_chunk_size = estrangula_no_terceiro
+    with pytest.raises(_PrefillEvictionNeeded):
+        scheduler._do_external_prefill(request, prompt, None)
+
+    # dois pedaços de 4 entraram antes da pausa; o cache tem que estar NO PEDIDO
+    assert request.prompt_cache is not None
+    assert request.prompt_cache[0].offset == 8
+    assert request.cached_tokens == 8, request.cached_tokens
+    assert request.remaining_tokens == prompt[8:], request.remaining_tokens
