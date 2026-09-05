@@ -136,6 +136,25 @@ que apagar os do tamanho antigo. A rota do painel (`POST /api/ssd-cache/clear`) 
 inclusive os válidos; para apagar só os incompatíveis, leia `block_size` do cabeçalho de cada
 `~/.omlx/cache/*/*.safetensors`. O aviso na subida existe no PR #3397 do tronco, ainda não mesclado.
 
+**O cache de prefixo tem DUAS corridas, e o conserto de uma não cobre a outra.** A primeira: o 2º
+turno chega antes de a tarefa de gravação existir, e a busca de prefixo dá zero — é o que o
+`#3367` do tronco conserta (consolidado aqui em `28be40c5`). A segunda é posterior e continua
+aberta: a tarefa termina, o bloco entra no índice, mas a **escrita no SSD ainda está na fila** —
+`Failed to load block N from tiered cache` e o prompt inteiro é reprocessado. Medido em 05/09 com
+turnos de 2,7k: sem pausa entre eles, 13-16 s até a primeira palavra; com 4 s de pausa, 5-6 s. O
+que atrasa a fila é o peso do bloco — **152,5 MB por bloco de 1024 tokens**, porque o retrato
+carrega o estado recorrente das 45 camadas. Numa jornada real (turnos longos, com geração no meio)
+a fila alcança e o 2º turno lê 99% do cache.
+
+**O bloco 1024 ganha na jornada real; o 512 só ganha em turno curto.** Medido em 06/09 com três
+turnos sobre ~79k, os dois braços com o `#3367`: 1024 dá turno 1 em 480 s, turno 2 em 29 s (cache
+99,2%); 512 dá 580 s e 38 s (cache 99,9%). O 512 vencia no teste sintético de 2,7k só porque lá um
+bloco a mais vale 20% do prompt.
+
+**O bloco também é ajuste POR MODELO** (`ModelSettings.hybrid_cache_block`, `84349db4`; nulo =
+segue o servidor). O valor certo é da arquitetura: o GLM quer 1024 e o Qwen3.8-Flash-Next fica 18%
+mais rápido com os 4096 nativos dele, que um 1024 do servidor limitava.
+
 **A torre de visão pode sair no uso só-texto** (`vision_tower_text_only`, `ce02236c`, desligada de fábrica): −1,05 GB, e foi o que levou o 262k frio a 175 tok/s sem pausa nenhuma (com ela dentro: 2 pausas aos 190k). Ligada, pedido com imagem é recusado.
 
 **Em contexto alto (>16k) o pedaço custa menos, não mais**: 285-412 MB contra ~1 GB abaixo. A
