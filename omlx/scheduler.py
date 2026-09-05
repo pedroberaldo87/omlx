@@ -1560,6 +1560,9 @@ class SchedulerConfig:
     # charges the full prefill_step_size and prompts that would only fit
     # via throttled floor-size chunks are rejected upfront instead.
     prefill_speed_priority: bool = False
+    # Paged-cache block and prefill step for hybrid models; 0 = automatic.
+    # OMLX_ARRAYS_CACHE_BLOCK (an A/B knob) still wins when set.
+    hybrid_cache_block: int = 0
     # When True (default), prefill yields GPU time to running decodes:
     # prompts are force-chunked under contention, chunks are capped while
     # any engine decodes, and each chunk accrues a decode time debt repaid
@@ -2820,6 +2823,23 @@ class Scheduler:
             int(self.config.prefill_step_size or 0),
             self._qwen35_prefill_floor,
         )
+        alvo_cfg = int(getattr(self.config, "hybrid_cache_block", 0) or 0)
+        if alvo_cfg > 0:
+            # The panel's choice for hybrid models. Measured 05/09 on GLM-5.3
+            # oQ2e at 110k tokens: 1024 -> 181 tok/s (94 whole chunks, zero
+            # cuts) against 163 with 512; the chunk costs LESS above 16k of
+            # context (285-412 MB against ~1 GB below), so the memory argument
+            # that keeps the default at 7k does not hold at long context. The
+            # prefill step follows the block so chunk boundaries stay aligned
+            # with the paged cache whether or not the SSD cache is on.
+            self.config.prefill_step_size = alvo_cfg
+            self.config.paged_cache_block_size = alvo_cfg
+            logger.info(
+                "hybrid_cache_block=%s (settings): paged cache block_size and "
+                "prefill_step_size set to %s for the hybrid model",
+                alvo_cfg, alvo_cfg,
+            )
+            return
         if self.config.paged_cache_block_size >= target:
             return
 
@@ -3685,6 +3705,27 @@ class Scheduler:
                 gathered_core=gathered_core,
             )
             self._maybe_record_fixed_state_bytes(prompt_cache)
+            # Composition probe for long prompts: the resident grows ~8 GB over a
+            # 229k-token prefill (measured 05/09) and meets the soft target near
+            # 200k. One debug line every 32 chunks says what it is made of.
+            if logger.isEnabledFor(logging.DEBUG) and (processed_tokens // max(n_to_process, 1)) % 32 == 0:
+                try:
+                    def _nbytes(x):
+                        if hasattr(x, "nbytes"):
+                            return int(x.nbytes)
+                        if isinstance(x, (list, tuple)):
+                            return sum(_nbytes(y) for y in x)
+                        return 0
+                    kv_bytes = sum(_nbytes(getattr(c, "state", None)) for c in prompt_cache)
+                    logger.debug(
+                        "[memcomp:external] rid=%s kv_len=%d phys=%.2fGB mlx_active=%.2fGB "
+                        "mlx_cache=%.2fGB cache_states=%.2fGB",
+                        request.request_id, base_size + processed_tokens + n_to_process,
+                        _throttle_post / 1024**3, mx.get_active_memory() / 1024**3,
+                        mx.get_cache_memory() / 1024**3, kv_bytes / 1024**3,
+                    )
+                except Exception:
+                    pass
             # Enforcer-requested hard-pressure drain. The flag's normal
             # consumption point is the end-of-step cleanup, but this loop
             # runs inside a single step() for the whole prefill — minutes at
