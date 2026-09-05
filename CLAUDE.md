@@ -111,14 +111,17 @@ Desde 04/09 o valor sobrevive ao reinício: há um serviço do sistema
 `launchctl bootstrap` falha com `Input/output error` quando já existe registro do mesmo serviço
 — o `bootout` antes resolve, e o modo `fixar` já faz isso.
 
-**O alvo do preparo (onde o guarda começa a encolher pedaços) vem do `soft_threshold` salvo no
-`settings.json`, não do nível do guarda.** Em 04/09 estava em 0,90 (109,44 GB); em 05/09 passou a
-0,925 (112,48 GB) com o nível `aggressive`, e a margem de aborto ficou em 0,95 (115,5 GB). Isso só
-é seguro COM o aquecimento pós-carga ligado: sem ele, o 1º pedaço frio custa 14,5 GB e o pico
-bate 117 GB (medido em 04/09). Perto do alvo, o estrangulador se autoalimenta (a leitura de
-memória mede a mexida no pool e a taxa por token sobe em progressão geométrica) — `edf16963`
-fecha um dos caminhos, mas a folga é o que evita o colapso. Detalhe em
-`.claude/reports/2026-09-04-cabeca-2-bits/README.md`.
+**São dois botões, não um.** O **alvo** em GB (o "sizing target" do registro) vem do
+`soft_threshold` salvo no `settings.json` quando há esse override; sem override, vem da tabela
+por nível do guarda (`_SOFT_THRESHOLD_BY_TIER`). A **fração do dimensionador de pedaço**
+(`_PREFILL_HEADROOM_SAFETY`, propagada ao agendador em `_prefill_headroom_safety`) vem só do
+nível do guarda, sempre — o `soft_threshold` não a toca. Em 04/09 estava em 0,90 (109,44 GB); em
+05/09 passou a 0,925 (112,48 GB), com o nível `aggressive` mudando junto, e a margem de aborto
+ficou em 0,95 (115,5 GB). Isso só é seguro COM o aquecimento pós-carga ligado: sem ele, o 1º
+pedaço frio custa 14,5 GB e o pico bate 117 GB (medido em 04/09). Perto do alvo, o estrangulador
+se autoalimenta (a leitura de memória mede a mexida no pool e a taxa por token sobe em
+progressão geométrica) — `edf16963` fecha um dos caminhos, mas a folga é o que evita o colapso.
+Detalhe em `.claude/reports/2026-09-04-cabeca-2-bits/README.md`.
 
 **O pool de buffers do MLX é drenado no meio de um preparo longo** (`8afc7aae`): a limpeza periódica
 conta passos do agendador e um prefill inteiro é um passo só; medido em 05/09 num prompt de 229k, o
