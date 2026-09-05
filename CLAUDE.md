@@ -125,6 +125,8 @@ pool crescia de 2,7 para 5,0 GB e era metade do que encostava o processo no alvo
 desliga. **O bloco do modelo híbrido é ajuste do painel** (`hybrid_cache_block`, 0 = automático = 512;
 `db6ee3a5`); a variável `OMLX_ARRAYS_CACHE_BLOCK` continua vencendo como botão de A/B.
 
+**A torre de visão pode sair no uso só-texto** (`vision_tower_text_only`, `ce02236c`, desligada de fábrica): −1,05 GB, e foi o que levou o 262k frio a 175 tok/s sem pausa nenhuma (com ela dentro: 2 pausas aos 190k). Ligada, pedido com imagem é recusado.
+
 **Em contexto alto (>16k) o pedaço custa menos, não mais**: 285-412 MB contra ~1 GB abaixo. A
 110k o bloco de 1024 rendeu 181 tok/s (94 pedaços inteiros, zero cortes) contra 163 com 512.
 
