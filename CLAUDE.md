@@ -94,8 +94,8 @@ Antes de derrubar, descarregue e desfixe o modelo (`PUT .../settings {"is_pinned
 
 ## O teto de memória da placa
 
-O servidor lê `iogpu.wired_limit_mb` **quando sobe** e usa 90% dele como alvo ao preparar
-prompts — esse fator é constante em `omlx/scheduler.py:3911`, não sai do `settings.json`.
+O servidor lê `iogpu.wired_limit_mb` **quando sobe**; é o teto físico (121,6 GB). O alvo em que o
+guarda começa a encolher pedaços é uma fração dele — ver o `soft_threshold` abaixo.
 
 Desde 04/09 o valor sobrevive ao reinício: há um serviço do sistema
 (`/Library/LaunchDaemons/com.pedroberaldo.omlx-iogpu.plist`) que o reaplica no boot.
@@ -109,9 +109,17 @@ Desde 04/09 o valor sobrevive ao reinício: há um serviço do sistema
 `launchctl bootstrap` falha com `Input/output error` quando já existe registro do mesmo serviço
 — o `bootout` antes resolve, e o modo `fixar` já faz isso.
 
-**Não suba o fator de 0,90.** Medido em 04/09: mesmo com ele limitando os pedaços, o pico real
-de memória bateu 117,0 GB de um teto de 121,60 (96%). Com o alvo em 115,5 GB o pico passaria do
-teto e o processo morreria no OOM assíncrono do Metal, que não dá para capturar.
+**O alvo do preparo (onde o guarda começa a encolher pedaços) vem do `soft_threshold` salvo no
+`settings.json`, não do nível do guarda.** Em 04/09 estava em 0,90 (109,44 GB); em 05/09 passou a
+0,925 (112,48 GB) com o nível `aggressive`, e a margem de aborto ficou em 0,95 (115,5 GB). Isso só
+é seguro COM o aquecimento pós-carga ligado: sem ele, o 1º pedaço frio custa 14,5 GB e o pico
+bate 117 GB (medido em 04/09). Perto do alvo, o estrangulador se autoalimenta (a leitura de
+memória mede a mexida no pool e a taxa por token sobe em progressão geométrica) — `edf16963`
+fecha um dos caminhos, mas a folga é o que evita o colapso. Detalhe em
+`.claude/reports/2026-09-04-cabeca-2-bits/README.md`.
+
+**Em contexto alto (>16k) o pedaço custa menos, não mais**: 285-412 MB contra ~1 GB abaixo. A
+110k o bloco de 1024 rendeu 181 tok/s (94 pedaços inteiros, zero cortes) contra 163 com 512.
 
 ## O formulário de quantização tem quatro opções de memória
 
