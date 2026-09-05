@@ -6808,6 +6808,9 @@ class TestPrefillStepSizeBlockSizeDecoupling:
             _ARRAYS_CACHE_BLOCK_SIZE=Scheduler._ARRAYS_CACHE_BLOCK_SIZE,
             _detect_rotating_window_sizes=lambda: [],
             _cache_tree_has_arrays_cache=Scheduler._cache_tree_has_arrays_cache,
+            # Nosso ramo consulta o tipo do modelo para o desvio do glm5_next;
+            # o dublê do #3381 não o conhecia.
+            _model_type_name=lambda: "",
         )
 
     def test_lower_override_leaves_the_block_size_at_2048(self):
