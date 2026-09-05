@@ -3736,6 +3736,7 @@ class Scheduler:
                 requested_step=prefill_step_size,
             )
             self._maybe_record_fixed_state_bytes(prompt_cache)
+            self._drain_prefill_pool_if_bloated(request.request_id, base_size + processed_tokens + n_to_process)
             # Composition probe for long prompts: the resident grows ~8 GB over a
             # 229k-token prefill (measured 05/09) and meets the soft target near
             # 200k. One debug line every 32 chunks says what it is made of.
@@ -4900,6 +4901,35 @@ class Scheduler:
             self._prefill_transient_tracker.bytes_per_token / 1024,
             self._prefill_transient_tracker.observed_max_bytes / 1024**2,
             self._prefill_transient_tracker.samples,
+        )
+
+    # MLX buffer-pool bytes above which the external prefill loop returns the pool
+    # to the OS at a chunk boundary. The periodic clear (mlx_cache_cleanup_interval)
+    # counts scheduler STEPS, and a whole long prefill is one step, so it never
+    # fires mid-prefill. Measured 05/09 on GLM-5.3-Flash oQ2e, one 229k-token
+    # prompt: the pool grew 2.71 -> 5.03 GB across the prompt (the KV grew 0.15 ->
+    # 2.53), the process met the 112.48 GB target near 181k and the throttle
+    # paused twice and shrank chunks. The warm pool is ~2.7 GB right after load.
+    _PREFILL_POOL_DRAIN_BYTES: int = 3 * 1024**3
+
+    def _drain_prefill_pool_if_bloated(self, request_id: str, kv_len: int) -> None:
+        """Return MLX's pooled buffers to the OS when they outgrow the warm baseline.
+
+        Runs on the MLX thread between two chunks of the external prefill loop,
+        where nothing is in flight. OMLX_PREFILL_POOL_DRAIN=0 turns it off.
+        """
+        if os.environ.get("OMLX_PREFILL_POOL_DRAIN", "1") == "0":
+            return
+        try:
+            pool = int(mx.get_cache_memory())
+        except Exception:
+            return
+        if pool <= self._PREFILL_POOL_DRAIN_BYTES:
+            return
+        mx.clear_cache()
+        logger.debug(
+            "[pool-drain:external] rid=%s kv_len=%d pool=%.2fGB -> cleared (threshold %.1fGB)",
+            request_id, kv_len, pool / 1024**3, self._PREFILL_POOL_DRAIN_BYTES / 1024**3,
         )
 
     def warmup_prefill(self, n_tokens: int = 512) -> int:
