@@ -4916,9 +4916,15 @@ class Scheduler:
         """Return MLX's pooled buffers to the OS when they outgrow the warm baseline.
 
         Runs on the MLX thread between two chunks of the external prefill loop,
-        where nothing is in flight. OMLX_PREFILL_POOL_DRAIN=0 turns it off.
+        where nothing is in flight. OFF by default: measured 05/09 on the same
+        229k prompt, 259 drains left the pool reading 0 but the process only
+        ~1 GB lower (111.4 against 112.0-112.8 GB at 212k) -- the OS does not
+        hand the pages back promptly -- and the two throttle pauses near 200k
+        stayed, at the same 169-171 tok/s. What separates the process from
+        MLX's active memory (~4.5 GB) is not the pool. OMLX_PREFILL_POOL_DRAIN=1
+        turns it on for an A/B.
         """
-        if os.environ.get("OMLX_PREFILL_POOL_DRAIN", "1") == "0":
+        if os.environ.get("OMLX_PREFILL_POOL_DRAIN", "0") != "1":
             return
         try:
             pool = int(mx.get_cache_memory())
